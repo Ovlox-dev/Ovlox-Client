@@ -18,7 +18,7 @@ function pickUser(payload: UnknownRecord): IUser | null {
     const nestedUser = asRecord(data.user) as IUser | null;
     if (nestedUser) return nestedUser;
 
-    return data as IUser;
+    return data as unknown as IUser;
 }
 
 function pickToken(payload: UnknownRecord, key: "accessToken" | "refreshToken"): string | undefined {

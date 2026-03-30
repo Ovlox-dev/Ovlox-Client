@@ -6,10 +6,10 @@ import {
     WsTypingEvent,
     WsMessageReadEvent,
 } from "@/types/api-types";
-import { PUBLIC_API_BASE_URL } from "@/shared/lib/public-api-url";
+import { apiBaseUrl } from "@/shared/api/client";
 
 const getSocketUrl = () => {
-    const baseUrl = PUBLIC_API_BASE_URL.replace(/\/api\/v1$/, "");
+    const baseUrl = apiBaseUrl.replace(/\/api\/v1$/, "");
     return `${baseUrl}/chat`;
 };
 

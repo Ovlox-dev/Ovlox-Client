@@ -8,7 +8,6 @@ import { Card } from "@/components/ui/card"
 import {
     AlertCircle,
     CheckCircle2,
-    Clock,
     GitCommit,
     GitPullRequest,
     AlertTriangle,
@@ -16,8 +15,6 @@ import {
     Code,
     Bug,
     ArrowLeft,
-    X,
-    ChevronRight,
 } from "lucide-react"
 import { SiGithub } from "react-icons/si"
 import {
@@ -43,7 +40,7 @@ import {
     getGithubRepositories,
     type GitHubPullRequest,
     type GitHubIssue,
-} from "@/services/github.service"
+} from "@/shared/api/integration-github"
 import { useOrg } from "@/entities/organization"
 import { useProject } from "@/hooks/useProject"
 import { ExternalProvider } from "@/types/enum"
@@ -94,7 +91,7 @@ export default function GitHubAnalysis() {
     React.useEffect(() => {
         const tab = searchParams.get("tab")
         if (tab === "commits" || tab === "prs" || tab === "issues") {
-            setSelectedCategory(tab as any)
+            setSelectedCategory(tab as "commits" | "prs" | "issues")
         } else {
             // default to commits for this page
             const params = new URLSearchParams(searchParams)
@@ -194,7 +191,7 @@ export default function GitHubAnalysis() {
     }, [githubIntegrationId, selectedRepoFullName])
 
     const handleTabChange = (val: string) => {
-        setSelectedCategory(val as any)
+        setSelectedCategory(val as "commits" | "prs" | "issues")
         setSelectedCommit(null)
         setCommitDetail(null)
         setSelectedPullRequest(null)
