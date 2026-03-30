@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { OTPForm } from "@/components/otp-form"
+import { OTPForm } from "@/features/auth";
 
 export default function OTP() {
     return (

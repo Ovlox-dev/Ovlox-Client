@@ -1,4 +1,5 @@
-import { apiClient } from "@/lib/api";
+import { apiClient } from "@/shared/api/client";
+import { apiBaseUrl } from "@/shared/api/client";
 import { IIntegration } from "@/types/prisma-generated";
 import { ApiResponse, IntegrationStatusEvent, OrgIntegrationStatusItem, OrgIntegrationStatusSseEvent } from "@/types/api-types";
 
@@ -14,7 +15,7 @@ export const getIntegrationStatus = async (orgId: string, integrationId: string)
 
 // SSE endpoint for integration status updates
 export const subscribeToIntegrationStatus = (slug: string, onMessage: (items: OrgIntegrationStatusItem[]) => void) => {
-    const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1"}/orgs/integrations/status/${slug}`, {
+    const eventSource = new EventSource(`${apiBaseUrl}/orgs/integrations/status/${slug}`, {
         withCredentials: true,
     });
 
@@ -50,10 +51,10 @@ export const subscribeToIntegrationStatus = (slug: string, onMessage: (items: Or
         }
     };
 
-    eventSource.onerror = (error) => {
-        console.error("SSE error:", error);
-        eventSource.close();
-    };
+    // eventSource.onerror = (error) => {
+    //     console.error("SSE error:", error);
+    //     eventSource.close();
+    // };
 
     return () => {
         eventSource.close();

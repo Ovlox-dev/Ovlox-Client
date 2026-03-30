@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/api";
+import { apiClient } from "@/shared/api/client";
 import { GetInstallUrlResponse, DiscordChannel, ApiResponse } from "@/types/api-types";
 
 export const getDiscordInstallUrl = async (orgId: string, integrationId: string): Promise<GetInstallUrlResponse> => {

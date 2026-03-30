@@ -1,18 +1,15 @@
 import { io, Socket } from "socket.io-client";
-import Cookies from "js-cookie";
-import { ACCESS_TOKEN } from "./constants";
+import { getAccessToken } from "@/shared/lib/auth/token-service";
 import {
-    ChatMessageWithDetails,
     WsNewMessageEvent,
     WsMessageProcessingEvent,
     WsTypingEvent,
     WsMessageReadEvent,
 } from "@/types/api-types";
+import { PUBLIC_API_BASE_URL } from "@/shared/lib/public-api-url";
 
 const getSocketUrl = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-    // Extract base URL without /api/v1
-    const baseUrl = apiUrl.replace(/\/api\/v1$/, "");
+    const baseUrl = PUBLIC_API_BASE_URL.replace(/\/api\/v1$/, "");
     return `${baseUrl}/chat`;
 };
 
@@ -23,15 +20,18 @@ export const connectSocket = (): Socket => {
         return socket;
     }
 
-    const token = Cookies.get(ACCESS_TOKEN);
+    const token = getAccessToken();
     if (!token) {
-        throw new Error("No access token available");
+        // Avoid hard-throwing; the server will reject/close the socket if unauthenticated.
+        console.warn("No access token available for socket connection");
     }
 
     const socketUrl = getSocketUrl();
 
+    const socketQuery = token ? { token } : {};
+
     socket = io(socketUrl, {
-        query: { token },
+        query: socketQuery,
         transports: ["websocket"],
         reconnection: true,
         reconnectionDelay: 1000,
