@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/api";
+import { apiClient } from "@/shared/api/client";
 import { GetInstallUrlResponse, JiraProject, ApiResponse } from "@/types/api-types";
 
 export const getJiraInstallUrl = async (orgId: string, integrationId: string): Promise<GetInstallUrlResponse> => {

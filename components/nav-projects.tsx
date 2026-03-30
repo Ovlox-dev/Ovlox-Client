@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useProjectStore } from "@/store/project.store"
+import { useOrgStore } from "@/shared/lib/organization/org-store"
 import type { IProject } from "@/types/prisma-generated"
 
 import {
@@ -36,6 +37,7 @@ export function NavProjects({
     const { isMobile } = useSidebar()
     const router = useRouter()
     const { setCurrentProject } = useProjectStore()
+    const { currentOrg } = useOrgStore()
 
     return (
         <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -46,7 +48,11 @@ export function NavProjects({
                         <SidebarMenuButton
                             onClick={() => {
                                 setCurrentProject(project)
-                                router.push(`/projects/${project.id}`)
+                                router.push(
+                                    currentOrg?.id
+                                        ? `/${currentOrg.id}/projects/${project.id}`
+                                        : `/projects/${project.id}`
+                                )
                             }}
                         >
                             <Folder className="text-muted-foreground" />

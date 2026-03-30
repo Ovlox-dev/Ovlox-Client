@@ -1,4 +1,5 @@
-import { apiClient } from "@/lib/api";
+import { apiClient } from "@/shared/api/client";
+import { apiBaseUrl } from "@/shared/api/client";
 import {
     CreateConversationRequest,
     ListConversationsResponse,
@@ -79,9 +80,8 @@ export const retryJob = async (jobId: string): Promise<{ status: string; jobId: 
 };
 
 // Stream job status via SSE (for real-time updates without WebSocket)
-export const streamJobStatus = (jobId: string, onUpdate: (data: any) => void, onError?: (error: Error) => void) => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-    const eventSource = new EventSource(`${apiUrl}/chat/jobs/${jobId}/stream`, {
+export const streamJobStatus = (jobId: string, onUpdate: (data: unknown) => void, onError?: (error: Error) => void) => {
+    const eventSource = new EventSource(`${apiBaseUrl}/chat/jobs/${jobId}/stream`, {
         withCredentials: true,
     });
 

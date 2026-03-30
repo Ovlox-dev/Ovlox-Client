@@ -11,7 +11,7 @@ export const useProject = () => {
     const selectProject = React.useCallback(async (project: IProject, orgId?: string) => {
         setCurrentProject(project);
         if (orgId) {
-            router.push(`/organizations/${orgId}/projects/${project.id}`);
+            router.push(`/${orgId}/projects/${project.id}`);
         } else {
             router.push(`/projects/${project.id}`);
         }
