@@ -2,7 +2,15 @@ import { create } from "zustand";
 import { AxiosError } from "axios";
 import type { AuthResponse, SignInRequest, SignUpRequest, VerifyOtpRequest } from "@/types/api-types";
 import type { IUser } from "@/types/prisma-generated";
-import { fetchCurrentUser, logout, refreshToken, requestOtp, signIn, signUp, verifyOtp } from "@/shared/api/auth";
+import {
+    fetchCurrentUser,
+    logout,
+    refreshToken,
+    requestOtp as requestOtpApi,
+    signIn,
+    signUp as signUpApi,
+    verifyOtp,
+} from "@/shared/api/auth";
 import { setSessionUserId } from "@/shared/lib/auth/session-storage";
 import { clearClientSessionState, getAccessToken, setAccessToken } from "@/shared/lib/auth/token-service";
 
@@ -13,10 +21,10 @@ type AuthSlice = {
     isLoading: boolean;
     authStatus: AuthStatus;
     login: (payload: SignInRequest) => Promise<IUser>;
-    signUp: (payload: SignUpRequest) => Promise<IUser>;
+    signUp: (payload: SignUpRequest) => Promise<void>;
     logout: () => Promise<void>;
     verifyOtp: (payload: VerifyOtpRequest) => Promise<IUser>;
-    requestOtp: (payload: { email?: string; phoneNumber?: string }) => Promise<IUser>;
+    requestOtp: (payload: { email?: string; phoneNumber?: string }) => Promise<void>;
     fetchUser: () => Promise<IUser | null>;
     bootstrapSession: () => Promise<IUser | null>;
     handleRefreshToken: () => Promise<string | null>;
@@ -70,15 +78,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             }
         },
 
+        // Registers only; no session until verifyOtp (see applyAuthResponseToSession).
         signUp: async (payload) => {
             set((state) => ({ auth: { ...state.auth, isLoading: true, authStatus: "loading" } }));
             try {
-                const response = await signUp(payload);
-                const user = applyAuthResponseToSession(response);
+                await signUpApi(payload);
                 set((state) => ({
-                    auth: { ...state.auth, user, isLoading: false, authStatus: "authenticated" },
+                    auth: {
+                        ...state.auth,
+                        user: null,
+                        isLoading: false,
+                        authStatus: "unauthenticated",
+                    },
                 }));
-                return user;
             } catch (error) {
                 set((state) => ({
                     auth: { ...state.auth, isLoading: false, authStatus: "unauthenticated", user: null },
@@ -104,13 +116,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             }
         },
 
+        // Resend OTP only; does not apply auth session or user/tokens.
         requestOtp: async (payload) => {
             set((state) => ({ auth: { ...state.auth, isLoading: true } }));
             try {
-                const response = await requestOtp(payload);
-                const user = applyAuthResponseToSession(response);
-                set((state) => ({ auth: { ...state.auth, user, isLoading: false } }));
-                return user;
+                await requestOtpApi(payload);
+                set((state) => ({ auth: { ...state.auth, isLoading: false } }));
             } catch (error) {
                 set((state) => ({ auth: { ...state.auth, isLoading: false } }));
                 throw error;

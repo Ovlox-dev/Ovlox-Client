@@ -3,7 +3,7 @@ import { DASHBOARD_NEW_ORGANIZATION_ROUTE } from "@/shared/lib/auth/post-auth-or
 const AUTH_NAV_STORAGE_KEY = "ovlox.auth.navigation";
 const AUTH_NAV_TTL_MS = 30 * 60 * 1000;
 
-const AUTH_ONLY_ROUTES = new Set(["/signin", "/signup", "/otp", "/login-success"]);
+const AUTH_ONLY_ROUTES = new Set(["/signin", "/signup", "/otp"]);
 
 type StoredAuthNavigation = {
     path: string;

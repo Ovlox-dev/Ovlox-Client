@@ -41,7 +41,7 @@ export interface RequestOtpRequest {
 export interface VerifyOtpRequest {
     email?: string;
     phoneNumber?: string;
-    otp: string;
+    otpString: string;
 }
 
 export interface AuthResponse {

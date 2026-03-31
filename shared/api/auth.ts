@@ -9,9 +9,9 @@ export async function signIn(payload: SignInRequest): Promise<AuthResponse> {
     return normalizeAuthPayload(response.data);
 }
 
-export async function signUp(payload: SignUpRequest): Promise<AuthResponse> {
-    const response = await apiClient.post("/auth/sign-up", payload);
-    return normalizeAuthPayload(response.data);
+/** Sign-up succeeds without establishing a client session; tokens in the response body are ignored. */
+export async function signUp(payload: SignUpRequest): Promise<void> {
+    await apiClient.post("/auth/sign-up", payload);
 }
 
 export async function verifyOtp(payload: VerifyOtpRequest): Promise<AuthResponse> {
@@ -19,9 +19,8 @@ export async function verifyOtp(payload: VerifyOtpRequest): Promise<AuthResponse
     return normalizeAuthPayload(response.data);
 }
 
-export async function requestOtp(payload: RequestOtpRequest): Promise<AuthResponse> {
-    const response = await apiClient.post("/auth/request-otp", payload);
-    return normalizeAuthPayload(response.data);
+export async function requestOtp(payload: RequestOtpRequest): Promise<void> {
+    await apiClient.post("/auth/request-otp", payload);
 }
 
 export async function logout(): Promise<void> {

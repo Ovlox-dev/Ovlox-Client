@@ -15,9 +15,8 @@ const DEFAULT_PROTECTED_POLICY: RouteAccessPolicy = {
 const policies: RouteAccessPolicy[] = [
     { pattern: /^\/signin(?:\/|$)/, requiresAuth: false, redirectIfAuthenticated: true },
     { pattern: /^\/signup(?:\/|$)/, requiresAuth: false, redirectIfAuthenticated: true },
-    { pattern: /^\/otp(?:\/|$)/, requiresAuth: false },
-    { pattern: /^\/invite(?:\/|$)/, requiresAuth: false },
-    { pattern: /^\/login-success(?:\/|$)/, requiresAuth: false },
+    { pattern: /^\/otp(?:\/|$)/, requiresAuth: false, redirectIfAuthenticated: true },
+    { pattern: /^\/invite(?:\/|$)/, requiresAuth: false, redirectIfAuthenticated: true },
 ];
 
 export function getRouteAccessPolicy(pathname: string | null | undefined): RouteAccessPolicy {
