@@ -44,13 +44,7 @@ export function AppSidebar() {
     {
       title: "Integrations",
       icon: Plug,
-      isActive: false,
-      items: [
-        {
-          title: "GitHub",
-          url: `/${organizationId}/integrations/github`,
-        },
-      ],
+      url: `/${organizationId}/integrations`,
     },
     {
       title: "Organizations",

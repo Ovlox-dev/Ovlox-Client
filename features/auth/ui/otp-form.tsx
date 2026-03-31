@@ -50,7 +50,7 @@ export function OTPForm({ className, ...props }: React.ComponentProps<"div">) {
         }
         try {
             await verifyOtp({
-                otp,
+                otpString: otp,
                 email: email || undefined,
                 phoneNumber,
             });

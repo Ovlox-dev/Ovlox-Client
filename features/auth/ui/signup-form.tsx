@@ -21,8 +21,20 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import signupImage from "@/assets/authImagePng.png";
 import { useAuthStore } from "@/entities/auth";
 import { formatAuthErrorMessage } from "@/features/auth/lib/auth-utils";
-import { resolvePostLoginAuthNavigation, setAuthNavigation } from "@/shared/lib/auth/auth-navigation";
-import { resolvePostAuthOrgRedirect } from "@/shared/lib/auth/post-auth-org-resolver";
+import { setAuthNavigation } from "@/shared/lib/auth/auth-navigation";
+
+function buildOtpHref(email: string, redirectTarget: string | null, searchParams: URLSearchParams): string {
+    const params = new URLSearchParams();
+    params.set("email", email);
+    if (redirectTarget) {
+        if (searchParams.has("redirectURI")) {
+            params.set("redirectURI", redirectTarget);
+        } else {
+            params.set("from", redirectTarget);
+        }
+    }
+    return `/otp?${params.toString()}`;
+}
 
 const signupSchema = z.object({
     firstName: z.string().min(1, { message: "First name is required" }),
@@ -66,15 +78,7 @@ export function SignupForm() {
                 email: data.email,
                 password: data.password,
             });
-            const existingPath = resolvePostLoginAuthNavigation(redirectTarget, "");
-
-            if (existingPath) {
-                router.replace(existingPath);
-                return;
-            }
-
-            const { redirectTo } = await resolvePostAuthOrgRedirect();
-            router.replace(redirectTo);
+            router.replace(buildOtpHref(data.email, redirectTarget, searchParams));
         } catch (error) {
             toast.error(formatAuthErrorMessage(error));
         }
