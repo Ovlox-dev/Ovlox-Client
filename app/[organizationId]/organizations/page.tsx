@@ -1,14 +1,19 @@
 "use client"
 
-import * as React from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
+import { useCallback, useState } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { useQuery } from "@tanstack/react-query"
+
+import { userOrgs } from "@/shared/api/org"
+import { buildDashboardOrgRoute, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
+
 import { Plus, Building2, MoreHorizontal, Search, Settings2, FileText, Copy, Link, Trash2, LogOut } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
-import { IOrganization } from "@/types/prisma-generated"
-import { useParams, useRouter } from "next/navigation"
+
 import { PageTitle } from "@/components/page-title"
 
 const menuItems = [
@@ -26,50 +31,31 @@ const menuItems = [
     ],
 ]
 
-const organizations = [
-    {
-        id: "1",
-        name: "Organization 1",
-        slug: "organization-1",
-        members: [1, 2, 3],
-        projects: [1, 2, 3],
-    },
-    {
-        id: "2",
-        name: "Organization 2",
-        slug: "organization-2",
-        members: [1, 2, 3],
-        projects: [1, 2, 3],
-    },
-    {
-        id: "3",
-        name: "Organization 3",
-        slug: "organization-3",
-        members: [1, 2, 3],
-        projects: [1, 2, 3],
-    },
-    {
-        id: "4",
-        name: "Organization 4",
-        slug: "organization-4",
-        members: [1, 2, 3],
-        projects: [1, 2, 3],
-    },
-]
-
 
 export default function Organizations() {
     const router = useRouter();
     const params = useParams<{ organizationId: string }>();
-    const organizationId = params?.organizationId;
-    const [organizations, setOrganizations] = React.useState<IOrganization[]>([])
-    const [page, setPage] = React.useState(1)
-    const [totalPages, setTotalPages] = React.useState(1)
-    const [totalCount, setTotalCount] = React.useState(0)
-    const [searchQuery, setSearchQuery] = React.useState("")
-    const [isLoading, setIsLoading] = React.useState(true)
-    const [error, setError] = React.useState<string | null>(null)
+    const orgId = params?.organizationId;
+    const [page, setPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
+    const [totalCount, setTotalCount] = useState(0)
+    const [searchQuery, setSearchQuery] = useState("")
 
+
+    const { data = [], isLoading, error } = useQuery({
+        queryKey: ["userOrgs"],
+        queryFn: () => userOrgs().then(res => res.data ?? []),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+    });
+
+    const handleSelectOrg = useCallback(
+        (id: string) => {
+            setActiveOrgId(id);
+            router.push(buildDashboardOrgRoute(id));
+        },
+        [router]
+    );
 
     return (
         <div className="space-y-8">
@@ -78,7 +64,7 @@ export default function Organizations() {
                     title="Organizations"
                     description="Manage and access your organizations"
                 />
-                <Button onClick={() => router.push(`/${organizationId}/organizations/new`)}>
+                <Button onClick={() => router.push(`/${orgId}/organizations/new`)}>
                     <Plus className="size-4" />
                     New Organization
                 </Button>
@@ -99,7 +85,7 @@ export default function Organizations() {
 
             {error && (
                 <div className="mb-4 text-sm text-destructive">
-                    {error}
+                    Error loading organizations
                 </div>
             )}
 
@@ -114,7 +100,7 @@ export default function Organizations() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {organizations.map((org) => {
+                    {data.map((org) => {
                         const memberCount = org.members?.length ?? 0
                         const projectCount = (org as unknown as { projects?: unknown[] })?.projects?.length ?? 0
 
@@ -122,7 +108,7 @@ export default function Organizations() {
                             <article
                                 key={org.id}
                                 className="group relative border border-border rounded-lg p-6 bg-card shadow-sm hover:shadow-lg hover:border-primary/50 transition-all duration-200 cursor-pointer overflow-hidden"
-                                onClick={() => router.push(`/${organizationId}/organizations/${org.slug}`)}
+                                onClick={() => handleSelectOrg(org.id)}
                             >
                                 <div className="absolute inset-0 bg-linear-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
 
@@ -217,7 +203,7 @@ export default function Organizations() {
             {totalPages > 1 && (
                 <div className="mt-6 flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">
-                        Showing {organizations.length} of {totalCount} organizations
+                        Showing {data.length} of {totalCount} organizations
                     </p>
                     <div className="flex items-center gap-2">
                         <Button

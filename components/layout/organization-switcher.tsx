@@ -1,9 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 
+import type { IOrganization } from "@/types/prisma-generated";
+import { userOrgs } from "@/shared/api/org";
+import { buildDashboardOrgRoute, setActiveOrgId, } from "@/shared/lib/auth/post-auth-org-resolver";
+
+import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SidebarMenu, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import {
@@ -14,14 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SidebarMenuButton } from "@/components/ui/sidebar";
-import Link from "next/link";
-import { userOrgs } from "@/shared/api/org";
-import {
-  buildDashboardOrgRoute,
-  setActiveOrgId,
-} from "@/shared/lib/auth/post-auth-org-resolver";
-import type { IOrganization } from "@/types/prisma-generated";
+import { useQuery } from "@tanstack/react-query";
 
 function getInitials(name: string): string {
   return name
@@ -39,33 +39,19 @@ interface OrganizationSwitcherProps {
 export function OrganizationSwitcher({ organizationId }: OrganizationSwitcherProps) {
   const router = useRouter();
   const { isMobile } = useSidebar();
-  const [orgs, setOrgs] = useState<IOrganization[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const response = await userOrgs();
-        if (!cancelled) setOrgs(response.data ?? []);
-      } catch {
-        if (!cancelled) setOrgs([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data = [], isLoading, error } = useQuery({
+    queryKey: ["userOrgs"],
+    queryFn: () => userOrgs().then(res => res.data ?? []),
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+  });
 
   const activeOrg =
-    orgs.find((o) => o.id === organizationId) ??
-    (orgs.length === 1 ? orgs[0] : undefined);
+    data.find((o) => o.id === organizationId) ??
+    (data.length === 1 ? data[0] : undefined);
 
-  const displayName = loading
+  const displayName = isLoading
     ? "Loading…"
     : activeOrg?.name ?? (organizationId ? "Organization" : "Select organization");
   const displaySubtitle = activeOrg?.slug ?? "";
@@ -90,6 +76,14 @@ export function OrganizationSwitcher({ organizationId }: OrganizationSwitcherPro
       </Avatar>
     );
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-sm text-muted-foreground">Error loading organizations</p>
+      </div>
+    );
+  }
 
   return (
     <SidebarMenu className="p-2 bg-background">
@@ -124,11 +118,11 @@ export function OrganizationSwitcher({ organizationId }: OrganizationSwitcherPro
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               Organizations
             </DropdownMenuLabel>
-            {orgs.length === 0 && !loading ? (
+            {data.length === 0 && !isLoading ? (
               <div className="px-2 py-1.5 text-xs text-muted-foreground">No organizations</div>
             ) : (
               <div className="space-y-1">
-                {orgs.map((org) => {
+                {data.map((org) => {
                   const isCurrent = org.id === organizationId;
                   return (
                     <DropdownMenuItem
