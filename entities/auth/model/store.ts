@@ -192,6 +192,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             bootstrapPromise = (async () => {
                 set((state) => ({ auth: { ...state.auth, isLoading: true, authStatus: "loading" } }));
                 if (!getAccessToken()) {
+                    try {
+                        const refreshed = await refreshToken();
+                        if (refreshed.accessToken) {
+                            applyAuthResponseToSession(refreshed);
+                        }
+                    } catch {
+                        // No valid HttpOnly session or refresh failed — treat as signed out below.
+                    }
+                }
+                if (!getAccessToken()) {
                     set((state) => ({
                         auth: {
                             ...state.auth,
