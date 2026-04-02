@@ -26,7 +26,9 @@ export default function Protected({ children }: { children: React.ReactNode }) {
     }, [bootstrapSession]);
 
     useEffect(() => {
-        if (authStatus === "loading") return;
+        // Do not redirect while session is unknown: `idle` happens on first paint before
+        // `bootstrapSession` flushes `loading`, and would otherwise send users to /signin briefly.
+        if (authStatus === "loading" || authStatus === "idle") return;
         if (!requiresAuth) {
             if (!redirectIfAuthenticated) return;
             if (authStatus !== "authenticated" || !user) return;
@@ -34,6 +36,7 @@ export default function Protected({ children }: { children: React.ReactNode }) {
             return;
         }
         if (authStatus === "authenticated" && user) return;
+        if (authStatus !== "unauthenticated") return;
 
         const currentPath =
             typeof window !== "undefined"
@@ -44,10 +47,7 @@ export default function Protected({ children }: { children: React.ReactNode }) {
     }, [authStatus, pathname, redirectIfAuthenticated, requiresAuth, router, user]);
 
     if (isLoading || authStatus === "loading" || (requiresAuth && authStatus !== "authenticated")) {
-        return (
-
-            <LoaderSpinner />
-        );
+        return <LoaderSpinner />;
     }
 
     if (user && !hasRouteAccess) {
