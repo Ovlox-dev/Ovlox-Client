@@ -11,22 +11,32 @@ import { OrgIntegrationStatusItem } from '@/types/api-types';
 import { IntegrationStatus } from '@/types/enum';
 import { toast } from "sonner";
 
-const APP_CATALOG = [
-    { id: "github", name: "Github", icon: IoLogoGithub, installUrl: null },
-    { id: "slack", name: "Slack", icon: SiSlack, installUrl: null },
-    { id: "jira", name: "Jira", icon: SiJira, installUrl: null },
-    { id: "discord", name: "Discord", icon: SiDiscord, installUrl: null },
-    { id: "linear", name: "Linear", icon: SiLinear, installUrl: null },
-];
-
 const AppsConnected = () => {
-    const params = useParams<{ organizationId: string }>();
     const router = useRouter();
+    const params = useParams<{ organizationId: string }>();
     const organizationId = params?.organizationId ?? '';
     const [connectingAppId, setConnectingAppId] = useState<string | null>(null);
     const [integrations, setIntegrations] = useState<OrgIntegrationStatusItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const APP_CATALOG = [
+        {
+            id: "github",
+            name: "Github",
+            icon: IoLogoGithub,
+            redirectUrl: `/${organizationId}/integrations/github`,
+        },
+        {
+            id: "slack",
+            name: "Slack",
+            icon: SiSlack,
+            redirectUrl: `/${organizationId}/integrations/slack`
+        },
+        { id: "jira", name: "Jira", icon: SiJira, redirectUrl: null },
+        { id: "discord", name: "Discord", icon: SiDiscord, redirectUrl: null },
+        { id: "linear", name: "Linear", icon: SiLinear, redirectUrl: null },
+    ];
 
     const appsWithStatus = useMemo(() => {
         const statusByAppId = new Map<string, IntegrationStatus>();
@@ -145,41 +155,50 @@ const AppsConnected = () => {
                             const Icon = app.icon;
                             return (
                                 <li
+                                    onClick={() => app.redirectUrl && router.push(app.redirectUrl)}
                                     key={app.id}
-                                    className="flex items-center justify-between gap-2"
+                                    className="group flex cursor-pointer items-center justify-between gap-2"
                                 >
                                     <div className="flex items-center gap-2 text-text">
                                         <Icon className="size-5" />
                                         <span className="text-base font-medium">{app.name}</span>
                                     </div>
-                                    {app.connected ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (app.id === "github") {
-                                                    router.push(`/${encodeURIComponent(organizationId)}/integrations/github`);
-                                                } else {
-                                                    router.push(`/${encodeURIComponent(organizationId)}/integrations`);
+                                    {app.redirectUrl ? (
+                                        <div className="relative flex h-8 min-w-26 shrink-0 items-center justify-end">
+                                            <div
+                                                className={
+                                                    app.connected
+                                                        ? "flex items-center gap-2 rounded-md border-[0.5px] border-accent bg-accent px-4 py-1 text-xs text-background transition-opacity duration-150 group-hover:pointer-events-none group-hover:opacity-0"
+                                                        : "rounded-md bg-border px-4 py-1 text-xs font-medium text-gray-500 transition-opacity duration-150 group-hover:pointer-events-none group-hover:opacity-0"
                                                 }
-                                            }}
-                                            className="flex items-center gap-2 border-[0.5px] border-border bg-background rounded-md px-4 py-1 text-xs text-text hover:bg-muted transition-colors"
-                                        >
+                                            >
+                                                {app.connected ? (
+                                                    <>
+                                                        <Check className="size-3.5" /> Connected
+                                                    </>
+                                                ) : (
+                                                    "Not Connected"
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="absolute inset-y-0 right-0 flex items-center rounded-md border-[0.5px] border-accent bg-accent px-4 py-1 text-xs text-background opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (app.redirectUrl) router.push(app.redirectUrl);
+                                                }}
+                                            >
+                                                Manage
+                                            </button>
+                                        </div>
+                                    ) : app.connected ? (
+                                        <div className="flex items-center gap-2 rounded-md border-[0.5px] border-accent bg-accent px-4 py-1 text-xs text-background">
                                             <Check className="size-3.5" /> Connected
-                                        </button>
-                                    ) : app.status === IntegrationStatus.PROCESSING ? (
-                                        <button
-                                            disabled
-                                            className="px-4 py-1 text-xs font-medium bg-muted rounded-md text-muted-foreground disabled:opacity-80 disabled:cursor-not-allowed"
-                                        >
-                                            Connecting...
-                                        </button>
+                                        </div>
                                     ) : (
-                                        <button
-                                            onClick={() => void handleInstall(app.id, app.installUrl)}
-                                            className="px-4 py-1 text-xs font-medium bg-accent rounded-md text-background disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {connectingAppId === app.id ? "Connecting..." : "Connect"}
-                                        </button>
+                                        <div className="rounded-md bg-border px-4 py-1 text-xs font-medium text-gray-500">
+                                            Not Connected
+                                        </div>
                                     )}
                                 </li>
                             );

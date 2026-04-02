@@ -1,16 +1,19 @@
 "use client"
 
-import * as React from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+
+import { IoLogoGithub } from "react-icons/io5"
+
+import { listIntegrations } from "@/services/integration.service"
+import { IntegrationStatus } from "@/types/enum"
+import type { GitHubRepo, OrgIntegrationStatusItem } from "@/types/api-types"
+
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { IoLogoGithub } from "react-icons/io5"
-import { listIntegrations } from "@/services/integration.service"
-import { getGithubInstallUrl, getGithubRepositories, syncGithubRepositories } from "@/shared/api/integration-github"
-import type { GitHubRepo, OrgIntegrationStatusItem } from "@/types/api-types"
-import { IntegrationStatus } from "@/types/enum"
+import { getGithubInstallUrl, getGithubOAuthUrl, getGithubRepositories, syncGithubRepositories } from "@/shared/api/integration-github"
 
 function githubIntegration(integrations: OrgIntegrationStatusItem[]) {
   return integrations.find((i) => String(i.app).toLowerCase() === "github") ?? null
@@ -21,19 +24,20 @@ export default function GitHubIntegrationPage() {
   const router = useRouter()
   const organizationId = params?.organizationId ?? ""
 
-  const [integrations, setIntegrations] = React.useState<OrgIntegrationStatusItem[]>([])
-  const [repos, setRepos] = React.useState<GitHubRepo[]>([])
-  const [loading, setLoading] = React.useState(false)
-  const [loadingRepos, setLoadingRepos] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const [connecting, setConnecting] = React.useState(false)
-  const [syncing, setSyncing] = React.useState(false)
+  const [integrations, setIntegrations] = useState<OrgIntegrationStatusItem[]>([])
+  const [repos, setRepos] = useState<GitHubRepo[]>([])
+  const [loading, setLoading] = useState(false)
+  const [loadingRepos, setLoadingRepos] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [installing, setInstalling] = useState(false)
 
-  const gh = React.useMemo(() => githubIntegration(integrations), [integrations])
+  const gh = useMemo(() => githubIntegration(integrations), [integrations])
   const isConnected = gh?.status === IntegrationStatus.CONNECTED
   const integrationId = gh?.integrationId ?? null
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!organizationId) return
     let cancelled = false
 
@@ -56,12 +60,11 @@ export default function GitHubIntegrationPage() {
     }
   }, [organizationId])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isConnected || !integrationId) {
       setRepos([])
       return
     }
-
     let cancelled = false
     const run = async () => {
       try {
@@ -81,14 +84,25 @@ export default function GitHubIntegrationPage() {
     }
   }, [isConnected, integrationId])
 
-  const handleConnect = async () => {
+  const handleConnectOAuth = async () => {
     if (!organizationId) return
     try {
       setConnecting(true)
-      const res = await getGithubInstallUrl(organizationId)
+      const res = await getGithubOAuthUrl(organizationId)
       if (res?.url) window.location.href = res.url
     } finally {
       setConnecting(false)
+    }
+  }
+
+  const handleInstall = async () => {
+    if (!organizationId) return
+    try {
+      setInstalling(true)
+      const res = await getGithubInstallUrl(organizationId)
+      if (res?.url) window.location.href = res.url
+    } finally {
+      setInstalling(false)
     }
   }
 
@@ -105,7 +119,7 @@ export default function GitHubIntegrationPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className=" space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-xl bg-linear-to-br from-gray-800 to-gray-900 border border-border">
@@ -117,9 +131,6 @@ export default function GitHubIntegrationPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => router.push(`/${encodeURIComponent(organizationId)}/integrations`)}>
-            Back
-          </Button>
           {isConnected ? (
             <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Connected</Badge>
           ) : gh?.status === IntegrationStatus.PROCESSING ? (
@@ -140,11 +151,17 @@ export default function GitHubIntegrationPage() {
               Connect GitHub to start syncing repositories and viewing activity.
             </p>
             <div className="flex items-center gap-2">
-              <Button onClick={() => void handleConnect()} disabled={connecting || gh?.status === IntegrationStatus.PROCESSING}>
+              <Button
+                onClick={() => void handleConnectOAuth()}
+                disabled={connecting || gh?.status === IntegrationStatus.PROCESSING}
+              >
                 {gh?.status === IntegrationStatus.PROCESSING ? "Connecting..." : connecting ? "Redirecting..." : "Connect GitHub"}
               </Button>
-              <Button variant="outline" onClick={() => router.push(`/${encodeURIComponent(organizationId)}/dashboard`)}>
-                Go to dashboard
+              <Button
+                variant="default"
+                onClick={() => void handleInstall()}
+              >
+                Install Github App
               </Button>
             </div>
           </CardContent>

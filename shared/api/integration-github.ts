@@ -29,8 +29,8 @@ export const getGithubOAuthUrl = async (orgId: string, force?: boolean): Promise
     return response.data;
 };
 
-export const getOAuthCallback = async (code: string, state: string): Promise<ApiResponse> => {
-    const response = await apiClient.get<ApiResponse>(`/integrations/github/callback?code=${code}&state=${state}`);
+export const getOAuthCallback = async (code: string, state: string, installationId: string, setupAction: string): Promise<ApiResponse> => {
+    const response = await apiClient.get<ApiResponse>(`/integrations/github/callback?code=${code}&state=${state}&installation_id=${installationId}&setup_action=${setupAction}`);
     return response.data;
 };
 
