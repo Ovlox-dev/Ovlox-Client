@@ -20,7 +20,7 @@ import {
     buildDashboardOrgRoute,
     setActiveOrgId,
 } from "@/shared/lib/auth/post-auth-org-resolver";
-import { formatAuthErrorMessage } from "@/features/auth/lib/auth-utils";
+import { formatAuthErrorMessage } from "@/shared/lib/auth/auth-utils";
 import { useAuthStore } from "@/entities/auth/model/store";
 import { cn } from "@/lib/utils";
 

@@ -21,8 +21,9 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { inviteMember } from "@/shared/api/org"
+import { inviteMember, listInvites } from "@/shared/api/org"
 import { PredefinedOrgRole } from "@/types/enum"
+import { useQuery } from "@tanstack/react-query"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -38,6 +39,7 @@ function AddMemberModal({
     onOpenChange,
     organizationId,
     onInvited,
+
 }: AddMemberModalProps) {
     const [emails, setEmails] = useState<string[]>([])
     const [inputValue, setInputValue] = useState("")
@@ -117,6 +119,14 @@ function AddMemberModal({
         setRole(PredefinedOrgRole.DEVELOPER)
     }
 
+    const { refetch: invitesRefetch } = useQuery({
+        queryKey: ["orgInvites", organizationId],
+        queryFn: async () => {
+            const res = await listInvites(organizationId, { limit: 200 })
+            return res?.data ?? []
+        },
+    })
+
     const handleInvite = async () => {
         if (!organizationId) {
             setError("Missing organization id.")
@@ -133,6 +143,7 @@ function AddMemberModal({
                     inviteMember(organizationId, { email, predefinedRole: role })
                 )
             )
+            await invitesRefetch()
             onInvited?.()
             reset()
             onOpenChange(false)
@@ -171,7 +182,7 @@ function AddMemberModal({
                         <div className="flex items-start gap-3 w-full">
                             <div
                                 className={cn(
-                                    "flex flex-wrap items-center gap-2 min-h-9 w-full rounded-[8px] border border-border bg-background px-2 py-1.5",
+                                    "flex flex-wrap items-center gap-2 min-h-9 w-full rounded-xl border border-border bg-background px-2 py-1.5",
                                     "focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:border-ring"
                                 )}
                                 onClick={() => inputRef.current?.focus()}
@@ -205,7 +216,7 @@ function AddMemberModal({
                                     onBlur={() => {
                                         if (inputValue.trim()) addEmail(inputValue)
                                     }}
-                                    className="flex-1 min-w-[160px] bg-transparent border-0 py-1 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-0"
+                                    className="flex-1 min-w-40 bg-transparent border-0 py-1 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-0"
                                 />
                             </div>
                         </div>

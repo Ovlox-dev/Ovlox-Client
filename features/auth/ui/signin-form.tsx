@@ -20,7 +20,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import signinImage from "@/assets/authImagePng.png";
 import { useAuthStore } from "@/entities/auth/model/store";
-import { formatAuthErrorMessage } from "@/features/auth/lib/auth-utils";
+import { formatAuthErrorMessage } from "@/shared/lib/auth/auth-utils";
 import { resolvePostLoginAuthNavigation, setAuthNavigation } from "@/shared/lib/auth/auth-navigation";
 import { resolvePostAuthOrgRedirect } from "@/shared/lib/auth/post-auth-org-resolver";
 
