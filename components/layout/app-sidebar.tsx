@@ -47,6 +47,11 @@ export function AppSidebar() {
       url: `/${organizationId}/integrations`,
     },
     {
+      title: "Members",
+      icon: Users,
+      url: `/${organizationId}/members`,
+    },
+    {
       title: "Organizations",
       icon: Users,
       isActive: true,

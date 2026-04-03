@@ -20,7 +20,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import signupImage from "@/assets/authImagePng.png";
 import { useAuthStore } from "@/entities/auth";
-import { formatAuthErrorMessage } from "@/features/auth/lib/auth-utils";
+import { formatAuthErrorMessage } from "@/shared/lib/auth/auth-utils";
 import { setAuthNavigation } from "@/shared/lib/auth/auth-navigation";
 
 function buildOtpHref(email: string, redirectTarget: string | null, searchParams: URLSearchParams): string {

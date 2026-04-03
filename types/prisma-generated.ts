@@ -59,6 +59,8 @@ export interface IOrganizationMember {
     invitedBy?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
+    contributions?: number;
+    projects?: IProject[];
 }
 
 export interface IIntegration {
@@ -125,6 +127,7 @@ export interface IInvite {
     invitedBy: string;
     token: string;
     status: InviteStatus;
+    expiresAt: string;
     userId?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
