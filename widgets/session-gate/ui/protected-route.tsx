@@ -12,6 +12,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { LoaderSpinner } from "@/shared/ui/LoaderSpinner";
 
+const VERIFY_EMAIL_PATH = "/verify-email";
+
 export default function Protected({ children }: { children: React.ReactNode }) {
     const { user, isLoading, authStatus, bootstrapSession } = useAuthStore((state) => state.auth);
     const router = useRouter();
@@ -20,6 +22,14 @@ export default function Protected({ children }: { children: React.ReactNode }) {
     const requiresAuth = routePolicy.requiresAuth;
     const redirectIfAuthenticated = routePolicy.redirectIfAuthenticated ?? false;
     const hasRouteAccess = canAccessRoute(pathname, user?.role ?? null);
+    const onVerifyEmailPage = pathname === VERIFY_EMAIL_PATH;
+    const needsEmailVerification =
+        authStatus === "authenticated" && Boolean(user) && user!.isVerified === false;
+    /** Unverified signed-in user on verify-email (stable while authStatus is briefly "loading" during OTP). */
+    const verifyEmailPending =
+        onVerifyEmailPage && Boolean(user) && user!.isVerified === false;
+    /** Avoid full-screen loader on verify-email when `/user/me` or OTP verify sets global loading (would unmount the page and loop). */
+    const showVerifyEmailShell = verifyEmailPending;
 
     useEffect(() => {
         bootstrapSession().catch(() => { });
@@ -32,10 +42,19 @@ export default function Protected({ children }: { children: React.ReactNode }) {
         if (!requiresAuth) {
             if (!redirectIfAuthenticated) return;
             if (authStatus !== "authenticated" || !user) return;
+            if (!user.isVerified) {
+                router.replace(VERIFY_EMAIL_PATH);
+                return;
+            }
             router.replace(resolvePostLoginAuthNavigation("/login-success"));
             return;
         }
-        if (authStatus === "authenticated" && user) return;
+        if (authStatus === "authenticated" && user) {
+            if (!user.isVerified && !onVerifyEmailPage) {
+                router.replace(VERIFY_EMAIL_PATH);
+            }
+            return;
+        }
         if (authStatus !== "unauthenticated") return;
 
         const currentPath =
@@ -44,9 +63,21 @@ export default function Protected({ children }: { children: React.ReactNode }) {
                 : pathname;
         setAuthNavigation(currentPath);
         router.replace(buildSigninRedirectPath());
-    }, [authStatus, pathname, redirectIfAuthenticated, requiresAuth, router, user]);
+    }, [
+        authStatus,
+        onVerifyEmailPage,
+        pathname,
+        redirectIfAuthenticated,
+        requiresAuth,
+        router,
+        user,
+    ]);
 
-    if (isLoading || authStatus === "loading" || (requiresAuth && authStatus !== "authenticated")) {
+    if (
+        (!showVerifyEmailShell && (isLoading || authStatus === "loading")) ||
+        (requiresAuth && authStatus !== "authenticated" && !verifyEmailPending) ||
+        (requiresAuth && needsEmailVerification && !onVerifyEmailPage)
+    ) {
         return <LoaderSpinner />;
     }
 

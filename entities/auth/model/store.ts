@@ -9,7 +9,7 @@ import {
     requestOtp as requestOtpApi,
     signIn,
     signUp as signUpApi,
-    verifyOtp,
+    verifyOtp as verifyOtpRequest,
 } from "@/shared/api/auth";
 import { setSessionUserId } from "@/shared/lib/auth/session-storage";
 import { clearClientSessionState, getAccessToken, setAccessToken } from "@/shared/lib/auth/token-service";
@@ -24,8 +24,10 @@ type AuthSlice = {
     signUp: (payload: SignUpRequest) => Promise<void>;
     logout: () => Promise<void>;
     verifyOtp: (payload: VerifyOtpRequest) => Promise<IUser>;
+    /** Same as verifyOtp on success; on failure keeps the current session (for logged-in email verification). */
+    verifyOtpPreserveSession: (payload: VerifyOtpRequest) => Promise<IUser>;
     requestOtp: (payload: { email?: string; phoneNumber?: string }) => Promise<void>;
-    fetchUser: () => Promise<IUser | null>;
+    fetchUser: (options?: { silent?: boolean }) => Promise<IUser | null>;
     bootstrapSession: () => Promise<IUser | null>;
     handleRefreshToken: () => Promise<string | null>;
     clearAuthState: () => void;
@@ -102,7 +104,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         verifyOtp: async (payload) => {
             set((state) => ({ auth: { ...state.auth, isLoading: true, authStatus: "loading" } }));
             try {
-                const response = await verifyOtp(payload);
+                const response = await verifyOtpRequest(payload);
                 const user = applyAuthResponseToSession(response);
                 set((state) => ({
                     auth: { ...state.auth, user, isLoading: false, authStatus: "authenticated" },
@@ -111,6 +113,30 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             } catch (error) {
                 set((state) => ({
                     auth: { ...state.auth, isLoading: false, authStatus: "unauthenticated", user: null },
+                }));
+                throw error;
+            }
+        },
+
+        verifyOtpPreserveSession: async (payload) => {
+            const previousUser = get().auth.user;
+            const previousStatus = get().auth.authStatus;
+            set((state) => ({ auth: { ...state.auth, isLoading: true, authStatus: "loading" } }));
+            try {
+                const response = await verifyOtpRequest(payload);
+                const user = applyAuthResponseToSession(response);
+                set((state) => ({
+                    auth: { ...state.auth, user, isLoading: false, authStatus: "authenticated" },
+                }));
+                return user;
+            } catch (error) {
+                set((state) => ({
+                    auth: {
+                        ...state.auth,
+                        user: previousUser,
+                        isLoading: false,
+                        authStatus: previousUser ? "authenticated" : previousStatus,
+                    },
                 }));
                 throw error;
             }
@@ -145,8 +171,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             }
         },
 
-        fetchUser: async () => {
-            set((state) => ({ auth: { ...state.auth, isLoading: true, authStatus: "loading" } }));
+        fetchUser: async (options) => {
+            const silent = options?.silent === true;
+            if (!silent) {
+                set((state) => ({ auth: { ...state.auth, isLoading: true, authStatus: "loading" } }));
+            }
             try {
                 const user = await fetchCurrentUser();
                 setSessionUserId(user.id);
@@ -191,17 +220,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             if (bootstrapPromise) return bootstrapPromise;
             bootstrapPromise = (async () => {
                 set((state) => ({ auth: { ...state.auth, isLoading: true, authStatus: "loading" } }));
-                if (!getAccessToken()) {
-                    try {
-                        const refreshed = await refreshToken();
-                        if (refreshed.accessToken) {
-                            applyAuthResponseToSession(refreshed);
-                        }
-                    } catch {
-                        // No valid HttpOnly session or refresh failed — treat as signed out below.
-                    }
-                }
-                if (!getAccessToken()) {
+                try {
+                    // Cookie-first session bootstrap:
+                    // - `/user/me` is the source of truth when backend auth is HttpOnly-cookie based.
+                    // - Attempt refresh only when `/user/me` indicates an auth failure (401/403).
+                    const user = await get().auth.fetchUser();
+                    if (user) return user;
+
                     set((state) => ({
                         auth: {
                             ...state.auth,
@@ -211,10 +236,17 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
                         },
                     }));
                     return null;
-                }
-                try {
-                    return await get().auth.fetchUser();
-                } catch {
+                } catch (error) {
+                    if (isAuthFailure(error)) {
+                        try {
+                            await refreshToken();
+                            return await get().auth.fetchUser();
+                        } catch {
+                            // fall through to unauthenticated below
+                        }
+                    }
+
+                    // Preserve session state on transient failures so retries can recover.
                     set((state) => ({
                         auth: {
                             ...state.auth,
