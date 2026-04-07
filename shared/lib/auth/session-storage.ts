@@ -19,5 +19,6 @@ export function getSessionUserId(): string | null {
 }
 
 export function clearSessionStorage(): void {
-    localStorage.removeItem(SESSION_USER_ID_KEY);
+    if (!canUseStorage()) return;
+    window.localStorage.removeItem(SESSION_USER_ID_KEY);
 }

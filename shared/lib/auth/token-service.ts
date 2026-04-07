@@ -1,10 +1,9 @@
 import { clearSessionStorage } from "./session-storage";
-import { TOKEN_STORAGE_KEY } from "../storage-keys";
+import { ACTIVE_ORG_ID_STORAGE_KEY, TOKEN_STORAGE_KEY } from "../storage-keys";
 
 export interface TokenData {
     accessToken: string;
     expiresAt: number;
-    /** Composite `sessionId.<refresh JWT>` for Bearer fallback when the HttpOnly cookie is not sent (e.g. cross-origin). */
     refreshToken?: string;
 }
 
@@ -18,13 +17,10 @@ export interface DecodedToken {
 type RefreshResponse = {
     accessToken?: string;
     data?: { accessToken?: string };
+    message?: string;
 };
 
 const FALLBACK_TOKEN_TTL_MS = 15 * 60 * 1000;
-
-function normalizeApiBaseUrl(rawBaseUrl: string): string {
-    return rawBaseUrl.replace(/\/api\/v1\/?$/, "");
-}
 
 function canUseLocalStorage(): boolean {
     return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
@@ -172,8 +168,9 @@ class TokenService {
             headers.Authorization = `Bearer ${compositeRefresh}`;
         }
 
-        const baseUrl = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080");
-        const response = await fetch(`${baseUrl}/api/v1/auth/refresh-token`, {
+        const absoluteBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+        const baseUrl = typeof window === "undefined" ? `${absoluteBaseUrl}/api/v1` : "/api/v1";
+        const response = await fetch(`${baseUrl}/auth/refresh-token`, {
             method: "GET",
             credentials: "include",
             headers: Object.keys(headers).length > 0 ? headers : undefined,
@@ -182,18 +179,22 @@ class TokenService {
 
         const data = (await response.json()) as RefreshResponse;
         const nextToken = data.accessToken ?? data.data?.accessToken;
-        if (!nextToken) throw new Error("Token refresh failed");
-        this.setTokens(nextToken);
-        const tokens = this.getTokens();
-        if (!tokens) throw new Error("Token refresh failed");
-        return tokens;
+        if (nextToken) {
+            this.setTokens(nextToken);
+            const tokens = this.getTokens();
+            if (!tokens) throw new Error("Token refresh failed");
+            return tokens;
+        }
+
+        const existing = this.getTokens();
+        if (existing) return existing;
+        throw new Error("Token refresh failed");
     }
 }
 
 export const tokenService = TokenService.getInstance();
 export default TokenService;
 
-/** Pass `compositeRefresh` from auth responses so refresh survives reload when cookies are not sent cross-origin. */
 export function setAccessToken(token: string | null | undefined, compositeRefresh?: string): void {
     if (!token) {
         tokenService.clearTokens();
@@ -207,11 +208,18 @@ export function getAccessToken(): string | null {
 }
 
 export async function refreshAccessToken(): Promise<string | null> {
-    const refreshed = await tokenService.refreshToken();
-    return refreshed.accessToken;
+    try {
+        const refreshed = await tokenService.refreshToken();
+        return refreshed.accessToken;
+    } catch {
+        return null;
+    }
 }
 
 export function clearClientSessionState(): void {
     tokenService.clearTokens();
     clearSessionStorage();
+    if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
+        window.localStorage.removeItem(ACTIVE_ORG_ID_STORAGE_KEY);
+    }
 }
