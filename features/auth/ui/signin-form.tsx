@@ -22,7 +22,8 @@ import signinImage from "@/assets/authImagePng.png";
 import { useAuthStore } from "@/entities/auth/model/store";
 import { formatAuthErrorMessage } from "@/shared/lib/auth/auth-utils";
 import { resolvePostLoginAuthNavigation, setAuthNavigation } from "@/shared/lib/auth/auth-navigation";
-import { resolvePostAuthOrgRedirect } from "@/shared/lib/auth/post-auth-org-resolver";
+import { buildDashboardOrgRoute, DASHBOARD_NEW_ORGANIZATION_ROUTE, getActiveOrgId, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver";
+import { userOrgs } from "@/shared/api/org";
 
 const loginSchema = z.object({
     email: z.email({ message: "Invalid email address" }).min(1, { message: "Email is required" }),
@@ -56,8 +57,23 @@ export function SigninForm() {
                 return;
             }
 
-            const { redirectTo } = await resolvePostAuthOrgRedirect();
-            router.replace(redirectTo);
+            const storedOrgId = getActiveOrgId();
+            if (storedOrgId) {
+                router.replace(buildDashboardOrgRoute(storedOrgId));
+                return;
+            }
+
+            const response = await userOrgs();
+            const orgs = response.data ?? [];
+            if (orgs.length === 0) {
+                setActiveOrgId(null);
+                router.replace(DASHBOARD_NEW_ORGANIZATION_ROUTE);
+                return;
+            }
+
+            const chosen = orgs[0]?.id ?? null;
+            setActiveOrgId(chosen);
+            router.replace(chosen ? buildDashboardOrgRoute(chosen) : DASHBOARD_NEW_ORGANIZATION_ROUTE);
         } catch (error) {
             toast.error(formatAuthErrorMessage(error));
         }

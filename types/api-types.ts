@@ -62,6 +62,12 @@ export interface CreateOrgRequest {
     }>;
 }
 
+export interface AddIntegrationsRequest {
+    provider: ExternalProvider;
+    label: string;
+
+}
+
 export interface CreateOrgResponse {
     message: string;
     organization: IOrganization;
@@ -100,7 +106,7 @@ export interface CreateProjectRequest {
     description?: string;
 }
 
-export interface CreateProjectResponse extends IProject {}
+export interface CreateProjectResponse extends IProject { }
 
 export interface ListProjectsResponse extends ApiResponse<IProject[]> {
     data: IProject[];
@@ -420,7 +426,7 @@ export interface ConversationWithDetails extends Omit<IConversation, 'messages'>
     organization?: IOrganization;
 }
 
-export interface JobStatusResponse extends IJob {}
+export interface JobStatusResponse extends IJob { }
 
 // WebSocket Event Types
 export interface WsNewMessageEvent {
@@ -471,13 +477,13 @@ export interface OrgIntegrationOauthAccount {
 }
 
 export interface OrgIntegrationStatusItem {
+    integrationId: string;
     app: ExternalProvider;
     authType: string;
     status: IntegrationStatus;
-    integrationId: string;
+    statusMessage?: string;
     externalAccountId: string | null;
     externalAccount: string | null;
-    statusMessage?: string;
     oauthStatus?: OrgIntegrationOauthStatus;
     oauthConnectedAt?: string | null;
     oauthAccount?: OrgIntegrationOauthAccount | null;
@@ -492,7 +498,7 @@ export interface OrgIntegrationStatusItem {
         externalAccount: string | null;
         oauthAccount?: OrgIntegrationOauthAccount | null;
     }>;
-    [key: string]: any;
+    // [key: string]: any;
 }
 
 export interface OrgIntegrationStatusSseEvent {
