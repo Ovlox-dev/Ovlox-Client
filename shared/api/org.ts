@@ -1,6 +1,17 @@
 import { apiClient } from "@/shared/api/client";
-import { ApiResponse, CreateOrgRequest, CreateOrgResponse, UpdateOrgRequest, InviteMemberRequest, UpdateMemberRequest, ListMembersResponse, ListInvitesResponse } from "@/types/api-types";
-import { IOrganization, IOrganizationMember, IInvite } from "@/types/prisma-generated";
+import {
+    ApiResponse,
+    CreateOrgRequest,
+    CreateOrgResponse,
+    UpdateOrgRequest,
+    InviteMemberRequest,
+    UpdateMemberRequest,
+    ListMembersResponse,
+    ListInvitesResponse,
+    OrgIntegrationStatusItem,
+    AddIntegrationsRequest
+} from "@/types/api-types";
+import { IOrganization, IOrganizationMember, IInvite, IIntegration } from "@/types/prisma-generated";
 
 export type CreateOrgPayload = CreateOrgRequest;
 
@@ -82,4 +93,23 @@ export const acceptInvite = async (token: string): Promise<IOrganizationMember> 
         if (unwrapped) return unwrapped;
     }
     return payload as IOrganizationMember;
+};
+
+export const listIntegrations = async (orgId: string): Promise<OrgIntegrationStatusItem[]> => {
+    const response = await apiClient.get<OrgIntegrationStatusItem[]>(`/orgs/${orgId}/integrations`);
+    return response.data;
+};
+
+export const getOrgIntegrationStatusByIntegrationId = async (orgId: string, integrationId: string): Promise<OrgIntegrationStatusItem> => {
+    const response = await apiClient.get<OrgIntegrationStatusItem>(`/orgs/${orgId}/integrations/${integrationId}`);
+    return response.data;
+};
+
+
+export const addIntegrations = async (
+    orgId: string,
+    data: AddIntegrationsRequest
+): Promise<ApiResponse<IIntegration>> => {
+    const response = await apiClient.put<ApiResponse<IIntegration>>(`/orgs/${orgId}/integrations`, data);
+    return response.data;
 };

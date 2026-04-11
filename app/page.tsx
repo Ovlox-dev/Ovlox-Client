@@ -10,6 +10,7 @@ import {
 
 } from "@/shared/lib/auth/post-auth-org-resolver";
 import { LoaderSpinner } from "@/shared/ui/LoaderSpinner";
+import { userOrgs } from "@/shared/api/org";
 
 export default function Home() {
     const router = useRouter();
@@ -30,9 +31,24 @@ export default function Home() {
                 return;
             }
             const orgId = getActiveOrgId();
-            router.replace(
-                orgId ? buildDashboardOrgRoute(orgId) : DASHBOARD_NEW_ORGANIZATION_ROUTE
-            );
+            if (orgId) {
+                router.replace(buildDashboardOrgRoute(orgId));
+                return;
+            }
+
+            try {
+                const response = await userOrgs();
+                if (cancelled) return;
+
+                const orgs = response?.data ?? [];
+                const firstOrgId = orgs?.[0]?.id;
+                router.replace(
+                    firstOrgId ? buildDashboardOrgRoute(firstOrgId) : DASHBOARD_NEW_ORGANIZATION_ROUTE
+                );
+            } catch {
+                if (cancelled) return;
+                router.replace(DASHBOARD_NEW_ORGANIZATION_ROUTE);
+            }
         })();
         return () => {
             cancelled = true;

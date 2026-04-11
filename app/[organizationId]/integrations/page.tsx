@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useEffect } from "react"
+import React from "react"
 import { useParams, useRouter } from "next/navigation"
+import { useQuery } from "@tanstack/react-query"
 
 import { IoLogoGithub } from "react-icons/io5"
 import type { IconType } from "react-icons"
@@ -9,9 +10,9 @@ import { SiDiscord, SiJira, SiLinear, SiSlack } from "react-icons/si"
 
 import { cn } from "@/lib/utils"
 
-import { IntegrationStatus } from "@/types/enum"
+import { ExternalProvider, IntegrationStatus } from "@/types/enum"
 import type { OrgIntegrationStatusItem } from "@/types/api-types"
-import { listIntegrations } from "@/services/integration.service"
+import { listIntegrations, addIntegrations } from "@/shared/api/org"
 import { getGithubInstallUrl } from "@/shared/api/integration-github"
 
 import { PageTitle } from "@/components/page-title"
@@ -26,16 +27,8 @@ type IntegrationToolDef = {
   name: string
   icon: IconType
   description: string
-  /**
-   * When true, the org already uses this tool — it appears under Setup and shows
-   * Connect/Install (not Add). When false, it starts under Available until the user clicks Add.
-   */
-  toolsUsed: boolean
-  /** When true, show an Install control after the tool is in Setup. */
   install?: boolean
-  /** When true, show a Connect control after the tool is in Setup. */
   connect: boolean
-  /** Relative path under `.../integrations/` for Manage when connected. */
   managePath?: string
   comingSoon?: boolean
 }
@@ -46,7 +39,6 @@ const INTEGRATION_CATALOG: IntegrationToolDef[] = [
     name: "GitHub",
     icon: IoLogoGithub,
     description: "Connect your repositories and pull requests.",
-    toolsUsed: true,
     connect: true,
     install: true,
     managePath: "github",
@@ -56,7 +48,6 @@ const INTEGRATION_CATALOG: IntegrationToolDef[] = [
     name: "Jira",
     icon: SiJira,
     description: "Sync issues and sprint progress automatically.",
-    toolsUsed: true,
     connect: true,
     install: false,
     managePath: "jira",
@@ -66,7 +57,6 @@ const INTEGRATION_CATALOG: IntegrationToolDef[] = [
     name: "Slack",
     icon: SiSlack,
     description: "Send updates and notifications to your team channels.",
-    toolsUsed: true,
     connect: true,
     install: false,
     managePath: "slack",
@@ -76,7 +66,6 @@ const INTEGRATION_CATALOG: IntegrationToolDef[] = [
     name: "Linear",
     icon: SiLinear,
     description: "Track issues, manage sprints, and plan product development.",
-    toolsUsed: false,
     install: false,
     connect: true,
     managePath: "linear",
@@ -86,7 +75,6 @@ const INTEGRATION_CATALOG: IntegrationToolDef[] = [
     name: "Discord",
     icon: SiDiscord,
     description: "Communicate with your team through channels and voice chat.",
-    toolsUsed: false,
     connect: true,
     managePath: "discord",
   },
@@ -96,8 +84,8 @@ function integrationForApp(integrations: OrgIntegrationStatusItem[], appId: stri
   return integrations.find((i) => String(i.app).toLowerCase() === appId) ?? null
 }
 
-function isToolInSetup(app: IntegrationToolDef, addedIds: ReadonlySet<string>) {
-  return app.toolsUsed || addedIds.has(app.id)
+function isToolInSetup(app: IntegrationToolDef, integrations: OrgIntegrationStatusItem[], addedIds: ReadonlySet<string>) {
+  return addedIds.has(app.id) || Boolean(integrationForApp(integrations, app.id))
 }
 
 function StatusDot({
@@ -124,54 +112,45 @@ export default function IntegrationsPage() {
   const params = useParams<{ organizationId: string }>()
   const router = useRouter()
   const organizationId = params?.organizationId ?? ""
-
-  const [integrations, setIntegrations] = React.useState<OrgIntegrationStatusItem[]>([])
-  const [loading, setLoading] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
   const [pendingAppId, setPendingAppId] = React.useState<string | null>(null)
-  /** Apps moved from Available → Setup via Add (until persisted by your API). */
   const [addedIds, setAddedIds] = React.useState(() => new Set<string>())
 
+  const { data: integrationsData, isLoading: integrationsLoading, error: integrationsError, refetch } = useQuery({
+    queryKey: ["listIntegrations", organizationId],
+    queryFn: async () => {
+      const res = await listIntegrations(organizationId)
+      return res ?? null
+    },
+  })
+
+  const integrations = React.useMemo(() => integrationsData ?? [], [integrationsData])
+
   const setupTools = React.useMemo(
-    () => INTEGRATION_CATALOG.filter((t) => isToolInSetup(t, addedIds)),
-    [addedIds]
+    () => INTEGRATION_CATALOG.filter((t) => isToolInSetup(t, integrations, addedIds)),
+    [addedIds, integrations]
   )
   const availableTools = React.useMemo(
-    () => INTEGRATION_CATALOG.filter((t) => !isToolInSetup(t, addedIds)),
-    [addedIds]
+    () => INTEGRATION_CATALOG.filter((t) => !isToolInSetup(t, integrations, addedIds)),
+    [addedIds, integrations]
   )
-
-  useEffect(() => {
-    if (!organizationId) return
-    let cancelled = false
-
-    const run = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const items = await listIntegrations(organizationId)
-        if (!cancelled) setIntegrations(items)
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load integrations")
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    void run()
-    return () => {
-      cancelled = true
-    }
-  }, [organizationId])
 
   const basePath = `/${encodeURIComponent(organizationId)}/integrations`
 
-  const handleAddToSetup = (appId: string) => {
-    setAddedIds((prev) => {
-      const next = new Set(prev)
-      next.add(appId)
-      return next
-    })
+  const handleAddToSetup = async (appId: string) => {
+    setPendingAppId(appId)
+    try {
+      if (organizationId) {
+        await addIntegrations(organizationId, { provider: appId as ExternalProvider, label: appId })
+      }
+      setAddedIds((prev) => {
+        const next = new Set(prev)
+        next.add(appId)
+        return next
+      })
+      refetch()
+    } finally {
+      setPendingAppId(null)
+    }
   }
 
   const handleInstall = async (appId: string) => {
@@ -207,19 +186,21 @@ export default function IntegrationsPage() {
     const primaryStyle = { backgroundColor: ACCENT }
 
     if (connected && app.managePath) {
+      const integrationId = integration?.integrationId ?? ""
       return (
         <>
           <Button
             type="button"
             variant="ghost"
             className="border-[0.5px] border-accent  text-accent hover:bg-accent hover:text-white"
-            onClick={() => router.push(`${basePath}/${app.managePath}`)}
+            onClick={() =>
+              router.push(
+                `${basePath}/${app.managePath}?integrationId=${encodeURIComponent(integrationId)}`
+              )
+            }
           >
             Manage
           </Button>
-          <span className="px-4 py-2 inline-flex items-center gap-2 rounded-md border border-border bg-black text-xs font-medium text-green-500">
-            Connected
-          </span>
         </>
       )
     }
@@ -310,12 +291,14 @@ export default function IntegrationsPage() {
     const status = integration?.status ?? IntegrationStatus.NOT_CONNECTED
     const connected = status === IntegrationStatus.CONNECTED
     const processing = status === IntegrationStatus.PROCESSING
-    const inSetup = isToolInSetup(app, addedIds)
+    const inSetup = isToolInSetup(app, integrations, addedIds)
 
-    return (
+    const card = (
       <Card
         key={app.id}
-        className="flex h-full flex-col rounded-xl border border-white/10 bg-[#0D0D0D] shadow-none"
+        className={cn(
+          "flex h-full flex-col rounded-xl border border-white/10 bg-[#0D0D0D] shadow-none",
+        )}
       >
         <CardContent className="space-y-2 ">
           <div className="flex items-start justify-between">
@@ -332,6 +315,13 @@ export default function IntegrationsPage() {
         </CardContent>
       </Card>
     )
+
+
+    return (
+      <div key={app.id} className="block h-full">
+        {card}
+      </div>
+    )
   }
 
   return (
@@ -341,8 +331,12 @@ export default function IntegrationsPage() {
         description="Connect your tools to sync activity, projects, and team updates."
       />
 
-      {loading ? <p className="text-sm text-[#888888]">Loading integrations...</p> : null}
-      {!loading && error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {integrationsLoading ? <p className="text-sm text-[#888888]">Loading integrations...</p> : null}
+      {!integrationsLoading && integrationsError ? (
+        <p className="text-sm text-destructive">
+          {integrationsError instanceof Error ? integrationsError.message : "Failed to load integrations"}
+        </p>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {setupTools.map((app) => renderCard(app))}

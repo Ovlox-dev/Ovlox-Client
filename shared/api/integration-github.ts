@@ -39,8 +39,27 @@ export const postWebhookHandler = async (): Promise<ApiResponse> => {
     return response.data;
 };
 
-export const getGithubRepositories = async (integrationId: string): Promise<GitHubRepo[]> => {
-    const response = await apiClient.get<GitHubRepo[]>(`/integrations/github/repo/${integrationId}`);
+
+export type GithubRepositoriesResponse = {
+    data: Array<Pick<GitHubRepo, "id" | "name" | "url" | "default_branch" | "updated_at" | "pushed_at">>;
+    pagination?: {
+        page: number;
+        perPage: number;
+        totalCount: number;
+        totalPages: number;
+    };
+};
+
+export const getGithubRepositories = async (integrationId: string): Promise<GithubRepositoriesResponse> => {
+    const response = await apiClient.get<{
+        data: Array<Pick<GitHubRepo, "id" | "name" | "url" | "default_branch" | "updated_at" | "pushed_at">>;
+        pagination?: {
+            page: number;
+            perPage: number;
+            totalCount: number;
+            totalPages: number;
+        };
+    }>(`/integrations/github/repo/${integrationId}`);
     return response.data;
 };
 
