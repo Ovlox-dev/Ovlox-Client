@@ -37,7 +37,6 @@ import {
     DebugGithubCommitResponse,
     getGithubPullRequests,
     getGithubIssues,
-    getGithubRepositories,
     type GitHubPullRequest,
     type GitHubIssue,
 } from "@/shared/api/integration-github"
@@ -79,7 +78,7 @@ export default function GitHubAnalysis() {
     const [debugResult, setDebugResult] = React.useState<DebugGithubCommitResponse | null>(null)
     const [isDebugLoading, setIsDebugLoading] = React.useState(false)
     const [debugHtml, setDebugHtml] = React.useState<string | null>(null)
-    const [repositories, setRepositories] = React.useState<Array<{ full_name: string; name: string }>>([])
+    const [repositories] = React.useState<Array<{ full_name: string; name: string }>>([])
     const [selectedRepoFullName, setSelectedRepoFullName] = React.useState<string>("")
 
     const [pullRequests, setPullRequests] = React.useState<GitHubPullRequest[]>([])
