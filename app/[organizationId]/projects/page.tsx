@@ -11,7 +11,7 @@ import { SiSlack, SiLinear, SiJira, SiDiscord } from "react-icons/si"
 import { cn } from "@/lib/utils"
 import { useOrganizationAccess } from "@/entities/organization/model/useOrganizationAccess"
 
-import Search from "@/components/search"
+import Search from "@/features/search"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
