@@ -141,31 +141,29 @@ export default function GitHubAnalysis() {
         loadCommits()
     }, [githubIntegrationId])
 
-    React.useEffect(() => {
-        const loadRepos = async () => {
-            if (!githubIntegrationId) {
-                setRepositories([])
-                setSelectedRepoFullName("")
-                return
-            }
-            try {
-                const repos = await getGithubRepositories(githubIntegrationId)
-                const normalized = (repos.data || []).map((r) => ({
-                    full_name: r.url ?? r.name,
-                    name: r.name,
-                }))
-                setRepositories(normalized)
-                setSelectedRepoFullName((prev) => prev || normalized[0]?.full_name || "")
-            } catch (e) {
-                toast.error("Failed to load GitHub repositories", {
-                    description: e instanceof Error ? e.message : "Unknown error",
-                })
-                setRepositories([])
-                setSelectedRepoFullName("")
-            }
-        }
-        void loadRepos()
-    }, [githubIntegrationId])
+    // React.useEffect(() => {
+    //     const loadRepos = async () => {
+    //         if (!githubIntegrationId) {
+    //             setRepositories([])
+    //             setSelectedRepoFullName("")
+    //             return
+    //         }
+    //         try {
+    //             const repos = await getGithubRepositories(githubIntegrationId)
+    //             const normalized = (repos || []).map((r) => ({
+    //                 full_name: r.full_name ?? r.name,
+    //                 name: r.name,
+    //             }))
+    //             setRepositories(normalized)
+    //             setSelectedRepoFullName((prev) => prev || normalized[0]?.full_name || "")
+    //         } catch (e) {
+    //             console.error("Failed to load GitHub repositories", e)
+    //             setRepositories([])
+    //             setSelectedRepoFullName("")
+    //         }
+    //     }
+    //     void loadRepos()
+    // }, [githubIntegrationId])
 
     React.useEffect(() => {
         const loadPRsAndIssues = async () => {
