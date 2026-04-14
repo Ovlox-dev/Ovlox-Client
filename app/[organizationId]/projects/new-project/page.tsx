@@ -19,11 +19,8 @@ import {
     Plus,
     Search,
     CheckCircle2,
-    Calendar,
-    Target,
-    Upload
 } from "lucide-react"
-import { SiGithub, SiSlack, SiDiscord, SiJira } from "react-icons/si"
+import { SiGithub, SiSlack, SiJira } from "react-icons/si"
 import {
     Select,
     SelectContent,
@@ -32,7 +29,11 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { InputField, TextareaField } from "@/components/form-components"
+import { useForm } from "react-hook-form"
+import { useCreateProject } from "@/shared/queries/projects.queries"
+import { useParams, useRouter } from "next/navigation"
+import { CreateProjectResponse } from "@/types/api-types"
 
 type Step = "details" | "members" | "datasources" | "settings"
 
@@ -101,90 +102,35 @@ const connectedApps: DataSource[] = [
     },
 ]
 
+type ProjectForm = {
+    projectName: string
+    projectDescription: string
+}
+
 export default function NewProject() {
-    const [currentStep, setCurrentStep] = React.useState<Step>("details")
-    const [projectName, setProjectName] = React.useState("")
-    const [projectDescription, setProjectDescription] = React.useState("")
-    const [projectKey, setProjectKey] = React.useState("")
-    const [startDate, setStartDate] = React.useState("")
-    const [endDate, setEndDate] = React.useState("")
-    const [projectMembers, setProjectMembers] = React.useState<ProjectMember[]>([])
-    const [searchQuery, setSearchQuery] = React.useState("")
-    const [dataSources, setDataSources] = React.useState<DataSource[]>(connectedApps)
-    const [autoSync, setAutoSync] = React.useState(true)
-    const [notifications, setNotifications] = React.useState(true)
-    const [visibility, setVisibility] = React.useState<"public" | "private">("private")
+    const { organizationId } = useParams<{ organizationId: string }>()
+    const router = useRouter();
+    const { register, handleSubmit, formState: { errors }, } = useForm<ProjectForm>({
+        defaultValues: {
+            projectName: "",
+            projectDescription: "",
+        },
+    })
 
-    const steps = [
-        { id: "details", label: "Project Details", icon: FolderKanban },
-        { id: "members", label: "Team Access", icon: Users },
-        { id: "datasources", label: "Data Sources", icon: Database },
-        { id: "settings", label: "Settings", icon: SettingsIcon },
-    ]
+    const { mutate: createProject } = useCreateProject(organizationId as string)
 
-    const filteredMembers = React.useMemo(() => {
-        if (!searchQuery) return availableMembers
-        return availableMembers.filter((member) =>
-            member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            member.email.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-    }, [searchQuery])
-
-    const toggleMember = (memberId: string, access: "view" | "edit" | "admin") => {
-        const existing = projectMembers.find(m => m.memberId === memberId)
-        if (existing) {
-            setProjectMembers(projectMembers.filter(m => m.memberId !== memberId))
-        } else {
-            setProjectMembers([...projectMembers, { memberId, access }])
-        }
+    const onSubmit = (data: ProjectForm) => {
+        createProject(
+            {
+                name: data.projectName,
+                description: data.projectDescription,
+            },
+            {
+                onSuccess: (project) => {
+                    router.replace(`/${organizationId}/projects/${project.id}/setup`)
+                }
+            })
     }
-
-    const updateMemberAccess = (memberId: string, access: "view" | "edit" | "admin") => {
-        setProjectMembers(projectMembers.map(m =>
-            m.memberId === memberId ? { ...m, access } : m
-        ))
-    }
-
-    const toggleDataSource = (id: string) => {
-        setDataSources(dataSources.map(ds =>
-            ds.id === id ? { ...ds, enabled: !ds.enabled } : ds
-        ))
-    }
-
-    const canProceed = () => {
-        if (currentStep === "details") {
-            return projectName.trim().length > 0 && projectKey.trim().length > 0
-        }
-        return true
-    }
-
-    const handleNext = () => {
-        if (currentStep === "details") setCurrentStep("members")
-        else if (currentStep === "members") setCurrentStep("datasources")
-        else if (currentStep === "datasources") setCurrentStep("settings")
-    }
-
-    const handleBack = () => {
-        if (currentStep === "settings") setCurrentStep("datasources")
-        else if (currentStep === "datasources") setCurrentStep("members")
-        else if (currentStep === "members") setCurrentStep("details")
-    }
-
-    const handleCreate = () => {
-        console.log("Creating project:", {
-            name: projectName,
-            description: projectDescription,
-            key: projectKey,
-            startDate,
-            endDate,
-            members: projectMembers,
-            dataSources: dataSources.filter(ds => ds.enabled),
-            settings: { autoSync, notifications, visibility }
-        })
-    }
-
-    const getStepIndex = (step: Step) => steps.findIndex(s => s.id === step)
-    const currentStepIndex = getStepIndex(currentStep)
 
     return (
         <div className="min-h-screen bg-background p-6">
@@ -196,7 +142,7 @@ export default function NewProject() {
                 </div>
 
                 {/* Progress Steps */}
-                <div className="mb-8">
+                {/* <div className="mb-8">
                     <div className="flex items-center justify-between">
                         {steps.map((step, index) => {
                             const StepIcon = step.icon
@@ -238,101 +184,46 @@ export default function NewProject() {
                             )
                         })}
                     </div>
-                </div>
+                </div> */}
 
                 {/* Form Content */}
                 <Card className="p-8">
                     {/* Step 1: Project Details */}
-                    {currentStep === "details" && (
-                        <div className="space-y-6">
-                            <div>
-                                <h2 className="text-xl font-semibold mb-4">Project Details</h2>
-                                <p className="text-muted-foreground mb-6">
-                                    Basic information about your project
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Project Name */}
-                                <div className="md:col-span-2 space-y-2">
-                                    <Label className="text-sm font-medium">
-                                        Project Name <span className="text-destructive">*</span>
-                                    </Label>
-                                    <Input
-                                        placeholder="e.g. Mobile App Redesign"
-                                        value={projectName}
-                                        onChange={(e) => setProjectName(e.target.value)}
-                                    />
-                                </div>
-
-                                {/* Project Key */}
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium">
-                                        Project Key <span className="text-destructive">*</span>
-                                    </Label>
-                                    <Input
-                                        placeholder="e.g. MAR"
-                                        value={projectKey}
-                                        onChange={(e) => setProjectKey(e.target.value.toUpperCase())}
-                                        maxLength={10}
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        A short identifier for your project (2-10 characters)
-                                    </p>
-                                </div>
-
-                                {/* Template */}
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Template</Label>
-                                    <Select defaultValue="blank">
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Choose template" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="blank">Blank Project</SelectItem>
-                                            <SelectItem value="scrum">Scrum</SelectItem>
-                                            <SelectItem value="kanban">Kanban</SelectItem>
-                                            <SelectItem value="bug-tracking">Bug Tracking</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {/* Description */}
-                                <div className="md:col-span-2 space-y-2">
-                                    <Label className="text-sm font-medium">Description</Label>
-                                    <Textarea
-                                        // className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        placeholder="What is this project about?"
-                                        value={projectDescription}
-                                        onChange={(e) => setProjectDescription(e.target.value)}
-                                    />
-                                </div>
-
-                                {/* Start Date */}
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Start Date</Label>
-                                    <Input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                    />
-                                </div>
-
-                                {/* End Date */}
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Target End Date</Label>
-                                    <Input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                    />
-                                </div>
-                            </div>
+                    {/* {currentStep === "details" && ( */}
+                    <div className="space-y-6">
+                        <div>
+                            <h2 className="text-xl font-semibold mb-4">Project Details</h2>
+                            <p className="text-muted-foreground mb-6">
+                                Basic information about your project
+                            </p>
                         </div>
-                    )}
+
+                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                            {/* Project Name */}
+                            <InputField
+                                name="projectName"
+                                label="Project Name"
+                                placeholder="e.g. Mobile App Redesign"
+                                register={register}
+                                errors={errors}
+                                required
+                            />
+
+                            {/* Description */}
+                            <TextareaField
+                                name="projectDescription"
+                                label="Description"
+                                placeholder="What is this project about?"
+                                register={register}
+                                errors={errors}
+                            />
+                            <Button type="submit" >Create Project</Button>
+                        </form>
+                    </div>
+                    {/* )} */}
 
                     {/* Step 2: Team Members */}
-                    {currentStep === "members" && (
+                    {/* {currentStep === "members" && (
                         <div className="space-y-6">
                             <div>
                                 <h2 className="text-xl font-semibold mb-4">Team Access</h2>
@@ -341,7 +232,6 @@ export default function NewProject() {
                                 </p>
                             </div>
 
-                            {/* Search */}
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
                                 <Input
@@ -352,7 +242,6 @@ export default function NewProject() {
                                 />
                             </div>
 
-                            {/* Selected Count */}
                             {projectMembers.length > 0 && (
                                 <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
                                     <CheckCircle2 className="size-5 text-primary" />
@@ -363,7 +252,6 @@ export default function NewProject() {
                                 </div>
                             )}
 
-                            {/* Members List */}
                             <div className="space-y-2 max-h-[400px] overflow-y-auto">
                                 {filteredMembers.map((member) => {
                                     const projectMember = projectMembers.find(m => m.memberId === member.id)
@@ -433,10 +321,10 @@ export default function NewProject() {
                                 })}
                             </div>
                         </div>
-                    )}
+                    )} */}
 
                     {/* Step 3: Data Sources */}
-                    {currentStep === "datasources" && (
+                    {/* {currentStep === "datasources" && (
                         <div className="space-y-6">
                             <div>
                                 <h2 className="text-xl font-semibold mb-4">Data Sources</h2>
@@ -445,7 +333,6 @@ export default function NewProject() {
                                 </p>
                             </div>
 
-                            {/* Data Sources Grid */}
                             <div className="space-y-4">
                                 {dataSources.map((source) => (
                                     <Card key={source.id} className="p-5">
@@ -534,10 +421,10 @@ export default function NewProject() {
                                 </div>
                             )}
                         </div>
-                    )}
+                    )} */}
 
                     {/* Step 4: Settings */}
-                    {currentStep === "settings" && (
+                    {/* {currentStep === "settings" && (
                         <div className="space-y-6">
                             <div>
                                 <h2 className="text-xl font-semibold mb-4">Project Settings</h2>
@@ -547,7 +434,6 @@ export default function NewProject() {
                             </div>
 
                             <div className="space-y-4">
-                                {/* Visibility */}
                                 <Card className="p-5">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="flex-1">
@@ -568,7 +454,6 @@ export default function NewProject() {
                                     </div>
                                 </Card>
 
-                                {/* Auto Sync */}
                                 <Card className="p-5">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="flex-1">
@@ -584,7 +469,6 @@ export default function NewProject() {
                                     </div>
                                 </Card>
 
-                                {/* Notifications */}
                                 <Card className="p-5">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="flex-1">
@@ -600,17 +484,12 @@ export default function NewProject() {
                                     </div>
                                 </Card>
 
-                                {/* Summary */}
                                 <Card className="p-5 bg-muted/50">
                                     <h3 className="font-semibold mb-4">Project Summary</h3>
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between">
                                             <span className="text-sm text-muted-foreground">Project Name</span>
-                                            <span className="text-sm font-medium">{projectName || "—"}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm text-muted-foreground">Project Key</span>
-                                            <span className="text-sm font-medium">{projectKey || "—"}</span>
+                                            <span className="text-sm font-medium">{getValues("projectName") || "—"}</span>
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <span className="text-sm text-muted-foreground">Team Members</span>
@@ -628,10 +507,10 @@ export default function NewProject() {
                                 </Card>
                             </div>
                         </div>
-                    )}
+                    )} */}
 
                     {/* Navigation Buttons */}
-                    <div className="flex items-center justify-between mt-8 pt-6 border-t border-border">
+                    {/* <div className="flex items-center justify-between mt-8 pt-6 border-t border-border">
                         <Button
                             variant="ghost"
                             onClick={handleBack}
@@ -653,7 +532,7 @@ export default function NewProject() {
                                 </Button>
                             )}
                         </div>
-                    </div>
+                    </div> */}
                 </Card>
             </div>
         </div>

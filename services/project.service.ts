@@ -1,5 +1,5 @@
 import { apiClient } from "@/shared/api/client";
-import { ApiResponse, CreateProjectRequest, CreateProjectResponse, ListProjectsResponse, UpdateProjectRequest, LinkIntegrationRequest, GetResourcesResponse } from "@/types/api-types";
+import { CreateProjectRequest, CreateProjectResponse, ListProjectsResponse, UpdateProjectRequest, LinkIntegrationRequest, GetResourcesResponse } from "@/types/api-types";
 import { IProject } from "@/types/prisma-generated";
 
 export const createProject = async (orgId: string, data: CreateProjectRequest): Promise<CreateProjectResponse> => {

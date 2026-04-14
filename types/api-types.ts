@@ -106,7 +106,9 @@ export interface CreateProjectRequest {
     description?: string;
 }
 
-export interface CreateProjectResponse extends IProject { }
+export interface CreateProjectResponse extends ApiResponse<IProject> {
+    data: IProject;
+}
 
 export interface ListProjectsResponse extends ApiResponse<IProject[]> {
     data: IProject[];
@@ -119,11 +121,13 @@ export interface UpdateProjectRequest {
 
 export interface LinkIntegrationRequest {
     integrationId: string;
-    items: {
+    resourceIds: string[];
+    resources?: IntegrationResource[];
+    items?: {
         repositories?: string[];
         channels?: string[];
         projects?: string[];
-        [key: string]: any;
+        // [key: string]: any;
     };
 }
 
@@ -131,10 +135,9 @@ export interface IntegrationResource {
     id: string;
     name: string;
     type: string;
-    [key: string]: any;
 }
 
-export interface GetResourcesResponse {
+export interface GetAvailableIntegrationsResponse {
     integrations: Array<{
         id: string;
         type: ExternalProvider;
@@ -158,7 +161,6 @@ export interface GitHubRepo {
     url?: string;
     updated_at?: string;
     pushed_at?: string;
-    [key: string]: any;
 }
 
 // Project-specific repository (with accessibility info)

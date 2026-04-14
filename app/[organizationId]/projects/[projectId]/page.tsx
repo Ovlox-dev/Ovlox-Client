@@ -209,7 +209,7 @@ export default function Project() {
                                     <div key={tool.key} className="flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-3 min-w-0">
                                             <div className="size-9 rounded-xl bg-accent-contrast border-[0.5px] border-border flex items-center justify-center">
-                                                <Icon className="size-5 text-text" />
+                                                {/* <Icon className="size-5 text-text" /> */}
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-sm font-medium text-text truncate">{integrationLabels[tool.key]}</p>
@@ -407,7 +407,7 @@ export default function Project() {
             </div>
 
             {/* Team activity */}
-            <Card className="bg-card border-[0.5px] border-border rounded-[16px] p-4 gap-0 py-4">
+            <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     <div className="space-y-1">
                         <p className="text-xs text-muted uppercase tracking-wide">Team Activity</p>
@@ -450,7 +450,7 @@ export default function Project() {
                             >
                                 <div className="flex items-center gap-3 min-w-0">
                                     <div className="size-10 rounded-full bg-border border-[0.5px] border-background flex items-center justify-center">
-                                        <Icon className="size-5 text-text" />
+                                        {/* <Icon className="size-5 text-text" /> */}
                                     </div>
                                     <div className="min-w-0">
                                         <p className="text-sm font-medium text-text truncate">

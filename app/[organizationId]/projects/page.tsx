@@ -11,7 +11,7 @@ import { SiSlack, SiLinear, SiJira, SiDiscord } from "react-icons/si"
 import { cn } from "@/lib/utils"
 import { useOrganizationAccess } from "@/entities/organization/model/useOrganizationAccess"
 
-import Search from "@/components/search"
+import Search from "@/features/search"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -20,6 +20,9 @@ import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount } from "@/compone
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { PageTitle } from "@/components/page-title"
+import { listProjects } from "@/services/project.service"
+import { useListProjects } from "@/shared/queries/projects.queries"
+import { dateFormatter } from "@/shared/lib/date-formatter"
 
 type ProjectStatus = "on_track" | "needs_review" | "blocked"
 type StatusFilter = "all" | "active" | "completed" | "archived"
@@ -134,6 +137,10 @@ export default function Projects() {
         return Math.min(100, Math.max(0, Math.round(percent)))
     }, [])
 
+    // listProjects
+    const { data: projects } = useListProjects(organizationId)
+    console.log(projects)
+
     const filteredProjects = useMemo(() => {
         let list = sampleProjects
         if (query) {
@@ -164,9 +171,10 @@ export default function Projects() {
         setSortFilter(value);
     };
 
+
+
     return (
         <div className="space-y-8">
-
             <div className="flex items-start justify-between">
                 <PageTitle
                     title="Projects"
@@ -237,13 +245,13 @@ export default function Projects() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredProjects.map((p) => {
-                    const status = statusConfig[p.status]
-                    const projectProgress = getProjectProgress(p)
+                {projects?.data.map((project) => {
+                    const status = statusConfig[project.status as unknown as ProjectStatus]
+                    // const projectProgress = getProjectProgress(p)
                     return (
                         <article
-                            key={p.id}
-                            className="border-[0.5px] border-border rounded-[16px] p-4 bg-card flex flex-col space-y-4"
+                            key={project.id}
+                            className="border-[0.5px] border-border rounded-2xl p-4 bg-card flex flex-col space-y-4"
                         >
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
@@ -286,18 +294,18 @@ export default function Projects() {
                                     </Popover>
                                 </div>
 
-                                <h3 className="text-text font-semibold text-xl">{p.name}</h3>
+                                <h3 className="text-text font-semibold text-xl">{project.name}</h3>
 
-                                <Progress
+                                {/* <Progress
                                     value={projectProgress}
-                                />
+                                /> */}
 
                                 <div className="flex items-center justify-between gap-2">
                                     <span className="inline-flex items-center rounded-full bg-accent-contrast text-accent px-2 py-0.5 text-xs font-medium">
-                                        {p.phase}
+                                        Project Phase
                                     </span>
                                     <span className="text-sm text-muted font-medium">
-                                        <span className="text-accent">{p.tasksCompleted}</span> / {p.tasksTotal} <span className="text-xs font-normal">tasks completed</span>
+                                        <span className="text-accent">Tasks Completed</span> / Tasks Total <span className="text-xs font-normal">tasks completed</span>
                                     </span>
                                 </div>
                             </div>
@@ -306,18 +314,18 @@ export default function Projects() {
                                 <p className="text-xs font-medium uppercase text-[#565F63] tracking-wide">
                                     Description
                                 </p>
-                                <p className="text-sm text-muted">{p.description}</p>
+                                <p className="text-sm text-muted">{project.description}</p>
                             </div>
 
                             <div className="flex items-center justify-between">
                                 <div className="">
                                     <>
-                                        {p.toolsIntegrated.length > 0 ? (
+                                        {project.integrations?.length && project.integrations?.length > 0 ? (
                                             <AvatarGroup
                                                 data-size="sm"
                                                 className="flex items-center"
                                             >
-                                                {p.toolsIntegrated
+                                                {/* {project.integrations
                                                     .slice(0, 3)
                                                     .map((name) => {
                                                         const Icon =
@@ -337,14 +345,13 @@ export default function Projects() {
                                                                 </AvatarFallback>
                                                             </Avatar>
                                                         ) : null
-                                                    })}
-                                                {p.toolsIntegrated
-                                                    .length > 3 && (
-                                                        <AvatarGroupCount className="size-6 text-[10px] font-medium text-text">
-                                                            +
-                                                            {p.toolsIntegrated.length - 3}
-                                                        </AvatarGroupCount>
-                                                    )}
+                                                    })} */}
+                                                {project.integrations?.length && project.integrations?.length > 3 && (
+                                                    <AvatarGroupCount className="size-6 text-[10px] font-medium text-text">
+                                                        +
+                                                        {project.integrations?.length ? project.integrations?.length - 3 : 0}
+                                                    </AvatarGroupCount>
+                                                )}
                                             </AvatarGroup>
                                         ) : (
                                             <>
@@ -376,7 +383,7 @@ export default function Projects() {
 
                             <div className="flex items-center gap-1 text-sm text-[#565F63]">
                                 <Clock className="size-3.5" />
-                                Last updated:<span className="font-medium text-muted"> {p.lastUpdated}</span>
+                                Last updated:<span className="font-medium text-muted"> {dateFormatter(project.updatedAt as string)}</span>
                             </div>
                         </article>
                     )

@@ -1,6 +1,20 @@
-import { AccountType, AuthProvider, ExternalProvider, Gender, IntegrationAuthType, IntegrationStatus, OrgMemberStatus, PredefinedOrgRole, UserRole, InviteStatus, ConversationType, ChatRole } from "./enum";
-
-export type UserRoleType = typeof UserRole[keyof typeof UserRole];
+import {
+    AccountType,
+    AuthProvider,
+    ExternalProvider,
+    Gender,
+    IntegrationAuthType,
+    IntegrationStatus,
+    OrgMemberStatus,
+    PredefinedOrgRole,
+    UserRole,
+    InviteStatus,
+    ConversationType,
+    ChatRole,
+    ProjectStatus,
+    ProjectVisibility,
+    ProjectSyncStatus
+} from "./enum";
 
 export interface IUser {
     id: string;
@@ -69,15 +83,28 @@ export interface IIntegration {
     organizationId: string;
     type: ExternalProvider;
     authType: IntegrationAuthType;
-    config?: Record<string, any> | null;
     externalAccountId?: string | null;
     externalAccount?: string | null;
     status: IntegrationStatus;
+    accessToken?: string | null;
+    refreshToken?: string | null;
+    tokenExpiresAt?: string | null;
+    lastWebhookAt?: string | null;
+    lastValidatedAt?: string | null;
+    lastSyncAt?: string | null;
+    config?: Record<string, string> | null;
+    scope?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
     resources?: IIntegrationResource[];
 }
 
+export interface IIntegrationResourceMetadata {
+    private: boolean;
+    archived: boolean;
+    pushedAt: string;
+    updatedAt: string;
+}
 export interface IIntegrationResource {
     id: string;
     integrationId: string;
@@ -85,25 +112,10 @@ export interface IIntegrationResource {
     providerId: string;
     name: string;
     url?: string | null;
-    metadata?: Record<string, any> | null;
+    metadata?: IIntegrationResourceMetadata | null;
     imported: boolean;
     createdAt: Date | string;
     updatedAt: Date | string;
-}
-
-export interface IProject {
-    id: string;
-    organization?: IOrganization;
-    organizationId: string;
-    name: string;
-    slug: string;
-    description?: string | null;
-    createdById: string;
-    createdBy?: IUser;
-    settings?: Record<string, any> | null;
-    createdAt: Date | string;
-    updatedAt: Date | string;
-    integrations?: IIntegrationConnection[];
 }
 
 export interface IIntegrationConnection {
@@ -115,6 +127,26 @@ export interface IIntegrationConnection {
     items: Record<string, any> | null;
     createdAt: Date | string;
     updatedAt: Date | string;
+}
+export interface IProject {
+    id: string;
+    organization?: IOrganization;
+    organizationId: string;
+    name: string;
+    slug: string;
+    description?: string | null;
+    status: ProjectStatus;
+    visibility: ProjectVisibility;
+    createdById: string;
+    syncStatus: ProjectSyncStatus;
+    isDeleted: boolean;
+    deletedAt?: string | null;
+    lastSyncAt?: string | null;
+    syncError?: string | null;
+    createdAt: Date | string;
+    updatedAt: Date | string;
+    createdBy?: IUser;
+    integrations?: IIntegrationConnection[];
 }
 
 export interface IInvite {
