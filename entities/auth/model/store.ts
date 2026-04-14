@@ -52,7 +52,7 @@ function clearSession(): void {
 }
 
 function isAuthFailure(error: unknown): boolean {
-    if (!(error instanceof AxiosError)) return false;
+    if (!(error instanceof AxiosError)) { return false; }
     const status = error.response?.status;
     return status === 401 || status === 403;
 }
@@ -217,7 +217,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         },
 
         bootstrapSession: async () => {
-            if (bootstrapPromise) return bootstrapPromise;
+            if (bootstrapPromise) { return bootstrapPromise; }
             bootstrapPromise = (async () => {
                 set((state) => ({ auth: { ...state.auth, isLoading: true, authStatus: "loading" } }));
                 try {
@@ -225,7 +225,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
                     // - `/user/me` is the source of truth when backend auth is HttpOnly-cookie based.
                     // - Attempt refresh only when `/user/me` indicates an auth failure (401/403).
                     const user = await get().auth.fetchUser();
-                    if (user) return user;
+                    if (user) { return user; }
 
                     set((state) => ({
                         auth: {

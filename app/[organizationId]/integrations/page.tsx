@@ -19,6 +19,7 @@ import { PageTitle } from "@/components/page-title"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { getSlackInstallUrl } from "@/shared/api/integration-slack"
 
 const ACCENT = "#55C6F0"
 
@@ -57,8 +58,8 @@ const INTEGRATION_CATALOG: IntegrationToolDef[] = [
     name: "Slack",
     icon: SiSlack,
     description: "Send updates and notifications to your team channels.",
-    connect: true,
-    install: false,
+    connect: false,
+    install: true,
     managePath: "slack",
   },
   {
@@ -66,8 +67,8 @@ const INTEGRATION_CATALOG: IntegrationToolDef[] = [
     name: "Linear",
     icon: SiLinear,
     description: "Track issues, manage sprints, and plan product development.",
-    install: false,
-    connect: true,
+    install: true,
+    connect: false,
     managePath: "linear",
   },
   {
@@ -153,13 +154,27 @@ export default function IntegrationsPage() {
     }
   }
 
-  const handleInstall = async (appId: string) => {
-    if (!organizationId) return
+  const handleInstall = async (appId: string, integrationId: string) => {
+    if (!organizationId) { return; }
     if (appId === "github") {
       try {
         setPendingAppId("github")
         const res = await getGithubInstallUrl(organizationId)
-        if (res?.url) window.location.href = res.url
+        if (res?.url) {
+          window.location.href = res.url
+        }
+      } finally {
+        setPendingAppId(null)
+      }
+    }
+
+    if (appId === "slack") {
+      try {
+        setPendingAppId("slack")
+        const res = await getSlackInstallUrl(organizationId, integrationId)
+        if (res?.url) {
+          window.location.href = res.url
+        }
       } finally {
         setPendingAppId(null)
       }
@@ -170,7 +185,9 @@ export default function IntegrationsPage() {
     (appId: string) => {
       const app = INTEGRATION_CATALOG.find((a) => a.id === appId)
       const path = app?.managePath
-      if (path) router.push(`${basePath}/${path}`)
+      if (path) {
+        router.push(`${basePath}/${path}`)
+      }
     },
     [basePath, router]
   )
@@ -245,7 +262,7 @@ export default function IntegrationsPage() {
             type="button"
             className={primaryClassName}
             style={primaryStyle}
-            onClick={() => void handleInstall(app.id)}
+            onClick={() => void handleInstall(app.id, integration?.integrationId ?? "")}
             disabled={pending || processing}
           >
             {pending || processing ? "Installing..." : "Install"}
@@ -260,7 +277,7 @@ export default function IntegrationsPage() {
           type="button"
           className={primaryClassName}
           style={primaryStyle}
-          onClick={() => void handleInstall(app.id)}
+          onClick={() => void handleInstall(app.id, integration?.integrationId ?? "")}
           disabled={pending || processing}
         >
           {pending || processing ? "Installing..." : "Install"}

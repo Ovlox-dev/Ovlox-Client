@@ -15,9 +15,9 @@ function canUseSessionStorage(): boolean {
 }
 
 function isSafePath(path: string | null | undefined): path is string {
-    if (!path) return false;
-    if (!path.startsWith("/")) return false;
-    if (path.startsWith("//")) return false;
+    if (!path) { return false; }
+    if (!path.startsWith("/")) { return false; }
+    if (path.startsWith("//")) { return false; }
     return true;
 }
 
@@ -31,8 +31,8 @@ export function buildSigninRedirectPath(): string {
 }
 
 export function setAuthNavigation(path: string | null | undefined): void {
-    if (!canUseSessionStorage()) return;
-    if (!isSafePath(path) || isAuthRoute(path)) return;
+    if (!canUseSessionStorage()) { return; }
+    if (!isSafePath(path) || isAuthRoute(path)) { return; }
 
     const payload: StoredAuthNavigation = {
         path,
@@ -42,22 +42,23 @@ export function setAuthNavigation(path: string | null | undefined): void {
 }
 
 export function popAuthNavigation(): string | null {
-    if (!canUseSessionStorage()) return null;
+    if (!canUseSessionStorage()) { return null; }
 
     const raw = window.sessionStorage.getItem(AUTH_NAV_STORAGE_KEY);
     window.sessionStorage.removeItem(AUTH_NAV_STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw) { return null; }
 
     try {
         const parsed = JSON.parse(raw) as StoredAuthNavigation;
-        if (!isSafePath(parsed.path) || parsed.expiresAt < Date.now()) return null;
-        if (isAuthRoute(parsed.path)) return null;
+        if (!isSafePath(parsed.path) || parsed.expiresAt < Date.now()) { return null; }
+        if (isAuthRoute(parsed.path)) { return null; }  
         return parsed.path;
     } catch {
         return null;
     }
 }
 
+/* eslint-disable no-redeclare */
 export function resolvePostLoginAuthNavigation(
     fromPath: string | null | undefined,
     fallback?: string,
@@ -94,6 +95,7 @@ export function resolvePostLoginAuthNavigation(
     }
 
     const storedPath = popAuthNavigation();
-    if (storedPath) return storedPath;
+    if (storedPath) { return storedPath; }
     return fallback;
 }
+/* eslint-enable no-redeclare */

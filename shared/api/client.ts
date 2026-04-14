@@ -26,9 +26,9 @@ const failedQueue: Array<{
 function processQueue(error: unknown | null): void {
     while (failedQueue.length) {
         const queued = failedQueue.shift();
-        if (!queued) continue;
-        if (error) queued.reject(error);
-        else queued.resolve();
+        if (!queued) { continue; }
+        if (error) { queued.reject(error); }
+        else { queued.resolve(); }
     }
 }
 
@@ -38,7 +38,7 @@ async function attemptRefreshToken(): Promise<void> {
 }
 
 function clearSessionAfterRefreshFailure(): void {
-    if (hasClearedSessionAfterRefreshFailure) return;
+    if (hasClearedSessionAfterRefreshFailure) { return; }
     clearClientSessionState();
     hasClearedSessionAfterRefreshFailure = true;
 }
@@ -56,7 +56,7 @@ apiClient.interceptors.response.use(
     (response) => response,
     async (error: AxiosError) => {
         const originalRequest = error.config as RetryableRequestConfig | undefined;
-        if (!originalRequest) return Promise.reject(error);
+        if (!originalRequest) { return Promise.reject(error); }
 
         const status = error.response?.status;
 

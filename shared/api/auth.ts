@@ -39,10 +39,10 @@ export async function fetchCurrentUser(): Promise<IUser> {
 
     if (data && typeof data === "object") {
         const record = data as Record<string, unknown>;
-        if (record.user && typeof record.user === "object") return record.user as IUser;
+        if (record.user && typeof record.user === "object") { return record.user as IUser; }
         if (record.data && typeof record.data === "object") {
             const nested = record.data as Record<string, unknown>;
-            if (nested.user && typeof nested.user === "object") return nested.user as IUser;
+            if (nested.user && typeof nested.user === "object") { return nested.user as IUser; }
             return nested as unknown as IUser;
         }
     }

@@ -9,12 +9,12 @@ export function getSafePostAuthRedirectPath(fromParam: string | null | undefined
 export function formatAuthErrorMessage(error: unknown): string {
     if (axios.isAxiosError(error)) {
         const data = error.response?.data as ApiError | { message?: unknown } | undefined;
-        if (data && typeof data === "object" && "message" in data && data.message != null) {
+        if (data && typeof data === "object" && "message" in data && data.message !== null) {
             const m = data.message;
             return Array.isArray(m) ? m.join(", ") : String(m);
         }
-        if (error.message) return error.message;
+        if (error.message) { return error.message; }
     }
-    if (error instanceof Error) return error.message;
+    if (error instanceof Error) { return error.message; }
     return "Something went wrong. Please try again.";
 }

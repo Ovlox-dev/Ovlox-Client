@@ -18,7 +18,7 @@ export const syncSlackChannels = async (integrationId: string) => {
 
 export const ingestSlackHistory = async (integrationId: string, channelId: string, projectId?: string) => {
     const params: Record<string, string> = { channelId };
-    if (projectId) params.projectId = projectId;
+    if (projectId) { params.projectId = projectId; }
     const response = await apiClient.post<ApiResponse>(`/integrations/slack/ingest/${integrationId}`, null, { params });
     return response.data;
 };

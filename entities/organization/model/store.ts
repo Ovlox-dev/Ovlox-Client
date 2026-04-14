@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { userOrgBySlug } from "@/shared/api/org";
 import { IOrganization } from "@/types/prisma-generated";
 import { buildDashboardOrgRoute, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver";
+import { toast } from "sonner";
 
 export const useOrg = () => {
     const { currentOrg, setCurrentOrg, clearCurrentOrg } = useOrgStore();
@@ -22,7 +23,8 @@ export const useOrg = () => {
             setActiveOrgId(organization.id);
             return organization;
         } catch (error) {
-            console.error("Failed to load organization", error);
+            toast.error("Failed to load organization");
+            // console.error("Failed to load organization", error);
             throw error;
         }
     }, [setCurrentOrg]);

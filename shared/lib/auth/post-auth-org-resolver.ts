@@ -14,7 +14,7 @@ function canUseLocalStorage(): boolean {
 }
 
 export function setActiveOrgId(activeOrgId: string | null | undefined): void {
-    if (!canUseLocalStorage()) return;
+    if (!canUseLocalStorage()) { return; }
 
     if (activeOrgId) {
         window.localStorage.setItem(ACTIVE_ORG_ID_STORAGE_KEY, activeOrgId);
@@ -25,7 +25,7 @@ export function setActiveOrgId(activeOrgId: string | null | undefined): void {
 }
 
 export function getActiveOrgId(): string | null {
-    if (!canUseLocalStorage()) return null;
+    if (!canUseLocalStorage()) { return null; }
     return window.localStorage.getItem(ACTIVE_ORG_ID_STORAGE_KEY);
 }
 

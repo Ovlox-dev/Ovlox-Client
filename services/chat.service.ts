@@ -1,5 +1,4 @@
-import { apiClient } from "@/shared/api/client";
-import { apiBaseUrl } from "@/shared/api/client";
+import { apiClient , apiBaseUrl} from "@/shared/api/client";
 import {
     CreateConversationRequest,
     ListConversationsResponse,
@@ -10,6 +9,7 @@ import {
     ConversationWithDetails,
 } from "@/types/api-types";
 import { IConversation } from "@/types/prisma-generated";
+import { toast } from "sonner";
 
 // Create a new conversation
 export const createConversation = async (data: CreateConversationRequest): Promise<IConversation> => {
@@ -94,12 +94,12 @@ export const streamJobStatus = (jobId: string, onUpdate: (data: unknown) => void
                 eventSource.close();
             }
         } catch (error) {
-            console.error("Failed to parse SSE data:", error);
+            toast.error("Failed to parse SSE data", { description: (error as Error).message });
         }
     };
 
     eventSource.onerror = (error) => {
-        console.error("SSE error:", error);
+        toast.error("SSE error", { description: (error as unknown as Error).message });
         eventSource.close();
         onError?.(new Error("Failed to stream job status"));
     };

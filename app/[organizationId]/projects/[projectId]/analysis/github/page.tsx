@@ -53,6 +53,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { toast } from "sonner"
 
 type CommitSummary = GitHubCommitSummary
 
@@ -104,7 +105,9 @@ export default function GitHubAnalysis() {
     React.useEffect(() => {
         if (currentOrg?.id && projectId) {
             loadProject(currentOrg.id, projectId as string).catch((err) => {
-                console.error("Failed to load project for GitHub analysis", err)
+                toast.error("Failed to load project for GitHub analysis", {
+                    description: err.message,
+                })
             })
         }
     }, [currentOrg?.id, projectId, loadProject])
@@ -125,8 +128,10 @@ export default function GitHubAnalysis() {
                 setIsLoadingCommits(true)
                 const data = await getGithubCommits(githubIntegrationId)
                 setCommits(data)
-            } catch (error) {
-                console.error("Failed to load GitHub commits", error)
+            } catch (err) {
+                toast.error("Failed to load GitHub commits", {
+                    description: err instanceof Error ? err.message : "Unknown error",
+                })
                 setCommits([])
             } finally {
                 setIsLoadingCommits(false)
@@ -145,14 +150,16 @@ export default function GitHubAnalysis() {
             }
             try {
                 const repos = await getGithubRepositories(githubIntegrationId)
-                const normalized = (repos || []).map((r) => ({
-                    full_name: r.full_name ?? r.name,
+                const normalized = (repos.data || []).map((r) => ({
+                    full_name: r.url ?? r.name,
                     name: r.name,
                 }))
                 setRepositories(normalized)
                 setSelectedRepoFullName((prev) => prev || normalized[0]?.full_name || "")
             } catch (e) {
-                console.error("Failed to load GitHub repositories", e)
+                toast.error("Failed to load GitHub repositories", {
+                    description: e instanceof Error ? e.message : "Unknown error",
+                })
                 setRepositories([])
                 setSelectedRepoFullName("")
             }
@@ -177,8 +184,10 @@ export default function GitHubAnalysis() {
                 ])
                 setPullRequests(prs)
                 setIssues(iss)
-            } catch (e) {
-                console.error("Failed to load GitHub PRs/issues", e)
+            } catch (err) {
+                toast.error("Failed to load GitHub PRs/issues", {
+                    description: err instanceof Error ? err.message : "Unknown error",
+                })
                 setPullRequests([])
                 setIssues([])
             } finally {
@@ -202,7 +211,7 @@ export default function GitHubAnalysis() {
     }
 
     const handleDebug = async () => {
-        if (!commitDetail || !githubIntegrationId) return
+        if (!commitDetail || !githubIntegrationId) { return; }
 
         try {
             setIsDebugLoading(true)
@@ -217,7 +226,7 @@ export default function GitHubAnalysis() {
     }
 
     const handleSelectCommit = async (commit: CommitSummary) => {
-        if (!githubIntegrationId) return
+        if (!githubIntegrationId) { return; }
         setSelectedCommit(commit)
         setCommitDetail(null)
         try {
@@ -226,7 +235,9 @@ export default function GitHubAnalysis() {
             setCommitDetail(detail);
             setSummaryHtml(await llmMarkdownToHtml(detail.aiSummary));
         } catch (error) {
-            console.error("Failed to load commit detail", error)
+            toast.error("Failed to load commit detail", {
+                description: error instanceof Error ? error.message : "Unknown error",
+            })
             setCommitDetail(null)
         } finally {
             setIsLoadingDetail(false)
@@ -250,9 +261,9 @@ export default function GitHubAnalysis() {
     }
 
     const getQualityColor = (score: number) => {
-        if (score >= 90) return "text-green-400"
-        if (score >= 75) return "text-yellow-400"
-        return "text-orange-400"
+        if (score >= 90) { return "text-green-400"; }
+        if (score >= 75) { return "text-yellow-400"; }
+        return "text-orange-400";
     }
 
     const renderCommitDetail = (detail: CommitDetail, summary: CommitSummary | null) => (

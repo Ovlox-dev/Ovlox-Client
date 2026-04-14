@@ -19,9 +19,6 @@ export default function GitHubIntegrationPage() {
   const organizationId = params?.organizationId ?? ""
   const integrationId = searchParams?.get("integrationId") ?? ""
 
-  console.log("integrationId", integrationId);
-  console.log("organizationId", organizationId);
-
   const [connecting, setConnecting] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [installing, setInstalling] = useState(false)
@@ -34,9 +31,6 @@ export default function GitHubIntegrationPage() {
     },
     enabled: !!integrationId,
   })
-
-  console.log(integrationData);
-
 
   const {
     data: repositoriesData,
@@ -52,33 +46,34 @@ export default function GitHubIntegrationPage() {
     enabled: !!integrationId,
   })
 
-  console.log("Integration data", integrationData);
-  console.log("Repositories data", repositoriesData);
-
   const handleConnectOAuth = async () => {
-    if (!organizationId) return
+    if (!organizationId) { return; }
     try {
       setConnecting(true)
       const res = await getGithubOAuthUrl(organizationId)
-      if (res?.url) window.location.href = res.url
+      if (res?.url) {
+        window.location.href = res.url
+      }
     } finally {
       setConnecting(false)
     }
   }
 
   const handleInstall = async () => {
-    if (!organizationId) return
+    if (!organizationId) { return; }
     try {
       setInstalling(true)
       const res = await getGithubInstallUrl(organizationId)
-      if (res?.url) window.location.href = res.url
+      if (res?.url) {
+        window.location.href = res.url
+      }
     } finally {
       setInstalling(false)
     }
   }
 
   const handleSync = async () => {
-    if (!integrationId) return
+    if (!integrationId) { return; }
     try {
       setSyncing(true)
       await syncGithubRepositories(integrationId)

@@ -1,43 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-
-import { userOrgs } from "@/shared/api/org";
 import { useOrganizationAccess } from "@/entities/organization/model/useOrganizationAccess";
-
-import type { IOrganization } from "@/types/prisma-generated";
 
 import AppsConnected from "./components/apps-connected";
 import Members from "./components/members";
 import Projects from "./components/projects";
 import TeamActivity from "./components/team-activity";
 
-
-
-
-
 export default function FranchiseeDashboardPage() {
     const params = useParams<{ organizationId: string }>();
     const organizationId = params?.organizationId ?? "";
     const hasAccess = useOrganizationAccess(organizationId);
-    const [userOrgsList, setUserOrgsList] = useState<IOrganization[]>([]);
-
-    useEffect(() => {
-        if (!hasAccess) return;
-        let cancelled = false;
-        void (async () => {
-            try {
-                const response = await userOrgs();
-                if (!cancelled) setUserOrgsList(response.data ?? []);
-            } catch {
-                if (!cancelled) setUserOrgsList([]);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [hasAccess]);
 
     if (!hasAccess) {
         return (

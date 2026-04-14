@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
+
+import { ChevronLeft, ChevronRight, FolderOpen ,Plus} from 'lucide-react';
+
+import { cn } from '@/lib/utils';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { FolderOpen } from 'lucide-react';
 
 type TimeFilterValue = "all" | "7d" | "30d";
 const PROJECTS_PER_PAGE = 3;

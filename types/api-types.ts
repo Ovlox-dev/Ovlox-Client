@@ -1,8 +1,8 @@
-import { IUser, IOrganization, IProject, IIntegration, IOrganizationMember, IInvite, IConversation, IChatMessage, IJob } from "./prisma-generated";
-import { ExternalProvider, PredefinedOrgRole, IntegrationStatus, InviteStatus, ConversationType } from "./enum";
+import { IUser, IOrganization, IProject, IOrganizationMember, IInvite, IConversation, IChatMessage, IJob } from "./prisma-generated";
+import { ExternalProvider, PredefinedOrgRole, IntegrationStatus, ConversationType } from "./enum";
 
 // API Response wrapper
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
     success: boolean;
     message?: string;
     data?: T;

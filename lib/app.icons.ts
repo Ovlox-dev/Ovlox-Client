@@ -6,6 +6,7 @@ import {
     SiJira,
     SiNotion,
     SiSlack,
+    SiLinear,
 } from "react-icons/si";
 
 export const appIconMap: Record<
@@ -18,4 +19,5 @@ export const appIconMap: Record<
     [ExternalProvider.FIGMA]: SiFigma,
     [ExternalProvider.JIRA]: SiJira,
     [ExternalProvider.NOTION]: SiNotion,
+    [ExternalProvider.LINEAR]: SiLinear,
 };

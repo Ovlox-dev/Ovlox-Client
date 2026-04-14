@@ -3,104 +3,10 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Switch } from "@/components/ui/switch"
-import {
-    FolderKanban,
-    Users,
-    Database,
-    Settings as SettingsIcon,
-    ArrowRight,
-    ArrowLeft,
-    Check,
-    X,
-    Plus,
-    Search,
-    CheckCircle2,
-} from "lucide-react"
-import { SiGithub, SiSlack, SiJira } from "react-icons/si"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
 import { InputField, TextareaField } from "@/components/form-components"
 import { useForm } from "react-hook-form"
 import { useCreateProject } from "@/shared/queries/projects.queries"
 import { useParams, useRouter } from "next/navigation"
-import { CreateProjectResponse } from "@/types/api-types"
-
-type Step = "details" | "members" | "datasources" | "settings"
-
-type Member = {
-    id: string
-    name: string
-    email: string
-    avatar?: string
-    role: "owner" | "admin" | "member"
-}
-
-type ProjectMember = {
-    memberId: string
-    access: "view" | "edit" | "admin"
-}
-
-type DataSource = {
-    id: string
-    name: string
-    type: string
-    icon: React.ReactNode
-    description: string
-    enabled: boolean
-    config?: {
-        repositories?: string[]
-        channels?: string[]
-        boards?: string[]
-    }
-}
-
-const availableMembers: Member[] = [
-    { id: "1", name: "John Doe", email: "john@example.com", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=John", role: "owner" },
-    { id: "2", name: "Jane Smith", email: "jane@example.com", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Jane", role: "admin" },
-    { id: "3", name: "Bob Wilson", email: "bob@example.com", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bob", role: "member" },
-    { id: "4", name: "Alice Johnson", email: "alice@example.com", role: "member" },
-    { id: "5", name: "Charlie Brown", email: "charlie@example.com", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie", role: "admin" },
-]
-
-const connectedApps: DataSource[] = [
-    {
-        id: "github",
-        name: "GitHub",
-        type: "repository",
-        icon: <SiGithub className="size-6" />,
-        description: "Track commits, pull requests, and issues",
-        enabled: false,
-        config: { repositories: ["frontend-app", "backend-api", "mobile-app"] }
-    },
-    {
-        id: "slack",
-        name: "Slack",
-        type: "communication",
-        icon: <SiSlack className="size-6" />,
-        description: "Monitor channels and messages",
-        enabled: false,
-        config: { channels: ["#general", "#development", "#design"] }
-    },
-    {
-        id: "jira",
-        name: "Jira",
-        type: "project-management",
-        icon: <SiJira className="size-6" />,
-        description: "Import tickets and track progress",
-        enabled: false,
-        config: { boards: ["Sprint Board", "Backlog", "Kanban"] }
-    },
-]
 
 type ProjectForm = {
     projectName: string
@@ -127,7 +33,7 @@ export default function NewProject() {
             },
             {
                 onSuccess: (project) => {
-                    router.replace(`/${organizationId}/projects/${project.id}/setup`)
+                    router.replace(`/${organizationId}/projects/${project.data.id}/setup`)
                 }
             })
     }

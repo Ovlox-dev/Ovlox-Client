@@ -1,26 +1,21 @@
 "use client"
 
 import * as React from "react"
-import { useMemo } from "react"
 import { useParams } from "next/navigation"
 
 import { Plus, MoreHorizontal, Copy, Trash2, Download, Clock } from "lucide-react"
-import { IoLogoGithub } from "react-icons/io5"
-import { SiSlack, SiLinear, SiJira, SiDiscord } from "react-icons/si"
 
 import { cn } from "@/lib/utils"
 import { useOrganizationAccess } from "@/entities/organization/model/useOrganizationAccess"
 
 import Search from "@/features/search"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { PageTitle } from "@/components/page-title"
-import { listProjects } from "@/services/project.service"
 import { useListProjects } from "@/shared/queries/projects.queries"
 import { dateFormatter } from "@/shared/lib/date-formatter"
 
@@ -28,81 +23,12 @@ type ProjectStatus = "on_track" | "needs_review" | "blocked"
 type StatusFilter = "all" | "active" | "completed" | "archived"
 export type ToolName = "github" | "slack" | "jira" | "discord" | "linear"
 
-const TOOL_ICONS: Record<ToolName, React.ComponentType<{ className?: string }>> = {
-    github: IoLogoGithub,
-    slack: SiSlack,
-    jira: SiJira,
-    discord: SiDiscord,
-    linear: SiLinear,
-}
-
-const TOOL_LABELS: Record<ToolName, string> = {
-    github: "GitHub",
-    slack: "Slack",
-    jira: "Jira",
-    discord: "Discord",
-    linear: "Linear",
-}
-
 const sortFilterOptions: { value: string; label: string }[] = [
     { value: "1d", label: "1D" },
     { value: "3d", label: "3D" },
     { value: "7d", label: "7D" },
     { value: "14d", label: "14D" },
     { value: "30d", label: "30D" },
-]
-
-type Project = {
-    id: string
-    name: string
-    url?: string
-    description?: string
-    status: ProjectStatus
-    phase: string
-    tasksCompleted: number
-    tasksTotal: number
-    lastUpdated: string
-    toolsIntegrated: ToolName[]
-
-}
-
-const sampleProjects: Project[] = [
-    {
-        id: "1",
-        name: "Ovlox Dashboard",
-        url: "drokpa.vercel.app",
-        description: "Main product interface for founders",
-        status: "on_track",
-        phase: "Building MVP",
-        tasksCompleted: 3,
-        tasksTotal: 10,
-        lastUpdated: "2h ago",
-        toolsIntegrated: ["github", "slack", "jira", "linear", "discord"],
-    },
-    {
-        id: "2",
-        name: "Ovlox Dashboard",
-        url: "tic-tac-toe.vercel.app",
-        description: "Main product interface for founders",
-        status: "needs_review",
-        phase: "Building MVP",
-        tasksCompleted: 7,
-        tasksTotal: 10,
-        lastUpdated: "2h ago",
-        toolsIntegrated: ["github", "slack", "linear", "discord"],
-    },
-    {
-        id: "3",
-        name: "Ovlox Dashboard",
-        url: "umanandasiddha.vercel.app",
-        description: "Main product interface for founders",
-        status: "blocked",
-        phase: "Building MVP",
-        tasksCompleted: 1,
-        tasksTotal: 10,
-        lastUpdated: "2h ago",
-        toolsIntegrated: ["github", "slack"],
-    },
 ]
 
 const statusConfig: Record<ProjectStatus, { label: string; dotClass: string; textColor: string }> = {
@@ -128,36 +54,11 @@ export default function Projects() {
     const params = useParams<{ organizationId: string }>()
     const organizationId = params?.organizationId ?? ""
     const hasAccess = useOrganizationAccess(organizationId)
-    const [query, setQuery] = React.useState("")
     const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all")
     const [sortFilter, setSortFilter] = React.useState<string>("")
-    const getProjectProgress = React.useCallback((p: Pick<Project, "tasksCompleted" | "tasksTotal">) => {
-        if (p.tasksTotal <= 0) return 0
-        const percent = (p.tasksCompleted / p.tasksTotal) * 100
-        return Math.min(100, Math.max(0, Math.round(percent)))
-    }, [])
 
     // listProjects
     const { data: projects } = useListProjects(organizationId)
-    console.log(projects)
-
-    const filteredProjects = useMemo(() => {
-        let list = sampleProjects
-        if (query) {
-            list = list.filter((p) =>
-                `${p.name} ${p.description} ${p.url} ${p.phase}`.toLowerCase().includes(query.toLowerCase())
-            )
-        }
-        if (statusFilter !== "all") {
-            list = list.filter((p) => {
-                if (statusFilter === "active") return p.status === "on_track" || p.status === "needs_review"
-                if (statusFilter === "completed") return getProjectProgress(p) === 100
-                if (statusFilter === "archived") return p.status === "blocked"
-                return true
-            })
-        }
-        return list
-    }, [query, statusFilter, getProjectProgress])
 
     if (!hasAccess) {
         return (
@@ -200,7 +101,7 @@ export default function Projects() {
             <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
                 <Search
                     placeholder="Search Projects..."
-                    handleSearch={(value) => setQuery(value)}
+                    // handleSearch={(value) => setQuery(value)}
                     className="max-w-md"
                 />
                 <div className="flex flex-wrap items-center gap-2">

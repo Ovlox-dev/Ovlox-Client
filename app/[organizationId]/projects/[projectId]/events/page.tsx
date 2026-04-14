@@ -9,13 +9,10 @@ import { Input } from "@/components/ui/input"
 import {
     Calendar,
     Clock,
-    Users,
     MapPin,
     Plus,
     Search,
-    Filter,
     MoreVertical,
-    AlertCircle,
     CheckCircle2,
     Edit,
     Trash2,
@@ -124,7 +121,7 @@ const sampleEvents: Event[] = [
 ]
 
 export default function Events() {
-    const [events, setEvents] = React.useState<Event[]>(sampleEvents)
+    const [events] = React.useState<Event[]>(sampleEvents)
     const [filterType, setFilterType] = React.useState<string>("all")
     const [filterStatus, setFilterStatus] = React.useState<string>("all")
     const [searchQuery, setSearchQuery] = React.useState("")

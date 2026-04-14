@@ -69,7 +69,7 @@ export default function AddMembersStep({
 
     const projectMemberByUserId = React.useMemo(() => {
         const map = new Map<string, (typeof projectMembers)[number]>();
-        for (const m of projectMembers) map.set(m.userId, m);
+        for (const m of projectMembers) { map.set(m.userId, m); }
         return map;
     }, [projectMembers]);
 
@@ -118,7 +118,7 @@ export default function AddMembersStep({
     );
 
     const addSelected = React.useCallback(async () => {
-        if (selectedUserIds.length === 0) return;
+        if (selectedUserIds.length === 0) { return; }
 
         const values = getValues();
         const entries = selectedUserIds
@@ -128,7 +128,7 @@ export default function AddMembersStep({
             }))
             .filter((x) => !projectMemberByUserId.has(x.userId));
 
-        if (entries.length === 0) return;
+        if (entries.length === 0) { return; }
 
         await Promise.all(entries.map((e) => addMember.mutateAsync(e)));
         reset({ selectedByUserId: {}, roleByUserId: values.roleByUserId });

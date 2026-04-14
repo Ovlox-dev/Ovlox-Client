@@ -47,12 +47,12 @@ export default function NewUserPage() {
   }
 
   const handleCreateNext = () => {
-    if (createStep < 3) setCreateStep((createStep + 1) as CreateStep)
+    if (createStep < 3) { setCreateStep((createStep + 1) as CreateStep); }
   }
 
   const handleCreateBack = () => {
-    if (createStep === 1) handleBackFromCreateStep1()
-    else setCreateStep((createStep - 1) as CreateStep)
+    if (createStep === 1) { handleBackFromCreateStep1(); }
+    else { setCreateStep((createStep - 1) as CreateStep); }
   }
 
   const handleJoinBack = () => {

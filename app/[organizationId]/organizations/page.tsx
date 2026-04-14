@@ -37,8 +37,8 @@ export default function Organizations() {
     const params = useParams<{ organizationId: string }>();
     const orgId = params?.organizationId;
     const [page, setPage] = useState(1)
-    const [totalPages, setTotalPages] = useState(1)
-    const [totalCount, setTotalCount] = useState(0)
+    const [totalPages] = useState(1)
+    const [totalCount] = useState(0)
     const [searchQuery, setSearchQuery] = useState("")
 
 

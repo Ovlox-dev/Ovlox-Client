@@ -90,7 +90,7 @@ export const acceptInvite = async (token: string): Promise<IOrganizationMember> 
     const payload = response.data as IOrganizationMember | ApiResponse<IOrganizationMember>;
     if (payload && typeof payload === "object" && "data" in payload) {
         const unwrapped = (payload as ApiResponse<IOrganizationMember>).data;
-        if (unwrapped) return unwrapped;
+        if (unwrapped) { return unwrapped; }
     }
     return payload as IOrganizationMember;
 };

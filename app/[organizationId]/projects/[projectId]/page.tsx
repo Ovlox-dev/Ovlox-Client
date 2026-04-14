@@ -13,8 +13,6 @@ import {
     Settings2,
 } from "lucide-react"
 
-import { IoLogoGithub } from "react-icons/io5"
-import { SiJira, SiLinear, SiSlack } from "react-icons/si"
 import { PageTitle } from "@/components/page-title"
 import { Progress } from "@/components/ui/progress"
 
@@ -69,12 +67,6 @@ const teamActivity = [
     { id: "4", actor: "Rishi", verb: "updated", target: "ovlox-dashboard", time: "9 mins ago", source: "linear" as IntegrationKey },
 ]
 
-const integrationIcons: Record<IntegrationKey, React.ComponentType<{ className?: string }>> = {
-    github: IoLogoGithub,
-    slack: SiSlack,
-    jira: SiJira,
-}
-
 const integrationLabels: Record<IntegrationKey, string> = {
     github: "GitHub",
     slack: "Slack",
@@ -99,7 +91,7 @@ function activityTooltip({
     payload?: ReadonlyArray<{ value?: number | string }>
     label?: string | number
 }) {
-    if (!active || !payload?.length) return null
+    if (!active || !payload?.length) { return null; }
 
     const v = payload[0]?.value
     return (
@@ -128,10 +120,10 @@ export default function Project() {
     const taskTotal = React.useMemo(() => taskSegments.reduce((acc, s) => acc + s.value, 0), [])
 
     const filteredTeamActivity = React.useMemo(() => {
-        if (activityFilter === "all") return teamActivity
-        if (activityFilter === "integrations") return teamActivity.filter((a) => a.source === "github" || a.source === "slack")
-        if (activityFilter === "projects") return teamActivity
-        if (activityFilter === "team-units") return teamActivity
+        if (activityFilter === "all") { return teamActivity; }
+        if (activityFilter === "integrations") { return teamActivity.filter((a) => a.source === "github" || a.source === "slack"); }
+        if (activityFilter === "projects") { return teamActivity; }
+        if (activityFilter === "team-units") { return teamActivity; }
         return teamActivity
     }, [activityFilter])
 
@@ -204,7 +196,6 @@ export default function Project() {
                         </div>
                         <div className="space-y-3">
                             {integrations.map((tool) => {
-                                const Icon = integrationIcons[tool.key]
                                 return (
                                     <div key={tool.key} className="flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-3 min-w-0">
@@ -442,7 +433,6 @@ export default function Project() {
 
                 <div className="mt-4 space-y-3">
                     {filteredTeamActivity.map((a) => {
-                        const Icon = integrationIcons[a.source]
                         return (
                             <div
                                 key={a.id}

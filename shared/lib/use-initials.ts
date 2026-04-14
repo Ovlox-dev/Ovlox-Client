@@ -11,7 +11,7 @@ export function getInitials(
 ): string {
     const { maxInitials = 2, fallback = "?" } = options;
 
-    if (!name) return fallback;
+    if (!name) { return fallback; }
 
     const initials = name
         .trim()

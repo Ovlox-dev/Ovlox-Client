@@ -6,10 +6,6 @@ import { useEffect, useState } from "react";
 import { userOrgs } from "@/shared/api/org";
 import { resolvePostAuthOrgRedirect } from "@/shared/lib/auth/post-auth-org-resolver";
 
-/**
- * Verifies `organizationId` against the authenticated user's org list (`userOrgs`).
- * On 401 → sign-in; if the id is not a membership → `resolvePostAuthOrgRedirect()`.
- */
 export function useOrganizationAccess(organizationId: string | undefined): boolean {
   const router = useRouter();
   const [verifiedOrgId, setVerifiedOrgId] = useState<string | null>(null);
@@ -26,34 +22,48 @@ export function useOrganizationAccess(organizationId: string | undefined): boole
       if (!id) {
         try {
           const { redirectTo } = await resolvePostAuthOrgRedirect();
-          if (!cancelled) router.replace(redirectTo);
+          if (!cancelled) {
+            router.replace(redirectTo);
+          }
         } catch {
-          if (!cancelled) router.replace("/signin");
+          if (!cancelled) {
+            router.replace("/signin");
+          }
         }
         return;
       }
 
       try {
         const response = await userOrgs();
-        if (cancelled) return;
+        if (cancelled) { return; }
         const orgs = response.data ?? [];
         if (orgs.some((o) => o.id === id)) {
-          if (!cancelled) setVerifiedOrgId(id);
+          if (!cancelled) {
+            setVerifiedOrgId(id);
+          }
           return;
         }
         const { redirectTo } = await resolvePostAuthOrgRedirect();
-        if (!cancelled) router.replace(redirectTo);
+        if (!cancelled) {
+          router.replace(redirectTo);
+        }
       } catch (e) {
-        if (cancelled) return;
+        if (cancelled) { return; }
         if (isAxiosError(e) && e.response?.status === 401) {
-          router.replace("/signin");
+          if (!cancelled) {
+            router.replace("/signin");
+          }
           return;
         }
         try {
           const { redirectTo } = await resolvePostAuthOrgRedirect();
-          if (!cancelled) router.replace(redirectTo);
+          if (!cancelled) {
+            router.replace(redirectTo);
+          }
         } catch {
-          if (!cancelled) router.replace("/signin");
+          if (!cancelled) {
+            router.replace("/signin");
+          }
         }
       }
     }

@@ -5,7 +5,6 @@ import {
     Forward,
     MoreHorizontal,
     Trash2,
-    type LucideIcon,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useProjectStore } from "@/store/project.store"

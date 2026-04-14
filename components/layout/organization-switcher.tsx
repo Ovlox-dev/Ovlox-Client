@@ -10,9 +10,8 @@ import type { IOrganization } from "@/types/prisma-generated";
 import { userOrgs } from "@/shared/api/org";
 import { buildDashboardOrgRoute, setActiveOrgId, } from "@/shared/lib/auth/post-auth-org-resolver";
 
-import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { SidebarMenu, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
+import { SidebarMenu, SidebarMenuItem, useSidebar ,SidebarMenuButton} from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,

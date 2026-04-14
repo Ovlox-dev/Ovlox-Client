@@ -1,8 +1,9 @@
 import * as React from "react";
 import { useProjectStore } from "@/store/project.store";
 import { useRouter } from "next/navigation";
-import { getProject } from "@/services/project.service";
+import { getProject } from "@/shared/api/projects";
 import { IProject } from "@/types/prisma-generated";
+import { toast } from "sonner";
 
 export const useProject = () => {
     const { currentProject, setCurrentProject, clearCurrentProject } = useProjectStore();
@@ -23,7 +24,7 @@ export const useProject = () => {
             setCurrentProject(project);
             return project;
         } catch (error) {
-            console.error("Failed to load project", error);
+            toast.error("Failed to load project");
             throw error;
         }
     }, [setCurrentProject]);

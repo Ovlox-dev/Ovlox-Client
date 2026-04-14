@@ -33,7 +33,7 @@ type NormalizedIntegration = {
 function normalizeAvailableIntegrations(
     payload: unknown
 ): NormalizedIntegration[] {
-    if (!payload) return [];
+    if (!payload) { return []; }
 
     if (
         typeof payload === "object" &&
@@ -57,7 +57,7 @@ function normalizeAvailableIntegrations(
     if (Array.isArray(payload)) {
         const byIntegrationId = new Map<string, NormalizedIntegration>();
         for (const raw of payload as Array<unknown>) {
-            if (typeof raw !== "object" || raw === null) continue;
+            if (typeof raw !== "object" || raw === null) { continue; }
             const r = raw as Record<string, unknown>;
 
             const integration =
@@ -77,7 +77,7 @@ function normalizeAvailableIntegrations(
                     ? (r.provider as ExternalProvider)
                     : undefined);
 
-            if (!integrationId || !type) continue;
+            if (!integrationId || !type) { continue; }
 
             const existing = byIntegrationId.get(integrationId);
             if (existing) {
@@ -141,8 +141,11 @@ export default function LinkIntegrationsStep({
             setSelected((prev) => {
                 const next: SelectedByIntegrationId = { ...prev };
                 const current = new Set(next[integrationId] ?? []);
-                if (current.has(resourceId)) current.delete(resourceId);
-                else current.add(resourceId);
+                if (current.has(resourceId)) {
+                    current.delete(resourceId);
+                } else {
+                    current.add(resourceId);
+                }
                 next[integrationId] = current;
                 return next;
             });
