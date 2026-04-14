@@ -4,7 +4,7 @@ import { clearClientSessionState, getAccessToken } from "@/shared/lib/auth/token
 type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 const absoluteApiBaseUrl = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/v1`;
-export const apiBaseUrl = typeof window === "undefined" ? absoluteApiBaseUrl : "/api/v1";
+export const apiBaseUrl = absoluteApiBaseUrl;
 
 export const apiClient = axios.create({
     baseURL: apiBaseUrl,
