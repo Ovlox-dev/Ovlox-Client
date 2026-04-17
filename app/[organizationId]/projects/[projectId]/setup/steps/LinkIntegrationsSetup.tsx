@@ -10,207 +10,125 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 
+interface LinkIntegrationPropTypes {
+    organizationId: string;
+    projectId: string;
+    onNext: () => void;
+}
+
 import {
-    useGetAvailableIntegrations,
+    useGetAvailableResources,
     useGetProject,
     useLinkIntegration,
 } from "@/shared/queries/projects.queries";
-import { ExternalProvider } from "@/types/enum";
-import type { GetAvailableIntegrationsResponse } from "@/types/api-types";
+import { ExternalProvider, IntegrationStatus } from "@/types/enum";
+import type { GetAvailableResourcesResponse } from "@/types/api-types";
 
-type SelectedByIntegrationId = Record<string, Set<string>>;
+type SelectedByIntegrationId = Record<string, string | null>;
 
-function providerLabel(p: ExternalProvider) {
-    return p.charAt(0) + p.slice(1).toLowerCase();
+function useProjectResourceLinkLookup(projectResources: { id: string; integrationId: string; provider: ExternalProvider; providerId: string }[] | undefined) {
+    return React.useMemo(() => {
+        const byId = new Set<string>();
+        const byIntegrationAndProviderId = new Set<string>();
+        for (const pr of projectResources ?? []) {
+            byId.add(pr.id);
+            byIntegrationAndProviderId.add(`${pr.integrationId}:${pr.providerId}`);
+        }
+        return { byId, byIntegrationAndProviderId };
+    }, [projectResources]);
 }
 
-type NormalizedIntegration = {
-    id: string;
-    type: ExternalProvider;
-    resources: Array<{ id: string; name: string; type: string }>;
-};
+function isAvailableResourceLinkedToProject(
+    r: Pick<GetAvailableResourcesResponse, "id" | "integrationId" | "providerId">,
+    lookup: ReturnType<typeof useProjectResourceLinkLookup>
+) {
+    return (
+        lookup.byId.has(r.id) ||
+        lookup.byIntegrationAndProviderId.has(`${r.integrationId}:${r.providerId}`)
+    );
+}
 
-function normalizeAvailableIntegrations(
-    payload: unknown
-): NormalizedIntegration[] {
-    if (!payload) { return []; }
+/** First project-linked resource for this integration (replace flow assumes one per connection). */
+function getLinkedResourceIdForIntegration(
+    integrationId: string,
+    projectResources: { id: string; integrationId: string }[] | undefined
+): string | null {
+    const row = projectResources?.find((pr) => pr.integrationId === integrationId);
+    return row?.id ?? null;
+}
 
-    if (
-        typeof payload === "object" &&
-        payload !== null &&
-        "integrations" in payload &&
-        Array.isArray((payload as { integrations?: unknown }).integrations)
-    ) {
-        const typed = payload as GetAvailableIntegrationsResponse;
-        return typed.integrations.map((i) => ({
-            id: i.id,
-            type: i.type,
-            resources: i.resources.map((r) => ({
-                id: r.id,
-                name: r.name,
-                type: r.type,
-            })),
-        }));
-    }
+export default function LinkIntegrationsStep({ organizationId, projectId, onNext, }: LinkIntegrationPropTypes) {
+    const [selected, setSelected] = React.useState<SelectedByIntegrationId>({});
+    const { data: availableResources, isLoading: integrationsLoading, error: integrationsError, } = useGetAvailableResources(organizationId, projectId);
+    const { data: project } = useGetProject(organizationId, projectId);
+    const linkIntegration = useLinkIntegration(organizationId, projectId);
 
-    // New shape: flat list of integration resources
-    if (Array.isArray(payload)) {
-        const byIntegrationId = new Map<string, NormalizedIntegration>();
-        for (const raw of payload as Array<unknown>) {
-            if (typeof raw !== "object" || raw === null) { continue; }
-            const r = raw as Record<string, unknown>;
+    const projectResourceLookup = useProjectResourceLinkLookup(project?.resources);
 
-            const integration =
-                typeof r.integration === "object" && r.integration !== null
-                    ? (r.integration as Record<string, unknown>)
-                    : null;
+    const groupedResources = React.useMemo(() => {
+        const resources = availableResources?.data ?? [];
+        const byIntegration = new Map<
+            string,
+            {
+                integrationId: string;
+                provider: ExternalProvider;
+                integration: (typeof resources)[number]["integration"];
+                resources: typeof resources;
+            }
+        >();
 
-            const integrationId =
-                (typeof integration?.id === "string" ? integration.id : undefined) ??
-                (typeof r.integrationId === "string" ? r.integrationId : undefined);
-
-            const type =
-                (typeof integration?.type === "string"
-                    ? (integration.type as ExternalProvider)
-                    : undefined) ??
-                (typeof r.provider === "string"
-                    ? (r.provider as ExternalProvider)
-                    : undefined);
-
-            if (!integrationId || !type) { continue; }
-
-            const existing = byIntegrationId.get(integrationId);
+        for (const r of resources) {
+            const existing = byIntegration.get(r.integrationId);
             if (existing) {
-                existing.resources.push({
-                    id: String(r.id),
-                    name: String(r.name),
-                    type: String(r.provider ?? "resource"),
-                });
+                existing.resources.push(r);
             } else {
-                byIntegrationId.set(integrationId, {
-                    id: integrationId,
-                    type,
-                    resources: [
-                        {
-                            id: String(r.id),
-                            name: String(r.name),
-                            type: String(r.provider ?? "resource"),
-                        },
-                    ],
+                byIntegration.set(r.integrationId, {
+                    integrationId: r.integrationId,
+                    provider: r.provider,
+                    integration: r.integration,
+                    resources: [r],
                 });
             }
         }
 
-        return Array.from(byIntegrationId.values());
-    }
+        return Array.from(byIntegration.values());
+    }, [availableResources?.data]);
 
-    return [];
-}
-
-export default function LinkIntegrationsStep({
-    organizationId,
-    projectId,
-    onNext,
-}: {
-    organizationId: string;
-    projectId: string;
-    onNext: () => void;
-}) {
-    const {
-        data: availableIntegrations,
-        isLoading: integrationsLoading,
-        error: integrationsError,
-    } = useGetAvailableIntegrations(organizationId, projectId);
-
-    const { data: project } = useGetProject(organizationId, projectId);
-    const linkIntegration = useLinkIntegration(organizationId, projectId);
-
-    const linkedProviderTypes = React.useMemo(() => {
-        const connections = project?.integrations ?? [];
-        return new Set(
-            connections
-                .map((c) => c.integration?.type)
-                .filter(Boolean) as ExternalProvider[]
-        );
-    }, [project?.integrations]);
-
-    const [selected, setSelected] = React.useState<SelectedByIntegrationId>({});
-
-    const toggleResource = React.useCallback(
-        (integrationId: string, resourceId: string) => {
-            setSelected((prev) => {
-                const next: SelectedByIntegrationId = { ...prev };
-                const current = new Set(next[integrationId] ?? []);
-                if (current.has(resourceId)) {
-                    current.delete(resourceId);
-                } else {
-                    current.add(resourceId);
+    // Seed selection from project-linked resources when an integration has no local choice yet.
+    React.useEffect(() => {
+        if (groupedResources.length === 0) {
+            return;
+        }
+        setSelected((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            for (const g of groupedResources) {
+                const linkedId = getLinkedResourceIdForIntegration(
+                    g.integrationId,
+                    project?.resources
+                );
+                if (next[g.integrationId] === undefined && linkedId) {
+                    next[g.integrationId] = linkedId;
+                    changed = true;
                 }
-                next[integrationId] = current;
-                return next;
-            });
-        },
-        []
-    );
-
-    const setAllResources = React.useCallback(
-        (integrationId: string, resourceIds: string[]) => {
-            setSelected((prev) => ({
-                ...prev,
-                [integrationId]: new Set(resourceIds),
-            }));
-        },
-        []
-    );
-
-    const clearResources = React.useCallback((integrationId: string) => {
-        setSelected((prev) => ({
-            ...prev,
-            [integrationId]: new Set(),
-        }));
-    }, []);
+            }
+            return changed ? next : prev;
+        });
+    }, [groupedResources, project?.resources]);
 
     const handleLink = React.useCallback(
         (integrationId: string) => {
-            const ids = Array.from(selected[integrationId] ?? []);
+            const resourceId = selected[integrationId];
+            if (!resourceId) { return; }
+
             linkIntegration.mutate({
                 integrationId,
-                resourceIds: ids,
+                resourceIds: [resourceId],
             });
         },
         [linkIntegration, selected]
     );
 
-    const normalizedIntegrations = React.useMemo(
-        () => normalizeAvailableIntegrations(availableIntegrations),
-        [availableIntegrations]
-    );
-
-    if (integrationsLoading) {
-        return (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {Array.from({ length: 4 }).map((_, i) => (
-                    <Card key={i} className="p-5">
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                                <Skeleton className="size-10 rounded-lg" />
-                                <div className="space-y-2">
-                                    <Skeleton className="h-4 w-28" />
-                                    <Skeleton className="h-3 w-40" />
-                                </div>
-                            </div>
-                            <Skeleton className="h-9 w-24" />
-                        </div>
-                        <div className="mt-4 space-y-2">
-                            <Skeleton className="h-8 w-full" />
-                            <Skeleton className="h-8 w-full" />
-                            <Skeleton className="h-8 w-full" />
-                        </div>
-                    </Card>
-                ))}
-            </div>
-        )
-    }
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -230,7 +148,13 @@ export default function LinkIntegrationsStep({
                 </Button>
             </div>
 
-            {/* {!hasParams ? (
+            {integrationsError && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                    Couldn’t load available integrations.
+                </div>
+            )}
+
+            {integrationsLoading ? (
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     {Array.from({ length: 4 }).map((_, i) => (
                         <Card key={i} className="p-5">
@@ -252,163 +176,176 @@ export default function LinkIntegrationsStep({
                         </Card>
                     ))}
                 </div>
-            ) : null} */}
+            ) : (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {availableResources?.data?.length === 0 ? (
+                        <div className="lg:col-span-2 rounded-lg border bg-muted/30 p-6 text-sm text-muted-foreground">
+                            No available integrations were returned for this project.
+                        </div>
+                    ) : null}
 
-            {integrationsError && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-                    Couldn’t load available integrations.
-                </div>
-            )}
+                    {groupedResources.map((group) => {
+                        const Icon = appIconMap[group.provider] ?? null;
+                        const isConnected =
+                            group.integration.status === IntegrationStatus.CONNECTED;
+                        const linkedResourceId = getLinkedResourceIdForIntegration(
+                            group.integrationId,
+                            project?.resources
+                        );
 
+                        const selectedId = selected[group.integrationId] ?? null;
+                        const selectionMatchesLinked =
+                            linkedResourceId !== null &&
+                            selectedId !== null &&
+                            selectedId === linkedResourceId;
+                        const isDirty =
+                            Boolean(selectedId) &&
+                            selectedId !== linkedResourceId;
+                        const canLink =
+                            isConnected &&
+                            Boolean(selectedId) &&
+                            isDirty &&
+                            !linkIntegration.isPending;
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {normalizedIntegrations.length === 0 ? (
-                    <div className="lg:col-span-2 rounded-lg border bg-muted/30 p-6 text-sm text-muted-foreground">
-                        No available integrations were returned for this project.
-                    </div>
-                ) : null}
+                        const linkButtonLabel = !isConnected
+                            ? "Connect first"
+                            : selectionMatchesLinked
+                                ? "Linked"
+                                : linkedResourceId
+                                    ? "Update link"
+                                    : "Link";
 
-                {normalizedIntegrations.map((integration) => {
-                    const Icon = appIconMap[integration.type] ?? null;
-                    const isLinked = linkedProviderTypes.has(integration.type);
-                    const resourceIds = integration.resources.map((r) => r.id);
-                    const selectedIds = selected[integration.id] ?? new Set<string>();
-                    const selectedCount = selectedIds.size;
-
-                    return (
-                        <Card key={integration.id} className="p-5">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="flex size-10 items-center justify-center rounded-lg border bg-background">
-                                        {Icon ? (
-                                            <Icon className="size-5" />
-                                        ) : (
-                                            <span className="text-xs text-muted-foreground">
-                                                App
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <p className="font-semibold">
-                                                {providerLabel(integration.type)}
-                                            </p>
-                                            <Badge variant="outline" className="text-xs">
-                                                {integration.type}
-                                            </Badge>
-                                            {isLinked && (
-                                                <Badge className="gap-1 bg-primary/10 text-primary hover:bg-primary/10">
-                                                    <Check className="size-3.5" />
-                                                    Linked
-                                                </Badge>
+                        return (
+                            <Card key={group.integrationId} className="p-5">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-start gap-3">
+                                        <div className="flex size-10 items-center justify-center rounded-lg border bg-background">
+                                            {Icon ? (
+                                                <Icon className="size-5" />
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground">
+                                                    App
+                                                </span>
                                             )}
                                         </div>
-                                        <p className="text-sm text-muted-foreground">
-                                            Choose resources to link to this project.
-                                        </p>
+
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="font-semibold">
+                                                    {group.provider}
+                                                </p>
+                                                {/* {isConnected && (
+                                                    <Badge className="gap-1 bg-green-500/10 text-green-500 hover:bg-green-500/10">
+                                                        <CircleCheck className="size-3.5" />
+                                                        Connected
+                                                    </Badge>
+                                                )} */}
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">
+                                                {group.integration.externalAccount
+                                                    ? `Account: ${group.integration.externalAccount}`
+                                                    : "Choose resources to link to this project."}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col items-end gap-2">
+                                        <Button
+                                            type="button"
+                                            onClick={() => handleLink(group.integrationId)}
+                                            disabled={!canLink}
+                                        >
+                                            {linkButtonLabel}
+                                        </Button>
                                     </div>
                                 </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {!isConnected
+                                        ? "Connect OAuth in Organization → Integrations, then return here to link a resource."
+                                        : !selectedId
+                                            ? "None selected"
+                                            : selectionMatchesLinked
+                                                ? "Linked to this project."
+                                                : "Save your selection to update the project link."}
+                                </p>
 
-                                <div className="flex flex-col items-end gap-2">
-                                    <Button
-                                        type="button"
-                                        onClick={() => handleLink(integration.id)}
-                                        disabled={
-                                            isLinked ||
-                                            selectedCount === 0 ||
-                                            linkIntegration.isPending
-                                        }
-                                    >
-                                        {isLinked ? "Linked" : "Link"}
-                                    </Button>
-                                    <p className="text-xs text-muted-foreground">
-                                        {selectedCount} selected
-                                    </p>
+                                <Separator />
+
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-medium">Resources</p>
+
                                 </div>
-                            </div>
 
-                            <Separator className="my-4" />
-
-                            <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium">Resources</p>
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                            setAllResources(integration.id, resourceIds)
-                                        }
-                                        disabled={resourceIds.length === 0}
-                                    >
-                                        Select all
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => clearResources(integration.id)}
-                                        disabled={selectedCount === 0}
-                                    >
-                                        Clear
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="mt-3 space-y-2">
-                                {integration.resources.length === 0 ? (
-                                    <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
-                                        No resources available for this integration yet.
-                                    </div>
-                                ) : (
-                                    integration.resources.map((r) => {
-                                        const isSelected = selectedIds.has(r.id);
-                                        return (
-                                            <button
-                                                key={r.id}
-                                                type="button"
-                                                onClick={() =>
-                                                    toggleResource(integration.id, r.id)
-                                                }
-                                                className={cn(
-                                                    "flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors",
-                                                    isSelected
-                                                        ? "border-primary/40 bg-primary/5"
-                                                        : "hover:bg-muted/40"
-                                                )}
-                                            >
-                                                <div className="min-w-0">
-                                                    <p className="truncate text-sm font-medium">
-                                                        {r.name}
-                                                    </p>
-                                                    <p className="truncate text-xs text-muted-foreground">
-                                                        {r.type}
-                                                    </p>
-                                                </div>
-
-                                                <div
+                                <div className="mt-3 space-y-2">
+                                    {group.resources.length === 0 ? (
+                                        <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+                                            No resources available for this integration yet.
+                                        </div>
+                                    ) : (
+                                        group.resources.map((r) => {
+                                            const isSelected = selectedId === r.id;
+                                            const isLinkedResource = isAvailableResourceLinkedToProject(
+                                                r,
+                                                projectResourceLookup
+                                            );
+                                            return (
+                                                <button
+                                                    key={r.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelected((prev) => ({
+                                                            ...prev,
+                                                            [group.integrationId]: r.id,
+                                                        }));
+                                                    }}
                                                     className={cn(
-                                                        "flex size-7 items-center justify-center rounded-full border",
+                                                        "flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors",
                                                         isSelected
-                                                            ? "border-primary bg-primary text-primary-foreground"
-                                                            : "border-border text-muted-foreground"
+                                                            ? "border-primary/40 bg-primary/5"
+                                                            : "hover:bg-muted/40"
                                                     )}
-                                                    aria-hidden
                                                 >
-                                                    {isSelected ? (
-                                                        <Check className="size-4" />
-                                                    ) : null}
-                                                </div>
-                                            </button>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </Card>
-                    );
-                })}
-            </div>
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="truncate text-sm font-medium">
+                                                                {r.name}
+                                                            </p>
+                                                            {isLinkedResource ? (
+                                                                <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/10">
+                                                                    Already linked
+                                                                </Badge>
+                                                            ) : null}
+                                                        </div>
+                                                        <p className="truncate text-xs text-muted-foreground">
+                                                            {r.url}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <div
+                                                            className={cn(
+                                                                "flex size-7 items-center justify-center rounded-full border",
+                                                                isSelected
+                                                                    ? "border-primary bg-primary text-primary-foreground"
+                                                                    : "border-border text-muted-foreground"
+                                                            )}
+                                                            aria-hidden
+                                                        >
+                                                            {isSelected ? (
+                                                                <Check className="size-4" />
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </Card>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

@@ -5,19 +5,17 @@ import {
     ListProjectsResponse,
     UpdateProjectRequest,
     LinkIntegrationRequest,
-    GetAvailableIntegrationsResponse,
+    ApiResponse,
+    GetAvailableResourcesResponse,
+    ProjectMember,
+    AddProjectMemberRequest,
+    UpdateProjectMemberRoleRequest,
 } from "@/types/api-types";
 import { IProject } from "@/types/prisma-generated";
 
 
-export const createProject = async (
-    orgId: string,
-    data: CreateProjectRequest
-): Promise<CreateProjectResponse> => {
-    const response = await apiClient.post<CreateProjectResponse>(
-        `/orgs/${orgId}/projects`,
-        data
-    );
+export const createProject = async (orgId: string, data: CreateProjectRequest): Promise<CreateProjectResponse> => {
+    const response = await apiClient.post<CreateProjectResponse>(`/orgs/${orgId}/projects`, data);
     return response.data;
 };
 
@@ -31,32 +29,17 @@ export const listProjects = async (
         sort?: string;
     }
 ): Promise<ListProjectsResponse> => {
-    const response = await apiClient.get<ListProjectsResponse>(
-        `/orgs/${orgId}/projects`,
-        { params }
-    );
+    const response = await apiClient.get<ListProjectsResponse>(`/orgs/${orgId}/projects`, { params });
     return response.data;
 };
 
-export const getProject = async (
-    orgId: string,
-    projectId: string
-): Promise<IProject> => {
-    const response = await apiClient.get<IProject>(
-        `/orgs/${orgId}/projects/${projectId}`
-    );
+export const getProject = async (orgId: string, projectId: string): Promise<IProject> => {
+    const response = await apiClient.get<IProject>(`/orgs/${orgId}/projects/${projectId}`);
     return response.data;
 };
 
-export const updateProject = async (
-    orgId: string,
-    projectId: string,
-    data: UpdateProjectRequest
-): Promise<IProject> => {
-    const response = await apiClient.put<IProject>(
-        `/orgs/${orgId}/projects/${projectId}`,
-        data
-    );
+export const updateProject = async (orgId: string, projectId: string, data: UpdateProjectRequest): Promise<IProject> => {
+    const response = await apiClient.put<IProject>(`/orgs/${orgId}/projects/${projectId}`, data);
     return response.data;
 };
 
@@ -70,75 +53,32 @@ export const deleteProject = async (
     return response.data;
 };
 
-export const linkIntegration = async (
-    orgId: string,
-    projectId: string,
-    data: LinkIntegrationRequest
-): Promise<{ message: string }> => {
-    const response = await apiClient.post<{ message: string }>(
-        `/orgs/${orgId}/projects/${projectId}/link-integration`,
-        data
-    );
+export const linkIntegration = async (orgId: string, projectId: string, data: LinkIntegrationRequest): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(`/orgs/${orgId}/projects/${projectId}/link-integration`, data);
     return response.data;
 };
 
-export interface AddProjectMemberRequest {
-    userId: string;
-    predefinedRole?: string;
-    roleId?: string;
-}
 
-export interface UpdateProjectMemberRoleRequest {
-    predefinedRole?: string;
-    roleId?: string;
-}
 
-export interface ProjectMember {
-    id: string;
-    userId: string;
-    roleId?: string;
-    predefinedRole?: string;
-}
-
-export const listProjectMembers = async (
-    orgId: string,
-    projectId: string
-): Promise<ProjectMember[]> => {
+export const listProjectMembers = async (orgId: string, projectId: string): Promise<ProjectMember[]> => {
     const response = await apiClient.get<ProjectMember[]>(
         `/orgs/${orgId}/projects/${projectId}/members`
     );
     return response.data;
 };
 
-export const addProjectMember = async (
-    orgId: string,
-    projectId: string,
-    data: AddProjectMemberRequest
-): Promise<{ message: string }> => {
+export const addProjectMember = async (orgId: string, projectId: string, data: AddProjectMemberRequest): Promise<{ message: string }> => {
     const response = await apiClient.post<{ message: string }>(
-        `/orgs/${orgId}/projects/${projectId}/members`,
-        data
-    );
+        `/orgs/${orgId}/projects/${projectId}/members`, data);
     return response.data;
 };
 
-export const removeProjectMember = async (
-    orgId: string,
-    projectId: string,
-    memberId: string
-): Promise<{ message: string }> => {
-    const response = await apiClient.delete<{ message: string }>(
-        `/orgs/${orgId}/projects/${projectId}/members/${memberId}`
-    );
+export const removeProjectMember = async (orgId: string, projectId: string, memberId: string): Promise<{ message: string }> => {
+    const response = await apiClient.delete<{ message: string }>(`/orgs/${orgId}/projects/${projectId}/members/${memberId}`);
     return response.data;
 };
 
-export const updateProjectMemberRole = async (
-    orgId: string,
-    projectId: string,
-    memberId: string,
-    data: UpdateProjectMemberRoleRequest
-): Promise<{ message: string }> => {
+export const updateProjectMemberRole = async (orgId: string, projectId: string, memberId: string, data: UpdateProjectMemberRoleRequest): Promise<{ message: string }> => {
     const response = await apiClient.put<{ message: string }>(
         `/orgs/${orgId}/projects/${projectId}/members/${memberId}`,
         data
@@ -146,24 +86,21 @@ export const updateProjectMemberRole = async (
     return response.data;
 };
 
-export const syncProjectMembers = async (
-    orgId: string,
-    projectId: string
-): Promise<{ message: string }> => {
-    const response = await apiClient.post<{ message: string }>(
-        `/orgs/${orgId}/projects/${projectId}/members/sync`,
-        {}
-    );
+export const syncProjectMembers = async (orgId: string, projectId: string): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(`/orgs/${orgId}/projects/${projectId}/members/sync`, {});
     return response.data;
 };
 
-export const getResources = async (
-    orgId: string,
-    projectId: string
-): Promise<GetAvailableIntegrationsResponse> => {
-    const response = await apiClient.get<GetAvailableIntegrationsResponse>(
-        `/orgs/${orgId}/projects/${projectId}/resources`
-    );
+export type GetAvailableResourcesParams = {
+    provider?: string;
+    integrationId?: string;
+    keyword?: string;
+    page?: number;
+    limit?: number;
+};
+
+export const getAvailableResources = async (orgId: string, projectId: string, params?: GetAvailableResourcesParams): Promise<ApiResponse<GetAvailableResourcesResponse[]>> => {
+    const response = await apiClient.get<ApiResponse<GetAvailableResourcesResponse[]>>(`/orgs/${orgId}/projects/${projectId}/resources`, { params });
     return response.data;
 };
 

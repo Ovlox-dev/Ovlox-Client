@@ -12,6 +12,9 @@ import CreateWorkspace from "./components/create-workspace"
 import JoinWorkspace from "./components/join-workspace"
 import { buildDashboardOrgRoute, getActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
 import { useRouter } from "next/navigation"
+import { useAuthStore } from "@/entities/auth"
+import { toast } from "sonner"
+import { LogOut } from "lucide-react"
 
 const BORDER_SELECTED = "border-blue-400 dark:border-accent"
 const BORDER_DEFAULT = "border-gray-200 dark:border-border"
@@ -31,6 +34,7 @@ export default function NewUserPage() {
   const [workspaceChoice, setWorkspaceChoice] = useState<WorkspaceChoice>(null)
   const [phase, setPhase] = useState<Phase>("setupWorkspace")
   const [createStep, setCreateStep] = useState<CreateStep>(1);
+  const { logout, isLoading } = useAuthStore((s) => s.auth);
 
   const handleContinueFromChoice = () => {
     if (workspaceChoice === "create") {
@@ -58,6 +62,16 @@ export default function NewUserPage() {
   const handleJoinBack = () => {
     setPhase("setupWorkspace")
     setWorkspaceChoice(null)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success("Logged out successfully");
+      router.replace("/signin");
+    } catch (error) {
+      toast.error("Failed to logout", { description: (error as Error).message || "Something went wrong!." });
+    }
   }
 
   return (
@@ -157,14 +171,22 @@ export default function NewUserPage() {
               </Button>
 
               {getActiveOrgId() ? (
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  onClick={() => router.push(buildDashboardOrgRoute(getActiveOrgId() as string))}
-                  className="w-full bg-accent text-accent-contrast font-medium border border-accent text-sm dark:hover:bg-text-accent hover:text-accent-contrast"
-                >
-                  Go To Dashboard
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    onClick={() => router.push(buildDashboardOrgRoute(getActiveOrgId() as string))}
+                    className="w-full bg-accent text-accent-contrast font-medium border border-accent text-sm dark:hover:bg-text-accent hover:text-accent-contrast"
+                  >
+                    Go To Dashboard
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleLogout} disabled={isLoading}>
+                    <LogOut />
+                    {isLoading ? "Loading..." : "Log out"}
+                  </Button>
+                </div>
               ) : null}
             </>
           </div>

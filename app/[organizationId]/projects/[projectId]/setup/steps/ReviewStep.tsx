@@ -7,36 +7,20 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { useGetProject, useListProjectMembers } from "@/shared/queries/projects.queries";
-import { ExternalProvider } from "@/types/enum";
+import { useGetProject } from "@/shared/queries/projects.queries";
+import { RoleBadge } from "@/shared/ui/role-badge";
 
-export default function ReviewStep({
-    organizationId,
-    projectId,
-    onBack,
-}: {
+interface ReviewStepProps {
     organizationId: string;
     projectId: string;
     onBack: () => void;
-}) {
-    const router = useRouter();
-    const { data: project, isLoading: projectLoading } = useGetProject(
-        organizationId,
-        projectId
-    );
-    const { data: projectMembers = [], isLoading: membersLoading } =
-        useListProjectMembers(organizationId, projectId);
+}
 
-    const linkedProviders = React.useMemo(() => {
-        const providers =
-            project?.integrations
-                ?.map((c) => c.integration?.type)
-                .filter(Boolean) ?? [];
-        return Array.from(new Set(providers)) as ExternalProvider[];
-    }, [project?.integrations]);
+export default function ReviewStep({ organizationId, projectId, onBack }: ReviewStepProps) {
+    const router = useRouter();
+    const { data: project, isLoading: projectLoading } = useGetProject(organizationId, projectId);
 
     return (
         <div className="space-y-6">
@@ -67,7 +51,7 @@ export default function ReviewStep({
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <Card className="p-5 lg:col-span-2">
+                <Card className="p-5 lg:col-span-1">
                     <p className="text-sm font-medium">Project</p>
                     {projectLoading ? (
                         <div className="mt-3 space-y-2">
@@ -85,33 +69,32 @@ export default function ReviewStep({
                     )}
                 </Card>
 
-                <Card className="p-5">
-                    <p className="text-sm font-medium">Members</p>
-                    {membersLoading ? (
+                <Card className="p-5 lg:col-span-2">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium">Team</p>
+                            <p className="text-xs text-muted-foreground">
+                                Members who have access to this project
+                            </p>
+                        </div>
+                        <div className="">
+                            <p className="text-2xl font-semibold text-right">{(project?.memberCount) ?? 0}</p>
+                            <p className="text-sm text-muted-foreground">Members</p>
+                        </div>
+                    </div>
+                    {projectLoading ? (
                         <div className="mt-3 space-y-2">
                             <Skeleton className="h-5 w-20" />
                             <Skeleton className="h-7 w-40" />
                         </div>
                     ) : (
-                        <div className="mt-3 space-y-3">
-                            <div className="flex items-center justify-between">
-                                <p className="text-2xl font-semibold">{projectMembers.length}</p>
-                                <p className="text-sm text-muted-foreground">added</p>
-                            </div>
-                            <div className="flex -space-x-2">
-                                {projectMembers.slice(0, 5).map((m) => (
-                                    <Avatar key={m.id} className="size-8 border-2 border-card">
-                                        <AvatarFallback className="text-xs">
-                                            {String(m.userId).slice(0, 2).toUpperCase()}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                ))}
-                                {projectMembers.length > 5 ? (
-                                    <div className="flex size-8 items-center justify-center rounded-full border-2 border-card bg-muted text-xs font-medium">
-                                        +{projectMembers.length - 5}
-                                    </div>
-                                ) : null}
-                            </div>
+                        <div className="flex items-center gap-3 flex-wrap">
+                            {project?.members?.map((member) => (
+                                <div key={member.id} className=" border border-border rounded-md p-3">
+                                    <p className="text-sm font-medium">{member.user?.firstName} {member.user?.lastName}</p>
+                                    <RoleBadge role={member.predefinedRole} />
+                                </div>
+                            ))}
                         </div>
                     )}
                 </Card>
@@ -121,10 +104,14 @@ export default function ReviewStep({
                         <div>
                             <p className="text-sm font-medium">Integrations</p>
                             <p className="text-xs text-muted-foreground">
-                                Linked providers for this project
+                                Linked resources for this project
                             </p>
                         </div>
-                        <Badge variant="outline">{linkedProviders.length} linked</Badge>
+                        {projectLoading ? (
+                            <Skeleton className="h-7 w-24" />
+                        ) : (
+                            <Badge variant="outline">{project?.resourceCount ?? 0} linked</Badge>
+                        )}
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -132,17 +119,19 @@ export default function ReviewStep({
                             <>
                                 <Skeleton className="h-7 w-24" />
                                 <Skeleton className="h-7 w-20" />
-                                <Skeleton className="h-7 w-28" />
                             </>
-                        ) : linkedProviders.length === 0 ? (
+                        ) : project?.resourceCount === 0 ? (
                             <p className="text-sm text-muted-foreground">
                                 No integrations linked yet.
                             </p>
                         ) : (
-                            linkedProviders.map((p) => (
-                                <Badge key={p} className="bg-primary/10 text-primary hover:bg-primary/10">
-                                    {p}
-                                </Badge>
+                            project?.resources?.map((resource) => (
+                                <div key={resource.id} className="flex items-center gap-2">
+                                    <p className="text-sm font-medium">{resource.provider}</p>
+                                    <Badge variant="outline">
+                                        {resource.name}
+                                    </Badge>
+                                </div>
                             ))
                         )}
                     </div>

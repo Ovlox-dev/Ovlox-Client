@@ -11,9 +11,10 @@ import {
     removeProjectMember,
     updateProjectMemberRole,
     syncProjectMembers,
-    getResources,
+    getAvailableResources,
     getProjectSettings,
     updateProjectSettings,
+    GetAvailableResourcesParams,
 } from "@/shared/api/projects";
 import { LinkIntegrationRequest } from "@/types/api-types";
 
@@ -197,13 +198,17 @@ export const useSyncProjectMembers = (
     });
 };
 
-export const useGetAvailableIntegrations = (
-    orgId: string,
-    projectId: string
+export const useGetAvailableResources = (
+    orgId?: string,
+    projectId?: string,
+    params?: GetAvailableResourcesParams
 ) =>
     useQuery({
-        queryKey: projectKeys.resources(orgId, projectId),
-        queryFn: () => getResources(orgId, projectId),
+        queryKey:
+            orgId && projectId
+                ? [...projectKeys.resources(orgId, projectId), params]
+                : [],
+        queryFn: () => getAvailableResources(orgId!, projectId!, params),
         enabled: !!orgId && !!projectId,
     });
 

@@ -1,3 +1,4 @@
+import { ProjectMember } from "./api-types";
 import {
     AccountType,
     AuthProvider,
@@ -124,29 +125,32 @@ export interface IIntegrationConnection {
     projectId: string;
     integration?: IIntegration;
     integrationId: string;
-    items: Record<string, any> | null;
+    items: Record<string, unknown> | null;
     createdAt: Date | string;
     updatedAt: Date | string;
 }
 export interface IProject {
     id: string;
-    organization?: IOrganization;
     organizationId: string;
     name: string;
     slug: string;
     description?: string | null;
     status: ProjectStatus;
     visibility: ProjectVisibility;
-    createdById: string;
     syncStatus: ProjectSyncStatus;
-    isDeleted: boolean;
-    deletedAt?: string | null;
     lastSyncAt?: string | null;
     syncError?: string | null;
+    isDeleted: boolean;
+    deletedAt?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
+    organization?: IOrganization;
     createdBy?: IUser;
     integrations?: IIntegrationConnection[];
+    members?: ProjectMember[];
+    memberCount?: number;
+    resources?: IIntegrationResource[];
+    resourceCount?: number;
 }
 
 export interface IInvite {
@@ -186,7 +190,7 @@ export interface IChatMessage {
     senderId?: string | null;
     senderMemberId?: string | null;
     sources?: IChatMessageSource[];
-    metadata?: Record<string, any> | null;
+    metadata?: Record<string, unknown> | null;
     createdAt: Date | string;
 }
 
@@ -202,7 +206,7 @@ export interface IChatMessageSource {
 export interface IJob {
     id: string;
     type: string;
-    payload: Record<string, any>;
+    payload: Record<string, unknown>;
     status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "RETRY";
     attempts: number;
     createdAt: Date | string;

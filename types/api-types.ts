@@ -1,7 +1,6 @@
-import { IUser, IOrganization, IProject, IOrganizationMember, IInvite, IConversation, IChatMessage, IJob } from "./prisma-generated";
-import { ExternalProvider, PredefinedOrgRole, IntegrationStatus, ConversationType } from "./enum";
+import { IUser, IOrganization, IProject, IOrganizationMember, IInvite, IConversation, IChatMessage, IIntegration } from "./prisma-generated";
+import { ExternalProvider, PredefinedOrgRole, IntegrationStatus, ConversationType, OrgMemberStatus } from "./enum";
 
-// API Response wrapper
 export interface ApiResponse<T = unknown> {
     success: boolean;
     message?: string;
@@ -9,6 +8,12 @@ export interface ApiResponse<T = unknown> {
     count?: number;
     totalCount?: number;
     totalPages?: number;
+    pagination?: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
 }
 
 // API Error response
@@ -114,6 +119,31 @@ export interface ListProjectsResponse extends ApiResponse<IProject[]> {
     data: IProject[];
 }
 
+export interface AddProjectMemberRequest {
+    userId: string;
+    predefinedRole?: PredefinedOrgRole;
+    roleId?: string;
+}
+
+export interface UpdateProjectMemberRoleRequest {
+    predefinedRole?: PredefinedOrgRole;
+    roleId?: string;
+}
+
+export interface ProjectMember {
+    id: string;
+    projectId: string;
+    userId: string;
+    predefinedRole?: PredefinedOrgRole;
+    roleId?: string;
+    status: OrgMemberStatus;
+    addedBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+    user: IUser;
+    role: string;
+}
+
 export interface UpdateProjectRequest {
     name?: string;
     description?: string;
@@ -122,13 +152,6 @@ export interface UpdateProjectRequest {
 export interface LinkIntegrationRequest {
     integrationId: string;
     resourceIds: string[];
-    resources?: IntegrationResource[];
-    items?: {
-        repositories?: string[];
-        channels?: string[];
-        projects?: string[];
-        // [key: string]: any;
-    };
 }
 
 export interface IntegrationResource {
@@ -137,12 +160,24 @@ export interface IntegrationResource {
     type: string;
 }
 
-export interface GetAvailableIntegrationsResponse {
-    integrations: Array<{
-        id: string;
-        type: ExternalProvider;
-        resources: IntegrationResource[];
-    }>;
+
+export interface GetAvailableResourcesResponse {
+    id: string;
+    integrationId: string;
+    provider: ExternalProvider;
+    providerId: string;
+    name: string;
+    url: string;
+    metadata: {
+        private?: boolean;
+        archived?: boolean;
+        pushedAt?: string;
+        updatedAt?: string;
+    };
+    imported: boolean;
+    createdAt: string;
+    updatedAt: string;
+    integration: IIntegration;
 }
 
 // Integration API Types
@@ -217,7 +252,6 @@ export interface SlackChannel {
     name: string;
     is_private: boolean;
     is_archived: boolean;
-    [key: string]: any;
 }
 
 export interface DiscordChannel {
@@ -225,7 +259,6 @@ export interface DiscordChannel {
     name: string;
     type: number;
     guild_id: string;
-    [key: string]: any;
 }
 
 export interface JiraProject {
@@ -233,7 +266,6 @@ export interface JiraProject {
     key: string;
     name: string;
     projectTypeKey: string;
-    [key: string]: any;
 }
 
 // GitHub Commit Types
@@ -279,7 +311,6 @@ export interface GitHubCommitFile {
     patch?: string;
     additions?: number;
     deletions?: number;
-    [key: string]: any;
 }
 
 export interface GitHubCommitDetail {
@@ -428,8 +459,6 @@ export interface ConversationWithDetails extends Omit<IConversation, 'messages'>
     organization?: IOrganization;
 }
 
-export interface JobStatusResponse extends IJob { }
-
 // WebSocket Event Types
 export interface WsNewMessageEvent {
     conversationId: string;
@@ -466,7 +495,6 @@ export interface IntegrationStatusEvent {
         id: string;
         type: ExternalProvider;
         status: IntegrationStatus;
-        [key: string]: any;
     }>;
 }
 
@@ -500,7 +528,6 @@ export interface OrgIntegrationStatusItem {
         externalAccount: string | null;
         oauthAccount?: OrgIntegrationOauthAccount | null;
     }>;
-    // [key: string]: any;
 }
 
 export interface OrgIntegrationStatusSseEvent {
@@ -512,7 +539,7 @@ export interface JobStatusEvent {
     jobId: string;
     status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
     attempts: number;
-    payload: Record<string, any>;
+    payload: Record<string, unknown>;
     updatedAt: string;
     completed?: boolean;
 }
