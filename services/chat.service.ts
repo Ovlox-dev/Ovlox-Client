@@ -1,15 +1,15 @@
-import { apiClient } from "@/shared/api/client";
-import { apiBaseUrl } from "@/shared/api/client";
+import { apiClient , apiBaseUrl} from "@/shared/api/client";
 import {
     CreateConversationRequest,
     ListConversationsResponse,
     SendMessageRequest,
     SendMessageResponse,
-    JobStatusResponse,
+    // JobStatusResponse,
     ChatMessageWithDetails,
     ConversationWithDetails,
 } from "@/types/api-types";
 import { IConversation } from "@/types/prisma-generated";
+import { toast } from "sonner";
 
 // Create a new conversation
 export const createConversation = async (data: CreateConversationRequest): Promise<IConversation> => {
@@ -66,10 +66,10 @@ export const sendMessage = async (
 };
 
 // Get job status
-export const getJobStatus = async (jobId: string): Promise<JobStatusResponse> => {
-    const response = await apiClient.get<JobStatusResponse>(`/chat/jobs/${jobId}/status`);
-    return response.data;
-};
+// export const getJobStatus = async (jobId: string): Promise<JobStatusResponse> => {
+//     const response = await apiClient.get<JobStatusResponse>(`/chat/jobs/${jobId}/status`);
+//     return response.data;
+// };
 
 // Retry a failed job
 export const retryJob = async (jobId: string): Promise<{ status: string; jobId: string; message: string }> => {
@@ -94,12 +94,12 @@ export const streamJobStatus = (jobId: string, onUpdate: (data: unknown) => void
                 eventSource.close();
             }
         } catch (error) {
-            console.error("Failed to parse SSE data:", error);
+            toast.error("Failed to parse SSE data", { description: (error as Error).message });
         }
     };
 
     eventSource.onerror = (error) => {
-        console.error("SSE error:", error);
+        toast.error("SSE error", { description: (error as unknown as Error).message });
         eventSource.close();
         onError?.(new Error("Failed to stream job status"));
     };

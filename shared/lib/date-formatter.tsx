@@ -2,7 +2,7 @@ export function dateFormatter(
     isoDate: string,
     locale: string = "en-GB"
 ): string {
-    if (!isoDate) return "";
+    if (!isoDate) { return ""; }
 
     const date = new Date(isoDate);
 

@@ -32,16 +32,18 @@ export default function Protected({ children }: { children: React.ReactNode }) {
     const showVerifyEmailShell = verifyEmailPending;
 
     useEffect(() => {
-        bootstrapSession().catch(() => { });
+        bootstrapSession().catch(() => {
+            // Do nothing
+        });
     }, [bootstrapSession]);
 
     useEffect(() => {
         // Do not redirect while session is unknown: `idle` happens on first paint before
         // `bootstrapSession` flushes `loading`, and would otherwise send users to /signin briefly.
-        if (authStatus === "loading" || authStatus === "idle") return;
+        if (authStatus === "loading" || authStatus === "idle") { return; }
         if (!requiresAuth) {
-            if (!redirectIfAuthenticated) return;
-            if (authStatus !== "authenticated" || !user) return;
+            if (!redirectIfAuthenticated) { return; }
+            if (authStatus !== "authenticated" || !user) { return; }
             if (!user.isVerified) {
                 router.replace(VERIFY_EMAIL_PATH);
                 return;
@@ -55,7 +57,7 @@ export default function Protected({ children }: { children: React.ReactNode }) {
             }
             return;
         }
-        if (authStatus !== "unauthenticated") return;
+        if (authStatus !== "unauthenticated") { return; }
 
         const currentPath =
             typeof window !== "undefined"

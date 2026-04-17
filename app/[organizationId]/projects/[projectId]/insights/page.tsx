@@ -3,23 +3,16 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import {
     BarChart3,
     TrendingUp,
-    Users,
     CheckCircle2,
     Clock,
     AlertCircle,
-    Search,
-    Filter,
     Download,
     Calendar,
     Activity,
     GitBranch,
-    Plus,
-    PieChart as PieChartIcon
 } from "lucide-react"
 import {
     Select,

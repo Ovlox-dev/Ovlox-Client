@@ -24,7 +24,7 @@ export default function Home() {
             } catch {
                 // Session bootstrap errors are reflected in store state; still decide redirect below.
             }
-            if (cancelled) return;
+            if (cancelled) { return; }
             const { user } = useAuthStore.getState().auth;
             if (!user) {
                 router.replace("/signin");
@@ -38,7 +38,7 @@ export default function Home() {
 
             try {
                 const response = await userOrgs();
-                if (cancelled) return;
+                if (cancelled) { return; }
 
                 const orgs = response?.data ?? [];
                 const firstOrgId = orgs?.[0]?.id;
@@ -46,7 +46,7 @@ export default function Home() {
                     firstOrgId ? buildDashboardOrgRoute(firstOrgId) : DASHBOARD_NEW_ORGANIZATION_ROUTE
                 );
             } catch {
-                if (cancelled) return;
+                if (cancelled) { return; }
                 router.replace(DASHBOARD_NEW_ORGANIZATION_ROUTE);
             }
         })();

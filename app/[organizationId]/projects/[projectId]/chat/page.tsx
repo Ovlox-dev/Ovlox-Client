@@ -95,7 +95,7 @@ export default function Chat() {
     const messagesEndRef = React.useRef<HTMLDivElement>(null)
 
     const filteredChannels = React.useMemo(() => {
-        if (!searchQuery) return channels
+        if (!searchQuery) { return channels; }
         return channels.filter(ch => ch.name.toLowerCase().includes(searchQuery.toLowerCase()))
     }, [searchQuery])
 
@@ -109,7 +109,6 @@ export default function Chat() {
 
     const handleSendMessage = () => {
         if (messageInput.trim()) {
-            console.log("Sending message:", messageInput)
             setMessageInput("")
         }
     }

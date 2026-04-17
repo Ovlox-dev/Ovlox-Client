@@ -31,15 +31,12 @@ type AddMemberModalProps = {
     open: boolean
     onOpenChange: (open: boolean) => void
     organizationId: string
-    onInvited?: () => void
 }
 
 function AddMemberModal({
     open,
     onOpenChange,
     organizationId,
-    onInvited,
-
 }: AddMemberModalProps) {
     const [emails, setEmails] = useState<string[]>([])
     const [inputValue, setInputValue] = useState("")
@@ -57,14 +54,14 @@ function AddMemberModal({
 
     const addEmail = (email: string) => {
         const trimmed = email.trim().toLowerCase()
-        if (!trimmed || !EMAIL_REGEX.test(trimmed) || emails.includes(trimmed)) return
+        if (!trimmed || !EMAIL_REGEX.test(trimmed) || emails.includes(trimmed)) { return; }
         setEmails((prev) => [...prev, trimmed])
         setInputValue("")
     }
 
     const addEmailsFromCommaSeparated = (value: string): string => {
         const parts = value.split(",").map((p) => p.trim())
-        if (parts.length <= 1) return value
+        if (parts.length <= 1) { return value; }
 
         const validNew: string[] = []
         const existingSet = new Set(emails)
@@ -77,7 +74,7 @@ function AddMemberModal({
         }
 
         const remainder = parts[parts.length - 1] ?? ""
-        if (validNew.length) setEmails((prev) => [...prev, ...validNew])
+        if (validNew.length) { setEmails((prev) => [...prev, ...validNew]); }
         return remainder
     }
 
@@ -133,7 +130,7 @@ function AddMemberModal({
             return
         }
         const toInvite = getEmailsToInvite()
-        if (toInvite.length === 0) return
+        if (toInvite.length === 0) { return; }
 
         setSubmitting(true)
         setError(null)
@@ -144,7 +141,6 @@ function AddMemberModal({
                 )
             )
             await invitesRefetch()
-            onInvited?.()
             reset()
             onOpenChange(false)
         } catch (e: unknown) {
@@ -165,7 +161,7 @@ function AddMemberModal({
             open={open}
             onOpenChange={(nextOpen) => {
                 onOpenChange(nextOpen)
-                if (!nextOpen) reset()
+                if (!nextOpen) { reset(); }
             }}
         >
             <DialogContent className="sm:max-w-xl rounded-2xl border-border bg-card">
@@ -214,7 +210,7 @@ function AddMemberModal({
                                     onChange={handleInputChange}
                                     onKeyDown={handleKeyDown}
                                     onBlur={() => {
-                                        if (inputValue.trim()) addEmail(inputValue)
+                                        if (inputValue.trim()) { addEmail(inputValue); }
                                     }}
                                     className="flex-1 min-w-40 bg-transparent border-0 py-1 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-0"
                                 />

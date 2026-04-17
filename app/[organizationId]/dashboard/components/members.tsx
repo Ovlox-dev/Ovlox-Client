@@ -21,7 +21,9 @@ const MEMBERS_PER_PAGE = 3;
 
 function isExpiredBeforeToday(isoDate: string): boolean {
     const expiry = new Date(isoDate)
-    if (Number.isNaN(expiry.getTime())) return false
+    if (Number.isNaN(expiry.getTime())) {
+        return false
+    }
     const now = new Date()
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const startOfExpiry = new Date(
@@ -243,9 +245,9 @@ const Members = () => {
                 open={addMemberOpen}
                 onOpenChange={setAddMemberOpen}
                 organizationId={organizationId}
-                onInvited={() => {
-                    // placeholder for refresh once members/invites list is wired in
-                }}
+                // onInvited={() => {
+                //     // placeholder for refresh once members/invites list is wired in
+                // }}
             />
         </div>
     )

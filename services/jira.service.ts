@@ -18,8 +18,8 @@ export const syncJiraProjects = async (integrationId: string) => {
 
 export const ingestJiraIssues = async (integrationId: string, projectKey?: string, jql?: string) => {
     const params: Record<string, string> = {};
-    if (projectKey) params.projectKey = projectKey;
-    if (jql) params.jql = jql;
+    if (projectKey) { params.projectKey = projectKey; }
+    if (jql) { params.jql = jql; }
     const response = await apiClient.post<ApiResponse>(`/integrations/jira/ingest/${integrationId}`, null, { params });
     return response.data;
 };

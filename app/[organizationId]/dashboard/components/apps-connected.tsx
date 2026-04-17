@@ -28,8 +28,6 @@ const AppsConnected = () => {
         },
     })
 
-    const integrationId = integrationsData?.find((item) => item.status === IntegrationStatus.CONNECTED)?.integrationId ?? '';
-
     const appsWithStatus = useMemo(() => {
         const APP_CATALOG = [
             {
@@ -67,7 +65,7 @@ const AppsConnected = () => {
             connected: connectedApps.has(app.id),
             status: statusByAppId.get(app.id) ?? IntegrationStatus.NOT_CONNECTED,
         }));
-    }, [integrationsData, organizationId]);
+    }, [integrationsData]);
 
     const connectedCount = appsWithStatus.filter((app) => app.connected).length;
     const totalApps = appsWithStatus.length;

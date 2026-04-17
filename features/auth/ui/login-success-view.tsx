@@ -13,7 +13,7 @@ export function LoginSuccessView() {
     const { user, isLoading } = useAuthStore((s) => s.auth);
 
     useEffect(() => {
-        if (isLoading) return;
+        if (isLoading) { return; }
         if (!user) {
             setAuthNavigation("/login-success");
             return;
@@ -22,7 +22,7 @@ export function LoginSuccessView() {
         let cancelled = false;
         void (async () => {
             const { redirectTo } = await resolvePostAuthOrgRedirect();
-            if (!cancelled) router.replace(redirectTo);
+            if (!cancelled) { router.replace(redirectTo); }
         })();
 
         return () => {

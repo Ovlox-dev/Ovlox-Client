@@ -27,10 +27,10 @@ function canUseLocalStorage(): boolean {
 }
 
 function parseTokenData(raw: string | null): TokenData | null {
-    if (!raw) return null;
+    if (!raw) { return null; }
     try {
         const parsed = JSON.parse(raw) as Partial<TokenData>;
-        if (!parsed?.accessToken) return null;
+        if (!parsed?.accessToken) { return null; }
         const expiresAt = typeof parsed.expiresAt === "number" ? parsed.expiresAt : Number.MAX_SAFE_INTEGER;
         const refreshToken =
             typeof parsed.refreshToken === "string" && parsed.refreshToken.length > 0 ? parsed.refreshToken : undefined;
@@ -56,7 +56,7 @@ class TokenService {
     private writeTokenData(next: TokenData): void {
         this.accessToken = next.accessToken;
         this.tokenData = next;
-        if (!canUseLocalStorage()) return;
+        if (!canUseLocalStorage()) { return; }
         const payload: Record<string, unknown> = {
             accessToken: next.accessToken,
             expiresAt: next.expiresAt,
@@ -94,8 +94,8 @@ class TokenService {
     }
 
     getTokens(): TokenData | null {
-        if (this.tokenData?.accessToken) return this.tokenData;
-        if (!canUseLocalStorage()) return null;
+        if (this.tokenData?.accessToken) { return this.tokenData; }
+        if (!canUseLocalStorage()) { return null; }
 
         const fromTokenData = parseTokenData(window.localStorage.getItem(TOKEN_STORAGE_KEY));
         if (fromTokenData) {
@@ -104,16 +104,16 @@ class TokenService {
         }
 
         const token = window.localStorage.getItem(TOKEN_STORAGE_KEY);
-        if (!token) return null;
+        if (!token) { return null; }
         const fallback: TokenData = { accessToken: token, expiresAt: Number.MAX_SAFE_INTEGER };
         this.writeTokenData(fallback);
         return fallback;
     }
 
     getAccessToken(): string | null {
-        if (this.accessToken) return this.accessToken;
+        if (this.accessToken) { return this.accessToken; }
         const tokens = this.getTokens();
-        if (!tokens?.accessToken) return null;
+        if (!tokens?.accessToken) { return null; }
         this.accessToken = tokens.accessToken;
         return tokens.accessToken;
     }
@@ -127,13 +127,13 @@ class TokenService {
 
     isTokenExpired(): boolean {
         const tokens = this.getTokens();
-        if (!tokens) return true;
+        if (!tokens) { return true; }
         return Date.now() >= tokens.expiresAt - 60 * 1000;
     }
 
     decodeToken(token: string): DecodedToken {
         const parts = token.split(".");
-        if (parts.length < 2) throw new Error("Invalid token format");
+        if (parts.length < 2) { throw new Error("Invalid token format"); }
         const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
         const jsonPayload = decodeURIComponent(
             atob(base64)
@@ -147,12 +147,12 @@ class TokenService {
     clearTokens(): void {
         this.accessToken = null;
         this.tokenData = null;
-        if (!canUseLocalStorage()) return;
+        if (!canUseLocalStorage()) { return; }
         window.localStorage.removeItem(TOKEN_STORAGE_KEY);
     }
 
     async refreshToken(): Promise<TokenData> {
-        if (this.refreshPromise) return this.refreshPromise;
+        if (this.refreshPromise) { return this.refreshPromise; }
         this.refreshPromise = this.performRefresh();
         try {
             return await this.refreshPromise;
@@ -175,19 +175,19 @@ class TokenService {
             credentials: "include",
             headers: Object.keys(headers).length > 0 ? headers : undefined,
         });
-        if (!response.ok) throw new Error("Token refresh failed");
+        if (!response.ok) { throw new Error("Token refresh failed"); }
 
         const data = (await response.json()) as RefreshResponse;
         const nextToken = data.accessToken ?? data.data?.accessToken;
         if (nextToken) {
             this.setTokens(nextToken);
             const tokens = this.getTokens();
-            if (!tokens) throw new Error("Token refresh failed");
+            if (!tokens) { throw new Error("Token refresh failed"); }
             return tokens;
         }
 
         const existing = this.getTokens();
-        if (existing) return existing;
+        if (existing) { return existing; }
         throw new Error("Token refresh failed");
     }
 }

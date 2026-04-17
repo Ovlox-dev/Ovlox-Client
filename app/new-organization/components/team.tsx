@@ -45,14 +45,14 @@ const Team = ({
     const addEmail = (email: string) => {
         const trimmed = email.trim().toLowerCase()
         if (!trimmed || !EMAIL_REGEX.test(trimmed) || emails.includes(trimmed))
-            return
+            { return; }
         setEmails((prev) => [...prev, trimmed])
         setInputValue("")
     }
 
     const addEmailsFromCommaSeparated = (value: string): string => {
         const parts = value.split(",").map((p) => p.trim())
-        if (parts.length <= 1) return value
+        if (parts.length <= 1) { return value; }
         const validNew: string[] = []
         const existingSet = new Set(emails)
         for (let i = 0; i < parts.length - 1; i++) {
@@ -102,13 +102,13 @@ const Team = ({
 
     const handleAddToList = () => {
         const toAdd = getEmailsToAdd()
-        if (toAdd.length === 0) return
+        if (toAdd.length === 0) { return; }
         const existingEmails = new Set(invitedMembers.map((m) => m.email))
         const newEmails = toAdd.filter((e) => !existingEmails.has(e))
         if (newEmails.length === 0) {
             setEmails([])
-            setInputValue("")
-            return
+            setInputValue("");
+            return;
         }
         onAddMembers(newEmails)
         setEmails([])
@@ -165,7 +165,7 @@ const Team = ({
                                 onChange={handleInputChange}
                                 onKeyDown={handleKeyDown}
                                 onBlur={() => {
-                                    if (inputValue.trim()) addEmail(inputValue)
+                                    if (inputValue.trim()) { addEmail(inputValue); }
                                 }}
                                 className="flex-1 min-w-[140px] bg-transparent border-0 py-1 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-0"
                             />

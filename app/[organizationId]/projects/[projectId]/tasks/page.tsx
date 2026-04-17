@@ -10,7 +10,6 @@ import {
     CheckSquare2,
     Plus,
     Search,
-    Filter,
     MoreVertical,
     Trash2,
     Edit,
@@ -18,8 +17,6 @@ import {
     AlertCircle,
     CheckCircle2,
     Calendar,
-    Users,
-    Tag
 } from "lucide-react"
 import {
     Select,
@@ -115,14 +112,14 @@ const sampleTasks: TaskItem[] = [
 ]
 
 export default function Tasks() {
-    const [tasks, setTasks] = React.useState<TaskItem[]>(sampleTasks)
+    const [tasks] = React.useState<TaskItem[]>(sampleTasks)
     const [searchQuery, setSearchQuery] = React.useState("")
     const [filterStatus, setFilterStatus] = React.useState<string>("all")
     const [filterPriority, setFilterPriority] = React.useState<string>("all")
     const [sortBy, setSortBy] = React.useState<string>("due-date")
 
     const filteredTasks = React.useMemo(() => {
-        let filtered = tasks.filter((task) => {
+        const filtered = tasks.filter((task) => {
             const matchesSearch = searchQuery === "" ||
                 task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 task.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -134,8 +131,8 @@ export default function Tasks() {
         // Sort
         filtered.sort((a, b) => {
             if (sortBy === "due-date") {
-                if (!a.dueDate) return 1
-                if (!b.dueDate) return -1
+                if (!a.dueDate) { return 1; }
+                if (!b.dueDate) { return -1; }
                 return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
             } else if (sortBy === "priority") {
                 const priorityOrder = { high: 0, medium: 1, low: 2 }

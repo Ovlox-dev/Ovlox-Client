@@ -21,7 +21,7 @@ function formatRoleLabel(role: string): string {
 }
 
 function roleStyleClasses(role: string | null | undefined): string {
-    if (!role) return FALLBACK_STYLE
+    if (!role) { return FALLBACK_STYLE; }
     const styles = ROLE_STYLES[role as PredefinedOrgRole]
     return styles ?? FALLBACK_STYLE
 }

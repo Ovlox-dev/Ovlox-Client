@@ -27,6 +27,7 @@ import type { GitHubOverview } from "@/types/api-types"
 import { useOrg } from "@/entities/organization"
 import { useProject } from "@/hooks/useProject"
 import { ExternalProvider } from "@/types/enum"
+import { toast } from "sonner"
 
 type DataSource = {
     id: string
@@ -220,7 +221,7 @@ export default function Analysis() {
     const messagesEndRef = React.useRef<HTMLDivElement>(null)
 
     const filteredSummaries = React.useMemo(() => {
-        if (selectedSource === "all") return summaries
+        if (selectedSource === "all") { return summaries; }
         return summaries.filter(s => s.source === selectedSource)
     }, [selectedSource])
 
@@ -239,7 +240,9 @@ export default function Analysis() {
     React.useEffect(() => {
         if (currentOrg?.id && projectId) {
             loadProject(currentOrg.id, projectId as string).catch((err) => {
-                console.error("Failed to load project for analysis", err)
+                toast.error("Failed to load project for analysis", {
+                    description: err instanceof Error ? err.message : "Unknown error",
+                })
             })
         }
     }, [currentOrg?.id, projectId, loadProject])
@@ -256,12 +259,14 @@ export default function Analysis() {
                 setIsLoadingGithub(true)
                 if (!githubIntegrationId) {
                     setGithubOverview(null)
-                    return
+                    return;
                 }
                 const data = await getGithubOverview(githubIntegrationId, projectId)
                 setGithubOverview(data)
-            } catch (error) {
-                console.error("Failed to fetch GitHub overview:", error)
+            } catch (err) {
+                toast.error("Failed to fetch GitHub overview:", {
+                    description: err instanceof Error ? err.message : "Unknown error",
+                })
             } finally {
                 setIsLoadingGithub(false)
             }
@@ -284,11 +289,11 @@ export default function Analysis() {
     }
 
     React.useEffect(() => {
-        if (chatOpen) scrollToBottom()
+        if (chatOpen) { scrollToBottom(); }
     }, [chatMessages, chatOpen])
 
     const handleSendMessage = () => {
-        if (!chatInput.trim()) return
+        if (!chatInput.trim()) { return; }
 
         const userMessage: ChatMessage = {
             id: `msg-${Date.now()}`,
@@ -330,6 +335,10 @@ export default function Analysis() {
             info: "bg-gray-50 text-gray-700 dark:bg-gray-900 dark:text-gray-300"
         }
         return variants[type]
+    }
+
+    if (isLoadingGithub) {
+        return <div>Loading...</div>
     }
 
     return (

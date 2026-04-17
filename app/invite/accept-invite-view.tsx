@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { acceptInvite } from "@/shared/api/org";
+import { acceptInvite, declineInvite } from "@/shared/api/org";
 import {
     buildDashboardOrgRoute,
     setActiveOrgId,
@@ -44,34 +44,33 @@ export function AcceptInviteView() {
 
     const [pastedToken, setPastedToken] = useState("");
     const [isAccepting, setIsAccepting] = useState(false);
+    const [isDeclining, setIsDeclining] = useState(false);
 
     useEffect(() => {
-        bootstrapSession().catch(() => { });
+        bootstrapSession().catch(() => undefined);
     }, [bootstrapSession]);
-
-    useEffect(() => {
-        if (!tokenFromUrl) return;
-        if (authStatus === "loading" || authStatus === "idle") return;
-        if (authStatus === "authenticated" && user) return;
-        if (authStatus !== "unauthenticated" || user) return;
-
-        const currentPath =
-            typeof window !== "undefined"
-                ? `${window.location.pathname}${window.location.search}${window.location.hash}`
-                : `/invite?token=${encodeURIComponent(tokenFromUrl)}`;
-
-        router.replace(`/signin?redirectURI=${encodeURIComponent(currentPath)}`);
-    }, [authStatus, router, tokenFromUrl, user]);
 
     useEffect(() => {
         setPastedToken("");
     }, [tokenFromUrl]);
 
     const effectiveToken = tokenFromUrl || pastedToken.trim();
+    const returnTo = useMemo(() => {
+        if (!effectiveToken) { return "/invite"; }
+        return `/invite?token=${encodeURIComponent(effectiveToken)}`;
+    }, [effectiveToken]);
+
+    const isUnauthenticated = authStatus !== "authenticated" || !user;
 
     const handleAccept = async () => {
         if (!effectiveToken) {
             toast.error("Add an invite code or open the link from your email.");
+            return;
+        }
+
+        if (isUnauthenticated) {
+            toast.error("Please sign up or sign in to accept the invitation.");
+            router.replace(`/signup?redirectURI=${encodeURIComponent(returnTo)}`);
             return;
         }
 
@@ -91,6 +90,31 @@ export function AcceptInviteView() {
             toast.error(formatAuthErrorMessage(error));
         } finally {
             setIsAccepting(false);
+        }
+    };
+
+    const handleReject = async () => {
+        if (!effectiveToken) {
+            toast.error("Add an invite code or open the link from your email.");
+            return;
+        }
+
+        try {
+            setIsDeclining(true);
+            await declineInvite(effectiveToken);
+            toast.success("Invitation declined.");
+            router.replace("/");
+        } catch (error) {
+            const status = (error as { response?: { status?: number } } | undefined)?.response?.status;
+            if (status === 401 || status === 403) {
+                toast.error("Please sign up or sign in to reject the invitation.");
+                router.replace(`/signup?redirectURI=${encodeURIComponent(returnTo)}`);
+                return;
+            }
+
+            toast.error(formatAuthErrorMessage(error));
+        } finally {
+            setIsDeclining(false);
         }
     };
 
@@ -120,12 +144,43 @@ export function AcceptInviteView() {
 
                 <CardContent className="space-y-6 px-6">
                     {tokenFromUrl ? (
-                        <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                            <Sparkles className="size-4 shrink-0 text-accent mt-0.5" />
-                            <p>
-                                Your invite link is ready. When you continue, you&apos;ll be added
-                                to the workspace and taken to its dashboard.
-                            </p>
+                        <div className="space-y-4">
+                            <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                                <Sparkles className="size-4 shrink-0 text-accent mt-0.5" />
+                                <p>
+                                    {isUnauthenticated
+                                        ? "You’re almost there — sign up or sign in to accept this invitation."
+                                        : "Your invite link is ready. When you continue, you’ll be added to the workspace and taken to its dashboard."}
+                                </p>
+                            </div>
+
+                            {isUnauthenticated ? (
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    <Button
+                                        type="button"
+                                        className="rounded-full bg-accent text-accent-foreground hover:bg-accent/90 font-medium h-11"
+                                        onClick={() =>
+                                            router.replace(
+                                                `/signup?redirectURI=${encodeURIComponent(returnTo)}`
+                                            )
+                                        }
+                                    >
+                                        Sign up to continue
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="rounded-full font-medium h-11"
+                                        onClick={() =>
+                                            router.replace(
+                                                `/signin?redirectURI=${encodeURIComponent(returnTo)}`
+                                            )
+                                        }
+                                    >
+                                        Sign in
+                                    </Button>
+                                </div>
+                            ) : null}
                         </div>
                     ) : (
                         <div className="space-y-2">
@@ -151,10 +206,20 @@ export function AcceptInviteView() {
                     <Button
                         type="button"
                         className="w-full rounded-full bg-accent text-accent-foreground hover:bg-accent/90 font-medium h-11"
-                        disabled={isAccepting || !effectiveToken}
+                        disabled={isAccepting || isDeclining || !effectiveToken}
                         onClick={handleAccept}
                     >
                         {isAccepting ? "Joining workspace…" : "Accept invitation"}
+                    </Button>
+
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        className="w-full rounded-full font-medium h-11"
+                        disabled={isAccepting || isDeclining || !effectiveToken}
+                        onClick={handleReject}
+                    >
+                        {isDeclining ? "Declining…" : "Reject invitation"}
                     </Button>
                 </CardContent>
             </Card>

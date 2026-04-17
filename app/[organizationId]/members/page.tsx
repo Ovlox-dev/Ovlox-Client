@@ -77,8 +77,8 @@ export default function MembersPage() {
         const list = data ?? []
         const q = search.trim().toLowerCase()
         return list.filter((m) => {
-            if (roleFilter !== "all" && m.predefinedRole !== roleFilter) return false
-            if (!q) return true
+            if (roleFilter !== "all" && m.predefinedRole !== roleFilter) { return false; }
+            if (!q) { return true; }
             const name = (m.user?.firstName ?? "") + " " + (m.user?.lastName ?? "").toLowerCase()
             const email = (m.user?.email ?? "").toLowerCase()
             return name.includes(q) || email.includes(q)
@@ -88,8 +88,8 @@ export default function MembersPage() {
     const filteredInvites = useMemo(() => {
         const q = search.trim().toLowerCase()
         return pendingInvites.filter((inv) => {
-            if (roleFilter !== "all" && inv.predefinedRole !== roleFilter) return false
-            if (!q) return true
+            if (roleFilter !== "all" && inv.predefinedRole !== roleFilter) { return false; }
+            if (!q) { return true; }
             const email = (inv.email ?? "").toLowerCase()
             return email.includes(q)
         })
@@ -296,7 +296,6 @@ export default function MembersPage() {
                 open={addMemberOpen}
                 onOpenChange={setAddMemberOpen}
                 organizationId={organizationId}
-                onInvited={() => { }}
             />
         </div>
     )

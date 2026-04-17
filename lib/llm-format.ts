@@ -15,7 +15,7 @@ const ALLOWED_TAGS = [
 ];
 
 export async function llmMarkdownToHtml(markdown: string) {
-    if (!markdown) return "";
+    if (!markdown) { return ""; }
 
     const rawHtml = await marked.parse(markdown);
 

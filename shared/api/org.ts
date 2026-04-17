@@ -90,9 +90,16 @@ export const acceptInvite = async (token: string): Promise<IOrganizationMember> 
     const payload = response.data as IOrganizationMember | ApiResponse<IOrganizationMember>;
     if (payload && typeof payload === "object" && "data" in payload) {
         const unwrapped = (payload as ApiResponse<IOrganizationMember>).data;
-        if (unwrapped) return unwrapped;
+        if (unwrapped) { return unwrapped; }
     }
     return payload as IOrganizationMember;
+};
+
+export const declineInvite = async (token: string): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(
+        `/orgs/invites/${token}/decline`
+    );
+    return response.data;
 };
 
 export const listIntegrations = async (orgId: string): Promise<OrgIntegrationStatusItem[]> => {

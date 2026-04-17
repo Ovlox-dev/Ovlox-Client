@@ -22,7 +22,7 @@ export const syncDiscordChannels = async (integrationId: string, guildId: string
 
 export const ingestDiscordHistory = async (integrationId: string, channelId: string, projectId?: string) => {
     const params: Record<string, string> = { channelId };
-    if (projectId) params.projectId = projectId;
+    if (projectId) { params.projectId = projectId; }
     const response = await apiClient.post<ApiResponse>(`/integrations/discord/ingest/${integrationId}`, null, { params });
     return response.data;
 };

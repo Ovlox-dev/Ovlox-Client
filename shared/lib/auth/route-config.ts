@@ -20,13 +20,13 @@ const policies: RouteAccessPolicy[] = [
 ];
 
 export function getRouteAccessPolicy(pathname: string | null | undefined): RouteAccessPolicy {
-    if (!pathname) return DEFAULT_PROTECTED_POLICY;
+    if (!pathname) { return DEFAULT_PROTECTED_POLICY; }
     return policies.find((policy) => policy.pattern.test(pathname)) ?? DEFAULT_PROTECTED_POLICY;
 }
 
 export function canAccessRoute(pathname: string | null | undefined, role: UserRole | null | undefined): boolean {
     const policy = getRouteAccessPolicy(pathname);
-    if (!policy.roles?.length) return true;
-    if (!role) return false;
+    if (!policy.roles?.length) { return true; }
+    if (!role) { return false; }
     return policy.roles.includes(role);
 }

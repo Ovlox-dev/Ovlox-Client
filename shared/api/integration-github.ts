@@ -71,7 +71,7 @@ export const getRepositoriesByProject = async (integrationId: string, projectId:
 
 export const syncGithubRepositories = async (integrationId: string, projectId?: string): Promise<SyncRepositoriesResponse> => {
     const params: Record<string, string> = {};
-    if (projectId) params.projectId = projectId;
+    if (projectId) { params.projectId = projectId; }
 
     const response = await apiClient.post<SyncRepositoriesResponse>(`/integrations/github/sync-repos/${integrationId}`, null, { params });
     return response.data;
@@ -79,8 +79,8 @@ export const syncGithubRepositories = async (integrationId: string, projectId?: 
 
 export const getGithubOverview = async (integrationId: string, repoFullName?: string, projectId?: string): Promise<GitHubOverview> => {
     const params: Record<string, string> = {};
-    if (repoFullName) params.repoFullName = repoFullName;
-    if (projectId) params.projectId = projectId;
+    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (projectId) { params.projectId = projectId; }
 
     const response = await apiClient.get<GitHubOverview>(`/integrations/github/overview/${integrationId}`, { params });
     return response.data;
@@ -98,10 +98,10 @@ export const getGithubCommits = async (
 ): Promise<GitHubCommitSummary[]> => {
     const params: Record<string, string | number> = {};
     const repoFullName = options?.repoFullName ?? options?.repo;
-    if (repoFullName) params.repoFullName = repoFullName;
-    if (options?.branch) params.branch = options.branch;
-    if (options?.projectId) params.projectId = options.projectId;
-    if (options?.limit) params.limit = options.limit;
+    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (options?.branch) { params.branch = options.branch; }
+    if (options?.projectId) { params.projectId = options.projectId; }
+    if (options?.limit) { params.limit = options.limit; }
 
     const response = await apiClient.get<GitHubCommitsResponse>(`/integrations/github/commits/${integrationId}`, { params });
     return response.data.commits || [];
@@ -113,10 +113,10 @@ export const getGithubPullRequests = async (
 ): Promise<GitHubPullRequest[]> => {
     const params: Record<string, string | number> = {};
     const repoFullName = options?.repoFullName ?? options?.repo;
-    if (repoFullName) params.repoFullName = repoFullName;
-    if (options?.state) params.state = options.state;
-    if (options?.projectId) params.projectId = options.projectId;
-    if (options?.limit) params.limit = options.limit;
+    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (options?.state) { params.state = options.state; }
+    if (options?.projectId) { params.projectId = options.projectId; }
+    if (options?.limit) { params.limit = options.limit; }
 
     const response = await apiClient.get<GitHubPullRequestsResponse>(`/integrations/github/pull-requests/${integrationId}`, { params });
     return response.data.pullRequests || [];
@@ -128,10 +128,10 @@ export const getGithubIssues = async (
 ): Promise<GitHubIssue[]> => {
     const params: Record<string, string | number> = {};
     const repoFullName = options?.repoFullName ?? options?.repo;
-    if (repoFullName) params.repoFullName = repoFullName;
-    if (options?.state) params.state = options.state;
-    if (options?.projectId) params.projectId = options.projectId;
-    if (options?.limit) params.limit = options.limit;
+    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (options?.state) { params.state = options.state; }
+    if (options?.projectId) { params.projectId = options.projectId; }
+    if (options?.limit) { params.limit = options.limit; }
 
     const response = await apiClient.get<GitHubIssuesResponse>(`/integrations/github/issues/${integrationId}`, { params });
     return response.data.issues || [];
@@ -144,8 +144,8 @@ export const getGithubCommitDetails = async (
 ): Promise<GitHubCommitDetail> => {
     const params: Record<string, string> = {};
     const repoFullName = options?.repoFullName ?? options?.repo;
-    if (repoFullName) params.repoFullName = repoFullName;
-    if (options?.projectId) params.projectId = options.projectId;
+    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (options?.projectId) { params.projectId = options.projectId; }
 
     const response = await apiClient.get<GitHubCommitDetail>(`/integrations/github/commit/details/${integrationId}/${sha}`, { params });
     return response.data;
@@ -158,8 +158,8 @@ export const debugGithubCommit = async (
 ): Promise<DebugGithubCommitResponse> => {
     const params: Record<string, string> = {};
     const repoFullName = options?.repoFullName ?? options?.repo;
-    if (repoFullName) params.repoFullName = repoFullName;
-    if (options?.projectId) params.projectId = options.projectId;
+    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (options?.projectId) { params.projectId = options.projectId; }
 
     const response = await apiClient.get<DebugGithubCommitResponse>(`/integrations/github/debug/${integrationId}/${sha}`, { params });
     return response.data;

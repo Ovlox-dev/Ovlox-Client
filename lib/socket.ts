@@ -7,6 +7,7 @@ import {
     WsMessageReadEvent,
 } from "@/types/api-types";
 import { apiBaseUrl } from "@/shared/api/client";
+import { toast } from "sonner";
 
 const getSocketUrl = () => {
     const baseUrl = apiBaseUrl.replace(/\/api\/v1$/, "");
@@ -23,7 +24,8 @@ export const connectSocket = (): Socket => {
     const token = getAccessToken();
     if (!token) {
         // Avoid hard-throwing; the server will reject/close the socket if unauthenticated.
-        console.warn("No access token available for socket connection");
+        // console.warn("No access token available for socket connection");
+        toast.warning("No access token available for socket connection");
     }
 
     const socketUrl = getSocketUrl();
@@ -40,11 +42,13 @@ export const connectSocket = (): Socket => {
     });
 
     socket.on("connect", () => {
-        console.log("Socket connected:", socket?.id);
+        // console.log("Socket connected:", socket?.id);
+        toast.success("Socket connected");
     });
 
     socket.on("disconnect", (reason) => {
-        console.log("Socket disconnected:", reason);
+        // console.log("Socket disconnected:", reason);
+        toast.error("Socket disconnected");
         if (reason === "io server disconnect") {
             // Server disconnected the socket, reconnect manually
             socket?.connect();
@@ -52,7 +56,8 @@ export const connectSocket = (): Socket => {
     });
 
     socket.on("connect_error", (error) => {
-        console.error("Socket connection error:", error);
+        // console.error("Socket connection error:", error);
+        toast.error("Socket connection error", { description: error.message });
     });
 
     return socket;
