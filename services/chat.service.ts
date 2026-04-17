@@ -4,7 +4,7 @@ import {
     ListConversationsResponse,
     SendMessageRequest,
     SendMessageResponse,
-    JobStatusResponse,
+    // JobStatusResponse,
     ChatMessageWithDetails,
     ConversationWithDetails,
 } from "@/types/api-types";
@@ -66,10 +66,10 @@ export const sendMessage = async (
 };
 
 // Get job status
-export const getJobStatus = async (jobId: string): Promise<JobStatusResponse> => {
-    const response = await apiClient.get<JobStatusResponse>(`/chat/jobs/${jobId}/status`);
-    return response.data;
-};
+// export const getJobStatus = async (jobId: string): Promise<JobStatusResponse> => {
+//     const response = await apiClient.get<JobStatusResponse>(`/chat/jobs/${jobId}/status`);
+//     return response.data;
+// };
 
 // Retry a failed job
 export const retryJob = async (jobId: string): Promise<{ status: string; jobId: string; message: string }> => {
