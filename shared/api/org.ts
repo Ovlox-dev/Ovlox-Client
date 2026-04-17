@@ -95,6 +95,13 @@ export const acceptInvite = async (token: string): Promise<IOrganizationMember> 
     return payload as IOrganizationMember;
 };
 
+export const declineInvite = async (token: string): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(
+        `/orgs/invites/${token}/decline`
+    );
+    return response.data;
+};
+
 export const listIntegrations = async (orgId: string): Promise<OrgIntegrationStatusItem[]> => {
     const response = await apiClient.get<OrgIntegrationStatusItem[]>(`/orgs/${orgId}/integrations`);
     return response.data;
