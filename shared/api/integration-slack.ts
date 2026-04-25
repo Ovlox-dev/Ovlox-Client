@@ -1,13 +1,13 @@
 import { apiClient } from "@/shared/api/client";
-import { GetInstallUrlResponse, SlackChannel, ApiResponse } from "@/types/api-types";
+import { GetInstallUrlResponse, GetSlackChannelResponse, ApiResponse } from "@/types/api-types";
 
 export const getSlackInstallUrl = async (orgId: string, integrationId: string): Promise<GetInstallUrlResponse> => {
     const response = await apiClient.get<GetInstallUrlResponse>(`/integrations/slack/install/${orgId}/${integrationId}`);
     return response.data;
 };
 
-export const getSlackChannels = async (integrationId: string): Promise<SlackChannel[]> => {
-    const response = await apiClient.get<SlackChannel[]>(`/integrations/slack/channels/${integrationId}`);
+export const getSlackChannels = async (integrationId: string): Promise<GetSlackChannelResponse[]> => {
+    const response = await apiClient.get<GetSlackChannelResponse[]>(`/integrations/slack/channels/${integrationId}`);
     return response.data;
 };
 
