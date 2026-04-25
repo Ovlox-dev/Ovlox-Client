@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import { useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 
@@ -13,12 +13,15 @@ import { cn } from "@/lib/utils"
 import { ExternalProvider, IntegrationStatus } from "@/types/enum"
 import type { OrgIntegrationStatusItem } from "@/types/api-types"
 import { listIntegrations, addIntegrations } from "@/shared/api/org"
-import { getGithubInstallUrl } from "@/shared/api/integration-github"
+import { getGithubInstallUrl, getGithubOAuthUrl } from "@/shared/api/integration-github"
 
 import { PageTitle } from "@/components/page-title"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { formatAuthErrorMessage } from "@/shared/lib/auth/auth-utils"
+import { toast } from "sonner"
+import { getDiscordOAuthUrl } from "@/shared/api/integration-discord"
 import { getSlackInstallUrl } from "@/shared/api/integration-slack"
 
 const ACCENT = "#55C6F0"
@@ -76,6 +79,7 @@ const INTEGRATION_CATALOG: IntegrationToolDef[] = [
     name: "Discord",
     icon: SiDiscord,
     description: "Communicate with your team through channels and voice chat.",
+    install: false,
     connect: true,
     managePath: "discord",
   },
@@ -89,7 +93,7 @@ function isToolInSetup(app: IntegrationToolDef, integrations: OrgIntegrationStat
   return addedIds.has(app.id) || Boolean(integrationForApp(integrations, app.id))
 }
 
-function StatusDot({
+export function StatusDot({
   connected,
   processing,
 }: {
@@ -113,8 +117,9 @@ export default function IntegrationsPage() {
   const params = useParams<{ organizationId: string }>()
   const router = useRouter()
   const organizationId = params?.organizationId ?? ""
-  const [pendingAppId, setPendingAppId] = React.useState<string | null>(null)
-  const [addedIds, setAddedIds] = React.useState(() => new Set<string>())
+  const [pendingAppId, setPendingAppId] = useState<string | null>(null)
+  const [connectingAppId, setConnectingAppId] = useState<string | null>(null)
+  const [addedIds, setAddedIds] = useState(() => new Set<string>())
 
   const { data: integrationsData, isLoading: integrationsLoading, error: integrationsError, refetch } = useQuery({
     queryKey: ["listIntegrations", organizationId],
@@ -124,13 +129,13 @@ export default function IntegrationsPage() {
     },
   })
 
-  const integrations = React.useMemo(() => integrationsData ?? [], [integrationsData])
+  const integrations = useMemo(() => integrationsData ?? [], [integrationsData])
 
-  const setupTools = React.useMemo(
+  const setupTools = useMemo(
     () => INTEGRATION_CATALOG.filter((t) => isToolInSetup(t, integrations, addedIds)),
     [addedIds, integrations]
   )
-  const availableTools = React.useMemo(
+  const availableTools = useMemo(
     () => INTEGRATION_CATALOG.filter((t) => !isToolInSetup(t, integrations, addedIds)),
     [addedIds, integrations]
   )
@@ -181,22 +186,48 @@ export default function IntegrationsPage() {
     }
   }
 
-  const handleConnect = React.useCallback(
-    (appId: string) => {
-      const app = INTEGRATION_CATALOG.find((a) => a.id === appId)
-      const path = app?.managePath
-      if (path) {
-        router.push(`${basePath}/${path}`)
+  const handleConnect = async (appId: string, integrationId: string) => {
+    if (!organizationId) { return; }
+
+    if (appId === "github") {
+      try {
+        setConnectingAppId("github")
+        const res = await getGithubOAuthUrl(organizationId)
+        if (res?.url) {
+          window.location.href = res.url
+        }
+      } catch (error: unknown) {
+        toast.error(formatAuthErrorMessage(error))
+      } finally {
+        setConnectingAppId(null)
       }
-    },
-    [basePath, router]
-  )
+    }
+
+    if (appId === "discord") {
+      if (!integrationId) {
+        toast.error("Discord integration is not ready yet. Please wait a moment and try again.")
+        return
+      }
+      try {
+        setConnectingAppId("discord")
+        const res = await getDiscordOAuthUrl(organizationId, integrationId)
+        if (res?.url) {
+          window.location.href = res.url
+        }
+      } catch (error: unknown) {
+        toast.error(formatAuthErrorMessage(error))
+      } finally {
+        setConnectingAppId(null)
+      }
+    }
+  }
 
   const renderActions = (app: IntegrationToolDef, inSetup: boolean) => {
     const integration = integrationForApp(integrations, app.id)
     const status = integration?.status ?? IntegrationStatus.NOT_CONNECTED
     const connected = status === IntegrationStatus.CONNECTED
     const processing = status === IntegrationStatus.PROCESSING
+    const oauthConnected = integration?.oauthStatus === "CONNECTED" || Boolean(integration?.oauthConnectedAt)
     const pending = pendingAppId === app.id
 
     const primaryClassName = "font-semibold text-black hover:opacity-90"
@@ -247,25 +278,27 @@ export default function IntegrationsPage() {
     const showConnect = Boolean(app.connect)
 
     if (showInstall && showConnect) {
+      const connectInProgress = connectingAppId === app.id
+      const showConnectedOnConnect = oauthConnected || connected || processing
       return (
         <>
           <Button
             type="button"
             className={primaryClassName}
             style={primaryStyle}
-            onClick={() => handleConnect(app.id)}
-            disabled={processing}
+            onClick={() => handleConnect(app.id, integration?.integrationId ?? "")}
+            disabled={showConnectedOnConnect || connectInProgress || !integration?.integrationId}
           >
-            {processing ? "Connecting..." : "Connect"}
+            {connectInProgress ? "Connecting..." : showConnectedOnConnect ? "Connected" : "Connect"}
           </Button>
           <Button
             type="button"
             className={primaryClassName}
             style={primaryStyle}
             onClick={() => void handleInstall(app.id, integration?.integrationId ?? "")}
-            disabled={pending || processing}
+            disabled={pending || !integration?.integrationId || !oauthConnected}
           >
-            {pending || processing ? "Installing..." : "Install"}
+            {pending ? "Installing..." : "Install"}
           </Button>
         </>
       )
@@ -278,7 +311,7 @@ export default function IntegrationsPage() {
           className={primaryClassName}
           style={primaryStyle}
           onClick={() => void handleInstall(app.id, integration?.integrationId ?? "")}
-          disabled={pending || processing}
+          disabled={pending || processing || !integration?.integrationId}
         >
           {pending || processing ? "Installing..." : "Install"}
         </Button>
@@ -286,15 +319,17 @@ export default function IntegrationsPage() {
     }
 
     if (showConnect) {
+      const connectInProgress = connectingAppId === app.id
+      const showConnectedOnConnect = oauthConnected || connected || processing
       return (
         <Button
           type="button"
           className={primaryClassName}
           style={primaryStyle}
-          onClick={() => handleConnect(app.id)}
-          disabled={processing || !app.managePath}
+          onClick={() => handleConnect(app.id, integration?.integrationId ?? "")}
+          disabled={showConnectedOnConnect || connectInProgress || !app.managePath || !integration?.integrationId}
         >
-          {processing ? "Connecting..." : "Connect"}
+          {connectInProgress ? "Connecting..." : showConnectedOnConnect ? "Connected" : "Connect"}
         </Button>
       )
     }
@@ -370,3 +405,96 @@ export default function IntegrationsPage() {
     </div>
   )
 }
+
+
+
+// "use client"
+
+// import { useMemo, useState } from "react"
+// import { useParams, useRouter } from "next/navigation"
+// import { useQuery } from "@tanstack/react-query"
+
+// import { PageTitle } from "@/components/page-title"
+// import { IntegrationStatus } from "@/types/enum"
+// import type { OrgIntegrationStatusItem } from "@/types/api-types"
+// import { listIntegrations, addIntegrations } from "@/shared/api/org"
+// import { integrationCardRegistry } from "./registry"
+
+// function resolveIntegrationState(
+//   appId: string,
+//   integrations: OrgIntegrationStatusItem[],
+//   addedIds: Set<string>
+// ) {
+//   const integration =
+//     integrations.find(i => String(i.app).toLowerCase() === appId) ?? null
+
+//   return {
+//     status: integration?.status ?? IntegrationStatus.NOT_CONNECTED,
+//     integrationId: integration?.integrationId ?? "",
+//     inSetup: addedIds.has(appId) || Boolean(integration),
+//   }
+// }
+
+// export default function IntegrationsPage() {
+//   const params = useParams<{ organizationId: string }>()
+//   const router = useRouter()
+//   const organizationId = params.organizationId
+
+//   const [pendingAppId, setPendingAppId] = useState<string | null>(null)
+//   const [connectingAppId] = useState<string | null>(null)
+//   const [addedIds, setAddedIds] = useState(new Set<string>())
+
+//   const { data } = useQuery({
+//     queryKey: ["integrations", organizationId],
+//     queryFn: () => listIntegrations(organizationId),
+//   })
+
+//   const integrations = useMemo(() => data ?? [], [data])
+//   const basePath = `/${organizationId}/integrations`
+
+//   const handleAdd = async (appId: string) => {
+//     setPendingAppId(appId)
+//     await addIntegrations(organizationId, { provider: appId as any, label: appId })
+//     setAddedIds(prev => new Set(prev).add(appId))
+//     setPendingAppId(null)
+//   }
+
+//   return (
+//     <div className="space-y-8">
+//       <PageTitle
+//         title="Setup Integrations"
+//         description="Connect your tools to sync activity and updates."
+//       />
+
+//       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+//         {Object.keys(integrationCardRegistry).map(appId => {
+//           const Card = integrationCardRegistry[appId]
+//           const state = resolveIntegrationState(
+//             appId,
+//             integrations,
+//             addedIds
+//           )
+
+//           return (
+//             <Card
+//               key={appId}
+//               status={state.status}
+//               integrationId={state.integrationId}
+//               inSetup={state.inSetup}
+//               pending={pendingAppId === appId}
+//               connecting={connectingAppId === appId}
+//               onAdd={() => handleAdd(appId)}
+//               onInstall={() => { }}
+//               onConnect={() => { }}
+//               onManage={() =>
+//                 router.push(
+//                   `${basePath}/${appId}?integrationId=${state.integrationId}`
+//                 )
+//               }
+//             />
+//           )
+//         })}
+//       </div>
+//     </div>
+//   )
+// }
