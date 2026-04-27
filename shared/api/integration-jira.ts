@@ -1,13 +1,13 @@
 import { apiClient } from "@/shared/api/client";
-import { GetInstallUrlResponse, JiraProject, ApiResponse } from "@/types/api-types";
+import { GetInstallUrlResponse, ApiResponse, GetJiraProjectsResponse } from "@/types/api-types";
 
 export const getJiraInstallUrl = async (orgId: string, integrationId: string): Promise<GetInstallUrlResponse> => {
     const response = await apiClient.get<GetInstallUrlResponse>(`/integrations/jira/install/${orgId}/${integrationId}`);
     return response.data;
 };
 
-export const getJiraProjects = async (integrationId: string): Promise<JiraProject[]> => {
-    const response = await apiClient.get<JiraProject[]>(`/integrations/jira/projects/${integrationId}`);
+export const getJiraProjects = async (integrationId: string): Promise<GetJiraProjectsResponse[]> => {
+    const response = await apiClient.get<GetJiraProjectsResponse[]>(`/integrations/jira/projects/${integrationId}`);
     return response.data;
 };
 
@@ -16,10 +16,10 @@ export const syncJiraProjects = async (integrationId: string) => {
     return response.data;
 };
 
-export const ingestJiraIssues = async (integrationId: string, projectKey?: string, jql?: string) => {
+export const ingestJira = async (integrationId: string, projectKey?: string, jql?: string) => {
     const params: Record<string, string> = {};
     if (projectKey) { params.projectKey = projectKey; }
     if (jql) { params.jql = jql; }
-    const response = await apiClient.post<ApiResponse>(`/integrations/jira/ingest/${integrationId}`, null, { params });
+    const response = await apiClient.post<ApiResponse>(`/integrations/jira/ingest/${integrationId}`, { params });
     return response.data;
 };

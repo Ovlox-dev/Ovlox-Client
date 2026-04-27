@@ -49,17 +49,30 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 export function SignupForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const emailFromQuery = searchParams.get("email") ?? "";
     const { signUp, isLoading } = useAuthStore((s) => s.auth);
-    const redirectTarget =
-        searchParams.get("redirectURI") ?? searchParams.get("from");
-    const { handleSubmit, register, formState: { errors }, setError } = useForm<SignupFormValues>({
+    const redirectTarget = searchParams.get("redirectURI") ?? searchParams.get("from");
+    const { handleSubmit, register, formState: { errors }, setError, setValue, getValues } = useForm<SignupFormValues>({
         resolver: zodResolver(signupSchema),
         mode: "onChange",
+        defaultValues: {
+            firstName: "",
+            lastName: "",
+            email: emailFromQuery,
+            password: "",
+            confirmPassword: "",
+        },
     });
 
     useEffect(() => {
         setAuthNavigation(redirectTarget);
     }, [redirectTarget]);
+
+    useEffect(() => {
+        if (!emailFromQuery) { return; }
+        if (getValues("email")) { return; }
+        setValue("email", emailFromQuery, { shouldDirty: false, shouldTouch: false, shouldValidate: true });
+    }, [emailFromQuery, getValues, setValue]);
 
     const onSubmit = async (data: SignupFormValues) => {
         if (data.password !== data.confirmPassword) {
