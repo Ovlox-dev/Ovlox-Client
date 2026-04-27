@@ -15,6 +15,8 @@ import {
 
 import { PageTitle } from "@/components/page-title"
 import { Progress } from "@/components/ui/progress"
+import { useParams } from "next/navigation"
+import { useGetProject } from "@/shared/queries/projects.queries"
 
 type TimeRange = "7d" | "30d" | "months"
 
@@ -105,7 +107,10 @@ function activityTooltip({
 export default function Project() {
     const [range, setRange] = React.useState<TimeRange>("7d")
     const [activityFilter, setActivityFilter] = React.useState<"all" | "projects" | "team-units" | "integrations" | "dev-mode">("all")
-
+    const params = useParams<{ organizationId: string, projectId: string }>()
+    const organizationId = params.organizationId
+    const projectId = params.projectId
+    const { data: project, isLoading: isProjectLoading } = useGetProject(organizationId, projectId);
     const integrations = React.useMemo(
         () =>
             [
@@ -127,13 +132,15 @@ export default function Project() {
         return teamActivity
     }, [activityFilter])
 
+
     return (
         <div className="space-y-8">
             {/* Header */}
             <div className="flex items-start justify-between gap-4">
                 <PageTitle
-                    title="Ovlox Dashboard"
-                    description="Main interface for founders to monitor startup activity"
+                    title={project?.name ?? "Project"}
+                    description={project?.description || "Main interface for founders to monitor startup activity"}
+                    isLoading={isProjectLoading}
                 />
                 <div className="flex items-center gap-2">
                     <Button
