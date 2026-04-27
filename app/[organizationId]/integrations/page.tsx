@@ -23,6 +23,8 @@ import { formatAuthErrorMessage } from "@/shared/lib/auth/auth-utils"
 import { toast } from "sonner"
 import { getDiscordOAuthUrl } from "@/shared/api/integration-discord"
 import { getSlackInstallUrl } from "@/shared/api/integration-slack"
+import { getJiraInstallUrl } from "@/shared/api/integration-jira"
+import { getLinearInstallUrl } from "@/shared/api/integration-linear"
 
 const ACCENT = "#55C6F0"
 
@@ -52,8 +54,8 @@ const INTEGRATION_CATALOG: IntegrationToolDef[] = [
     name: "Jira",
     icon: SiJira,
     description: "Sync issues and sprint progress automatically.",
-    connect: true,
-    install: false,
+    connect: false,
+    install: true,
     managePath: "jira",
   },
   {
@@ -177,6 +179,30 @@ export default function IntegrationsPage() {
       try {
         setPendingAppId("slack")
         const res = await getSlackInstallUrl(organizationId, integrationId)
+        if (res?.url) {
+          window.location.href = res.url
+        }
+      } finally {
+        setPendingAppId(null)
+      }
+    }
+
+    if (appId === "jira") {
+      try {
+        setPendingAppId("jira")
+        const res = await getJiraInstallUrl(organizationId, integrationId)
+        if (res?.url) {
+          window.location.href = res.url
+        }
+      } finally {
+        setPendingAppId(null)
+      }
+    }
+
+    if (appId === "linear") {
+      try {
+        setPendingAppId("linear")
+        const res = await getLinearInstallUrl(organizationId, integrationId)
         if (res?.url) {
           window.location.href = res.url
         }

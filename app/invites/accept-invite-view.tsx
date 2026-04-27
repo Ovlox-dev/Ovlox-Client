@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { acceptInvite, declineInvite } from "@/shared/api/org";
+import { acceptInvite, declineInvite, userOrgs } from "@/shared/api/org";
 import {
     buildDashboardOrgRoute,
     setActiveOrgId,
@@ -24,11 +24,40 @@ import { formatAuthErrorMessage } from "@/shared/lib/auth/auth-utils";
 import { useAuthStore } from "@/entities/auth/model/store";
 import { cn } from "@/lib/utils";
 
+/**
+ * Invite links were briefly generated as `/invites?token=UUID?email=...` (invalid: second `?`).
+ * The query parser then returns `token` = `UUID?email=...`. Split so API and redirects stay valid.
+ */
+function splitTokenAndEmbeddedEmail(tokenParam: string): { token: string; embeddedEmail?: string } {
+    const trimmed = tokenParam.trim();
+    if (!trimmed) {
+        return { token: "" };
+    }
+    const match = trimmed.match(/^(.*?)(\?email=|&email=)(.*)$/i);
+    if (!match?.[1]?.trim()) {
+        return { token: trimmed };
+    }
+    const tokenPart = match[1].trim();
+    let emailPart = (match[3] ?? "").trim();
+    const amp = emailPart.indexOf("&");
+    if (amp >= 0) {
+        emailPart = emailPart.slice(0, amp).trim();
+    }
+    if (!tokenPart) {
+        return { token: trimmed };
+    }
+    try {
+        return { token: tokenPart, embeddedEmail: decodeURIComponent(emailPart) };
+    } catch {
+        return { token: tokenPart, embeddedEmail: emailPart };
+    }
+}
+
 export function AcceptInviteView() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, authStatus, bootstrapSession } = useAuthStore((state) => state.auth);
-    const tokenFromUrl = useMemo(() => {
+    const decodedTokenParam = useMemo(() => {
         const raw = searchParams.get("token") ?? searchParams.get("code") ?? "";
         const trimmed = raw.trim();
         const unquoted =
@@ -42,6 +71,27 @@ export function AcceptInviteView() {
         }
     }, [searchParams]);
 
+    const { token: inviteToken, embeddedEmail: embeddedEmailFromToken } = useMemo(
+        () => splitTokenAndEmbeddedEmail(decodedTokenParam),
+        [decodedTokenParam],
+    );
+
+    const emailFromQuery = useMemo(() => {
+        const raw = searchParams.get("email") ?? "";
+        const trimmed = raw.trim();
+        const unquoted =
+            (trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))
+                ? trimmed.slice(1, -1).trim()
+                : trimmed;
+        try {
+            return decodeURIComponent(unquoted);
+        } catch {
+            return unquoted;
+        }
+    }, [searchParams]);
+
+    const resolvedInviteEmail = (emailFromQuery || embeddedEmailFromToken || "").trim();
+
     const [pastedToken, setPastedToken] = useState("");
     const [isAccepting, setIsAccepting] = useState(false);
     const [isDeclining, setIsDeclining] = useState(false);
@@ -52,13 +102,23 @@ export function AcceptInviteView() {
 
     useEffect(() => {
         setPastedToken("");
-    }, [tokenFromUrl]);
+    }, [inviteToken]);
 
-    const effectiveToken = tokenFromUrl || pastedToken.trim();
+    const pastedTokenClean = useMemo(
+        () => (pastedToken.trim() ? splitTokenAndEmbeddedEmail(pastedToken.trim()).token : ""),
+        [pastedToken],
+    );
+
+    const effectiveToken = inviteToken || pastedTokenClean;
     const returnTo = useMemo(() => {
-        if (!effectiveToken) { return "/invite"; }
-        return `/invite?token=${encodeURIComponent(effectiveToken)}`;
-    }, [effectiveToken]);
+        if (!effectiveToken) { return "/invites"; }
+        const params = new URLSearchParams();
+        params.set("token", effectiveToken);
+        if (resolvedInviteEmail) {
+            params.set("email", resolvedInviteEmail);
+        }
+        return `/invites?${params.toString()}`;
+    }, [effectiveToken, resolvedInviteEmail]);
 
     const isUnauthenticated = authStatus !== "authenticated" || !user;
 
@@ -70,14 +130,25 @@ export function AcceptInviteView() {
 
         if (isUnauthenticated) {
             toast.error("Please sign up or sign in to accept the invitation.");
-            router.replace(`/signup?redirectURI=${encodeURIComponent(returnTo)}`);
+            const params = new URLSearchParams();
+            params.set("redirectURI", returnTo);
+            if (resolvedInviteEmail) {
+                params.set("email", resolvedInviteEmail);
+            }
+            router.replace(`/signup?${params.toString()}`);
             return;
         }
 
         try {
             setIsAccepting(true);
             const member = await acceptInvite(effectiveToken);
-            const orgId = member.organizationId ?? member.organization?.id;
+            const orgsResponse = await userOrgs();
+            const orgs = orgsResponse.data ?? [];
+            const fromMember = member.organizationId ?? member.organization?.id ?? null;
+            const orgId =
+                fromMember ??
+                orgs[0]?.id ??
+                null;
             if (!orgId) {
                 toast.error("Invitation accepted, but we could not open your workspace.");
                 return;
@@ -108,7 +179,12 @@ export function AcceptInviteView() {
             const status = (error as { response?: { status?: number } } | undefined)?.response?.status;
             if (status === 401 || status === 403) {
                 toast.error("Please sign up or sign in to reject the invitation.");
-                router.replace(`/signup?redirectURI=${encodeURIComponent(returnTo)}`);
+                const params = new URLSearchParams();
+                params.set("redirectURI", returnTo);
+                if (resolvedInviteEmail) {
+                    params.set("email", resolvedInviteEmail);
+                }
+                router.replace(`/signup?${params.toString()}`);
                 return;
             }
 
@@ -143,7 +219,7 @@ export function AcceptInviteView() {
                 </CardHeader>
 
                 <CardContent className="space-y-6 px-6">
-                    {tokenFromUrl ? (
+                    {inviteToken ? (
                         <div className="space-y-4">
                             <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                                 <Sparkles className="size-4 shrink-0 text-accent mt-0.5" />
@@ -160,9 +236,14 @@ export function AcceptInviteView() {
                                         type="button"
                                         className="rounded-full bg-accent text-accent-foreground hover:bg-accent/90 font-medium h-11"
                                         onClick={() =>
-                                            router.replace(
-                                                `/signup?redirectURI=${encodeURIComponent(returnTo)}`
-                                            )
+                                            (() => {
+                                                const params = new URLSearchParams();
+                                                params.set("redirectURI", returnTo);
+                                                if (resolvedInviteEmail) {
+                                                    params.set("email", resolvedInviteEmail);
+                                                }
+                                                router.replace(`/signup?${params.toString()}`);
+                                            })()
                                         }
                                     >
                                         Sign up to continue
@@ -172,9 +253,14 @@ export function AcceptInviteView() {
                                         variant="outline"
                                         className="rounded-full font-medium h-11"
                                         onClick={() =>
-                                            router.replace(
-                                                `/signin?redirectURI=${encodeURIComponent(returnTo)}`
-                                            )
+                                            (() => {
+                                                const params = new URLSearchParams();
+                                                params.set("redirectURI", returnTo);
+                                                if (resolvedInviteEmail) {
+                                                    params.set("email", resolvedInviteEmail);
+                                                }
+                                                router.replace(`/signin?${params.toString()}`);
+                                            })()
                                         }
                                     >
                                         Sign in

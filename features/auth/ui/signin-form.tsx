@@ -38,14 +38,25 @@ export function SigninForm() {
     const { login, isLoading } = useAuthStore((s) => s.auth);
     const redirectTarget =
         searchParams.get("redirectURI") ?? searchParams.get("from");
-    const { handleSubmit, register, formState: { errors } } = useForm<LoginFormValues>({
+    const emailFromQuery = searchParams.get("email") ?? "";
+    const { handleSubmit, register, formState: { errors }, setValue, getValues } = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
         mode: "onChange",
+        defaultValues: {
+            email: emailFromQuery,
+            password: "",
+        },
     });
 
     useEffect(() => {
         setAuthNavigation(redirectTarget);
     }, [redirectTarget]);
+
+    useEffect(() => {
+        if (!emailFromQuery) { return; }
+        if (getValues("email")) { return; }
+        setValue("email", emailFromQuery, { shouldDirty: false, shouldTouch: false, shouldValidate: true });
+    }, [emailFromQuery, getValues, setValue]);
 
     const onSubmit = async (data: LoginFormValues) => {
         try {

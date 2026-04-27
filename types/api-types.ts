@@ -247,27 +247,6 @@ export interface GitHubOverview {
     status: string;
 }
 
-export interface SlackChannel {
-    id: string;
-    name: string;
-    is_private: boolean;
-    is_archived: boolean;
-}
-
-export interface DiscordChannel {
-    id: string;
-    name: string;
-    type: number;
-    guild_id: string;
-}
-
-export interface JiraProject {
-    id: string;
-    key: string;
-    name: string;
-    projectTypeKey: string;
-}
-
 // GitHub Commit Types
 export interface GitHubCommitSummary {
     sha: string;
@@ -542,4 +521,99 @@ export interface JobStatusEvent {
     payload: Record<string, unknown>;
     updatedAt: string;
     completed?: boolean;
+}
+
+// Discord API Types
+export interface GetDiscordOAuthUrlResponse {
+    url: string;
+    message?: string;
+}
+export interface GetDiscordUserGuildsResponse {
+    id: string;
+    name: string;
+    icon: string | null;
+    botInstalled: boolean;
+}
+
+export interface GetDiscordChannelResponse {
+    id: string;
+    name: string;
+    type: number;
+    guild_id: string;
+}
+
+export interface GetSlackChannelResponse {
+    id: string,
+    created: number,
+    creator: string,
+    is_org_shared: boolean,
+    is_im: boolean,
+    context_team_id: string,
+    updated: number,
+    name: string,
+    name_normalized: string,
+    is_channel: boolean,
+    is_group: boolean,
+    is_mpim: boolean,
+    is_private: boolean,
+    is_archived: boolean,
+    is_general: boolean,
+    is_shared: boolean,
+    is_ext_shared: boolean,
+    unlinked: number,
+    is_pending_ext_shared: boolean,
+    pending_shared: [],
+    parent_conversation: string,
+    purpose: {
+        value: string,
+        creator: string,
+        last_set: number
+    },
+    topic: {
+        value: string,
+        creator: string,
+        last_set: number
+    },
+    shared_team_ids: [
+        string
+    ],
+    pending_connected_team_ids: [],
+    is_member: boolean,
+    num_members: number,
+    properties: {
+        use_case: string
+    },
+    previous_names: [
+        string
+    ]
+}
+
+export interface GetJiraProjectsResponse {
+    id: string,
+    expand: string,
+    self: string,
+    key: string,
+    name: string,
+    avatarUrls: {
+        "48x48": string,
+        "24x24": string,
+        "16x16": string,
+        "32x32": string,
+    },
+    projectTypeKey: string,
+    simplified: boolean,
+    style: string,
+    isPrivate: boolean,
+    properties: Record<string, unknown>,
+    entityId: string,
+    uuid: string
+}
+export interface ListLinearTeamsResponse {
+    id: string,
+    key: string,
+    name: string,
+    description: string,
+}
+export interface ListLinearIssuesResponse {
+    id: string,
 }
