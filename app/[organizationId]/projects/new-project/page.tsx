@@ -32,9 +32,12 @@ export default function NewProject() {
                 description: data.projectDescription,
             },
             {
-                onSuccess: (project) => {
-                    router.replace(`/${organizationId}/projects/${project.data.id}/setup`)
-                }
+                onSuccess: (payload) => {
+                    const body = payload as { id?: string; data?: { id?: string } };
+                    const projectId = body.data?.id ?? body.id;
+                    if (!projectId) { return; }
+                    router.replace(`/${organizationId}/projects/${projectId}/setup`);
+                },
             })
     }
 

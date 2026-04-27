@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation';
 
 import { ChevronLeft, ChevronRight, FolderOpen ,Plus} from 'lucide-react';
 
@@ -7,19 +8,11 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useListProjects } from '@/shared/queries/projects.queries';
 
 type TimeFilterValue = "all" | "7d" | "30d";
 const PROJECTS_PER_PAGE = 3;
 const PROJECTS_TIME_ANCHOR = typeof Date !== "undefined" ? Date.now() : 0;
-
-const PROJECTS = [
-    { title: "Backend Dev", updates: 12, timeStamp: new Date("2026-01-15") },
-    { title: "Frontend App", updates: 8, timeStamp: new Date("2026-02-14") },
-    { title: "API Gateway", updates: 5, timeStamp: new Date("2026-03-13") },
-    { title: "Database", updates: 5, timeStamp: new Date("2025-10-12") },
-    { title: "Authentication", updates: 5, timeStamp: new Date("2025-10-11") },
-    { title: "CI/CD", updates: 5, timeStamp: new Date("2025-10-10") },
-];
 
 const TIME_FILTER_OPTIONS: { value: TimeFilterValue; label: string }[] = [
     { value: "all", label: "All" },
@@ -29,8 +22,13 @@ const TIME_FILTER_OPTIONS: { value: TimeFilterValue; label: string }[] = [
 
 
 const Projects = () => {
+    const router = useRouter();
+    const { organizationId } = useParams<{ organizationId: string }>();
     const [projectPage, setProjectPage] = useState(0);
     const [timeFilter, setTimeFilter] = useState<TimeFilterValue>("all");
+
+    const { data: projectsResponse, isLoading } = useListProjects(organizationId ?? "");
+    const projects = useMemo(() => projectsResponse?.data ?? [], [projectsResponse]);
 
     const handleTimeFilterChange = (value: TimeFilterValue) => {
         setTimeFilter(value);
@@ -39,17 +37,21 @@ const Projects = () => {
 
     const filteredProjects = useMemo(() => {
         const now = PROJECTS_TIME_ANCHOR;
-        let list = [...PROJECTS];
+        let list = [...projects];
         if (timeFilter === "7d") {
             const cutoff = now - 7 * 24 * 60 * 60 * 1000;
-            list = list.filter((p) => p.timeStamp.getTime() >= cutoff);
+            list = list.filter((p) => !p.createdAt || new Date(p.createdAt).getTime() >= cutoff);
         } else if (timeFilter === "30d") {
             const cutoff = now - 30 * 24 * 60 * 60 * 1000;
-            list = list.filter((p) => p.timeStamp.getTime() >= cutoff);
+            list = list.filter((p) => !p.createdAt || new Date(p.createdAt).getTime() >= cutoff);
         }
-        list.sort((a, b) => b.timeStamp.getTime() - a.timeStamp.getTime());
+        list.sort((a, b) => {
+            const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bt - at;
+        });
         return list;
-    }, [timeFilter]);
+    }, [projects, timeFilter]);
 
     const projectPageCount = Math.ceil(filteredProjects.length / PROJECTS_PER_PAGE);
     const safeProjectPage = Math.min(projectPage, Math.max(0, projectPageCount - 1));
@@ -60,7 +62,7 @@ const Projects = () => {
 
     return (
         <div>
-            <Card className="rounded-2xl border-border bg-card">
+            <Card className="rounded-2xl border-border bg-card h-full">
                 <CardContent className="space-y-4">
                     <div className="flex items-center justify-between">
                         <div>
@@ -74,6 +76,7 @@ const Projects = () => {
                                 variant="ghost"
                                 size="icon-sm"
                                 className="bg-accent-contrast rounded-full text-muted border-[0.5px] border-border  "
+                                onClick={() => router.push(`/${organizationId}/projects/new-project`)}
                             >
                                 <Plus />
                             </Button>
@@ -100,7 +103,11 @@ const Projects = () => {
                         </div>
                     </div>
                     <ul className="space-y-3 rounded-md bg-background px-2 py-1">
-                        {visibleProjects.length === 0 ? (
+                        {isLoading ? (
+                            <li className="py-6 text-center text-sm text-muted-foreground">
+                                Loading projects...
+                            </li>
+                        ) : visibleProjects.length === 0 ? (
                             <li className="py-6 text-center text-sm text-muted-foreground">
                                 No projects in this period
                             </li>
@@ -114,19 +121,19 @@ const Projects = () => {
                                         <FolderOpen className="size-8 shrink-0 text-muted" />
                                         <div className="min-w-0">
                                             <p className="truncate font-medium text-text">
-                                                {project.title}
+                                                {project.name}
                                             </p>
                                             <p className="truncate text-xs font-normal text-muted">
-                                                {project.updates} updates on {project.timeStamp.toLocaleDateString()}
+                                                {project.createdAt ? `Created on ${new Date(project.createdAt).toLocaleDateString()}` : "Created recently"}
                                             </p>
                                         </div>
                                     </div>
-                                    <Button
+                                    {/* <Button
                                         size="sm"
                                         variant="ghost"
                                         className="border-[0.5px] border-accent bg-background text-xs text-accent shrink-0">
                                         Manage
-                                    </Button>
+                                    </Button> */}
                                 </li>
                             ))
                         )}
