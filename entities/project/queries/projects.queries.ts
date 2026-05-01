@@ -1,22 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import type { LinkIntegrationRequest } from "@/types/api-types";
+
 import {
+    addProjectMember,
     createProject,
-    listProjects,
-    getProject,
-    updateProject,
     deleteProject,
+    getAvailableResources,
+    getProject,
+    getProjectSettings,
     linkIntegration,
     listProjectMembers,
-    addProjectMember,
+    listProjects,
     removeProjectMember,
-    updateProjectMemberRole,
     syncProjectMembers,
-    getAvailableResources,
-    getProjectSettings,
+    updateProject,
+    updateProjectMemberRole,
     updateProjectSettings,
-    GetAvailableResourcesParams,
-} from "@/shared/api/projects";
-import { LinkIntegrationRequest } from "@/types/api-types";
+    type GetAvailableResourcesParams,
+} from "../api/projects";
 
 export const projectKeys = {
     all: ["projects"] as const,
@@ -101,10 +103,7 @@ export const useDeleteProject = (orgId: string) => {
     });
 };
 
-export const useLinkIntegration = (
-    orgId: string,
-    projectId: string
-) => {
+export const useLinkIntegration = (orgId: string, projectId: string) => {
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -125,10 +124,7 @@ export const useListProjectMembers = (orgId: string, projectId: string) =>
         enabled: !!orgId && !!projectId,
     });
 
-export const useAddProjectMember = (
-    orgId: string,
-    projectId: string
-) => {
+export const useAddProjectMember = (orgId: string, projectId: string) => {
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -142,10 +138,7 @@ export const useAddProjectMember = (
     });
 };
 
-export const useRemoveProjectMember = (
-    orgId: string,
-    projectId: string
-) => {
+export const useRemoveProjectMember = (orgId: string, projectId: string) => {
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -159,10 +152,7 @@ export const useRemoveProjectMember = (
     });
 };
 
-export const useUpdateProjectMemberRole = (
-    orgId: string,
-    projectId: string
-) => {
+export const useUpdateProjectMemberRole = (orgId: string, projectId: string) => {
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -172,8 +162,7 @@ export const useUpdateProjectMemberRole = (
         }: {
             memberId: string;
             data: Parameters<typeof updateProjectMemberRole>[3];
-        }) =>
-            updateProjectMemberRole(orgId, projectId, memberId, data),
+        }) => updateProjectMemberRole(orgId, projectId, memberId, data),
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: projectKeys.members(orgId, projectId),
@@ -182,10 +171,7 @@ export const useUpdateProjectMemberRole = (
     });
 };
 
-export const useSyncProjectMembers = (
-    orgId: string,
-    projectId: string
-) => {
+export const useSyncProjectMembers = (orgId: string, projectId: string) => {
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -212,20 +198,14 @@ export const useGetAvailableResources = (
         enabled: !!orgId && !!projectId,
     });
 
-export const useGetProjectSettings = (
-    orgId: string,
-    projectId: string
-) =>
+export const useGetProjectSettings = (orgId: string, projectId: string) =>
     useQuery({
         queryKey: projectKeys.settings(orgId, projectId),
         queryFn: () => getProjectSettings(orgId, projectId),
         enabled: !!orgId && !!projectId,
     });
 
-export const useUpdateProjectSettings = (
-    orgId: string,
-    projectId: string
-) => {
+export const useUpdateProjectSettings = (orgId: string, projectId: string) => {
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -238,3 +218,4 @@ export const useUpdateProjectSettings = (
         },
     });
 };
+

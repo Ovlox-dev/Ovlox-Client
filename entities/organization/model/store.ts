@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useOrgStore } from "@/shared/lib/organization/org-store";
 import { useRouter } from "next/navigation";
-import { userOrgBySlug } from "@/shared/api/org";
+import { userOrgBySlug } from "@/entities/organization/api/org";
 import { IOrganization } from "@/types/prisma-generated";
 import { buildDashboardOrgRoute, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver";
 import { toast } from "sonner";

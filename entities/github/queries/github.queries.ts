@@ -14,7 +14,7 @@ import {
     getGithubCommitDetails,
     debugGithubCommit,
     autoConnectGithubIntegration,
-} from "@/shared/api/integration-github";
+} from "../api/github.api";
 
 /* -------------------------------------------------------------------------- */
 /*                                   Keys                                     */

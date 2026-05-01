@@ -3,7 +3,7 @@
 import { isAxiosError } from "axios";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { userOrgs } from "@/shared/api/org";
+import { userOrgs } from "@/entities/organization/api/org";
 import { resolvePostAuthOrgRedirect } from "@/shared/lib/auth/post-auth-org-resolver";
 
 export function useOrganizationAccess(organizationId: string | undefined): boolean {

@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { getGithubRepositories, syncGithubRepositories } from "@/shared/api/integration-github"
+import { getGithubRepositories, syncGithubRepositories } from "@/entities/github"
 import { useQuery } from "@tanstack/react-query"
 import { PageTitle } from "@/components/page-title"
 
@@ -45,10 +45,10 @@ export default function GitHubIntegrationPage() {
 
   return (
     <div className=" space-y-6">
-        <PageTitle
-          title="GitHub Integration"
-          description="Connect GitHub and manage repositories."
-        />
+      <PageTitle
+        title="GitHub Integration"
+        description="Connect GitHub and manage repositories."
+      />
 
       <Card className="rounded-2xl border-border bg-card">
         <CardContent className="p-6 space-y-4">

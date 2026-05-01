@@ -20,7 +20,7 @@ import {
     useGetAvailableResources,
     useGetProject,
     useLinkIntegration,
-} from "@/shared/queries/projects.queries";
+} from "@/entities/project";
 import {
     useGetChannels as useGetDiscordChannels,
     useGetDiscordUserGuilds,

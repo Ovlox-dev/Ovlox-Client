@@ -1,4 +1,4 @@
-import { userOrgs } from "@/shared/api/org";
+import { userOrgs } from "@/entities/organization/api/org";
 import { ACTIVE_ORG_ID_STORAGE_KEY } from "../storage-keys";
 
 

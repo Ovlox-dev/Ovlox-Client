@@ -5,11 +5,11 @@ import { useParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { MoreVertical } from "lucide-react"
 
-import { listInvites, listMembers } from "@/shared/api/org"
+import { listInvites, listMembers } from "@/entities/organization/api/org"
 import { InviteStatus, PredefinedOrgRole } from "@/types/enum"
 
 import { PageTitle } from "@/components/page-title"
-import AddMemberModal from "@/features/add-member-modal"
+import AddMemberModal from "@/features/add-member-modal/ui/add-member-modal"
 import Search from "@/features/search"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"

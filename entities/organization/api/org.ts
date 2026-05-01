@@ -117,6 +117,6 @@ export const addIntegrations = async (
     orgId: string,
     data: AddIntegrationsRequest
 ): Promise<ApiResponse<IIntegration>> => {
-    const response = await apiClient.put<ApiResponse<IIntegration>>(`/orgs/${orgId}/integrations`, data);
+    const response = await apiClient.post<ApiResponse<IIntegration>>(`/orgs/${orgId}/integrations`, data);
     return response.data;
 };

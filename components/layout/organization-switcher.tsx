@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 
 import type { IOrganization } from "@/types/prisma-generated";
-import { userOrgs } from "@/shared/api/org";
+import { userOrgs } from "@/entities/organization/api/org";
 import { buildDashboardOrgRoute, setActiveOrgId, } from "@/shared/lib/auth/post-auth-org-resolver";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
