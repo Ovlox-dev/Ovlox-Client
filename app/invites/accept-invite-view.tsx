@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { acceptInvite, declineInvite, userOrgs } from "@/shared/api/org";
+import { acceptInvite, declineInvite, userOrgs } from "@/entities/organization/api/org";
 import {
     buildDashboardOrgRoute,
     setActiveOrgId,

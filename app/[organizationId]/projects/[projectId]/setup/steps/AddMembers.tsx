@@ -20,7 +20,7 @@ import {
     useAddProjectMember,
     useListProjectMembers,
     useRemoveProjectMember,
-} from "@/shared/queries/projects.queries";
+} from "@/entities/project";
 import { useListOrgMembers } from "@/shared/queries/org.queries";
 import { PredefinedOrgRole } from "@/types/enum";
 

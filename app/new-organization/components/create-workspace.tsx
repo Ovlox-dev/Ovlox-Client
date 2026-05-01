@@ -19,7 +19,7 @@ import { SiDiscord, SiJira, SiLinear, SiSlack } from "react-icons/si"
 import Team, { TeamInvitedMember } from "./team"
 import { PageTitle } from "@/components/page-title"
 import { buildDashboardOrgRoute, getActiveOrgId, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
-import { createOrg, inviteMember } from "@/shared/api/org"
+import { createOrg, inviteMember } from "@/entities/organization/api/org"
 import { ExternalProvider, PredefinedOrgRole } from "@/types/enum"
 import { toast } from "sonner"
 

@@ -21,7 +21,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { inviteMember, listInvites } from "@/shared/api/org"
+import { inviteMember, listInvites } from "@/entities/organization/api/org"
 import { PredefinedOrgRole } from "@/types/enum"
 import { useQuery } from "@tanstack/react-query"
 

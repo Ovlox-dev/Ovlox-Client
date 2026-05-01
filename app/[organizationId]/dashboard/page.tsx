@@ -5,8 +5,8 @@ import { useOrganizationAccess } from "@/entities/organization/model/useOrganiza
 
 import AppsConnected from "./components/apps-connected";
 import Members from "./components/members";
-import Projects from "./components/projects";
 import TeamActivity from "./components/team-activity";
+import { DashboardProjectsCard } from "@/widgets/dashboard-projects-card";
 
 export default function FranchiseeDashboardPage() {
     const params = useParams<{ organizationId: string }>();
@@ -30,7 +30,7 @@ export default function FranchiseeDashboardPage() {
                 {/* Members */}
                 <Members />
                 {/* Active Projects */}
-                <Projects />
+                <DashboardProjectsCard />
             </div>
 
             {/* Team Activity */}

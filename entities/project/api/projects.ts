@@ -1,18 +1,17 @@
 import { apiClient } from "@/shared/api/client";
-import {
+import type {
+    AddProjectMemberRequest,
+    ApiResponse,
     CreateProjectRequest,
     CreateProjectResponse,
-    ListProjectsResponse,
-    UpdateProjectRequest,
-    LinkIntegrationRequest,
-    ApiResponse,
     GetAvailableResourcesResponse,
+    LinkIntegrationRequest,
+    ListProjectsResponse,
     ProjectMember,
-    AddProjectMemberRequest,
     UpdateProjectMemberRoleRequest,
+    UpdateProjectRequest,
 } from "@/types/api-types";
-import { IProject } from "@/types/prisma-generated";
-
+import type { IProject } from "@/types/prisma-generated";
 
 export const createProject = async (orgId: string, data: CreateProjectRequest): Promise<CreateProjectResponse> => {
     const response = await apiClient.post<CreateProjectResponse>(`/orgs/${orgId}/projects`, data);
@@ -43,13 +42,8 @@ export const updateProject = async (orgId: string, projectId: string, data: Upda
     return response.data;
 };
 
-export const deleteProject = async (
-    orgId: string,
-    projectId: string
-): Promise<{ message: string }> => {
-    const response = await apiClient.delete<{ message: string }>(
-        `/orgs/${orgId}/projects/${projectId}`
-    );
+export const deleteProject = async (orgId: string, projectId: string): Promise<{ message: string }> => {
+    const response = await apiClient.delete<{ message: string }>(`/orgs/${orgId}/projects/${projectId}`);
     return response.data;
 };
 
@@ -58,18 +52,13 @@ export const linkIntegration = async (orgId: string, projectId: string, data: Li
     return response.data;
 };
 
-
-
 export const listProjectMembers = async (orgId: string, projectId: string): Promise<ProjectMember[]> => {
-    const response = await apiClient.get<ProjectMember[]>(
-        `/orgs/${orgId}/projects/${projectId}/members`
-    );
+    const response = await apiClient.get<ProjectMember[]>(`/orgs/${orgId}/projects/${projectId}/members`);
     return response.data;
 };
 
 export const addProjectMember = async (orgId: string, projectId: string, data: AddProjectMemberRequest): Promise<{ message: string }> => {
-    const response = await apiClient.post<{ message: string }>(
-        `/orgs/${orgId}/projects/${projectId}/members`, data);
+    const response = await apiClient.post<{ message: string }>(`/orgs/${orgId}/projects/${projectId}/members`, data);
     return response.data;
 };
 
@@ -79,10 +68,7 @@ export const removeProjectMember = async (orgId: string, projectId: string, memb
 };
 
 export const updateProjectMemberRole = async (orgId: string, projectId: string, memberId: string, data: UpdateProjectMemberRoleRequest): Promise<{ message: string }> => {
-    const response = await apiClient.put<{ message: string }>(
-        `/orgs/${orgId}/projects/${projectId}/members/${memberId}`,
-        data
-    );
+    const response = await apiClient.put<{ message: string }>(`/orgs/${orgId}/projects/${projectId}/members/${memberId}`, data);
     return response.data;
 };
 
@@ -109,24 +95,13 @@ export interface ProjectSettings {
     reportFrequency: "DAILY" | "WEEKLY" | "MONTHLY";
 }
 
-export const getProjectSettings = async (
-    orgId: string,
-    projectId: string
-): Promise<ProjectSettings> => {
-    const response = await apiClient.get<ProjectSettings>(
-        `/orgs/${orgId}/projects/${projectId}/settings`
-    );
+export const getProjectSettings = async (orgId: string, projectId: string): Promise<ProjectSettings> => {
+    const response = await apiClient.get<ProjectSettings>(`/orgs/${orgId}/projects/${projectId}/settings`);
     return response.data;
 };
 
-export const updateProjectSettings = async (
-    orgId: string,
-    projectId: string,
-    data: ProjectSettings
-): Promise<ProjectSettings> => {
-    const response = await apiClient.put<ProjectSettings>(
-        `/orgs/${orgId}/projects/${projectId}/settings`,
-        data
-    );
+export const updateProjectSettings = async (orgId: string, projectId: string, data: ProjectSettings): Promise<ProjectSettings> => {
+    const response = await apiClient.put<ProjectSettings>(`/orgs/${orgId}/projects/${projectId}/settings`, data);
     return response.data;
 };
+

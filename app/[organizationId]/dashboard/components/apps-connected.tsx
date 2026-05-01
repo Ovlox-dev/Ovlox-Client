@@ -1,13 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 
-import { listIntegrations } from '@/shared/api/org';
+import { listIntegrations } from '@/entities/organization/api/org';
 
 import { IoLogoGithub } from 'react-icons/io5';
-import { Check } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SiDiscord, SiJira, SiLinear, SiSlack } from 'react-icons/si';
 
 import { IntegrationStatus } from '@/types/enum';
@@ -19,6 +19,7 @@ const AppsConnected = () => {
     const router = useRouter();
     const params = useParams<{ organizationId: string }>();
     const organizationId = params?.organizationId ?? '';
+    const [appsPage, setAppsPage] = useState(0);
 
     const { data: integrationsData, isLoading: integrationsLoading, error: integrationsError } = useQuery({
         queryKey: ["listIntegrations", organizationId],
@@ -70,14 +71,25 @@ const AppsConnected = () => {
     const connectedCount = appsWithStatus.filter((app) => app.connected).length;
     const totalApps = appsWithStatus.length;
 
+    const appsPerPage = 4;
+    const appsPageCount = Math.max(1, Math.ceil(totalApps / appsPerPage));
+    const safeAppsPage = Math.min(Math.max(0, appsPage), appsPageCount - 1);
+
+    const visibleApps = useMemo(() => {
+        const start = safeAppsPage * appsPerPage;
+        return appsWithStatus.slice(start, start + appsPerPage);
+    }, [appsWithStatus, safeAppsPage]);
+
+    const emptySlots = Math.max(0, appsPerPage - visibleApps.length);
+
 
     const basePath = `/${encodeURIComponent(organizationId)}/integrations`
 
 
     return (
         <div>
-            <Card className="rounded-2xl border-border bg-card">
-                <CardContent className="space-y-4">
+            <Card className="rounded-2xl border-border bg-card ">
+                <CardContent className="space-y-4 flex flex-col">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-muted font-semibold">Apps Connected</p>
@@ -92,8 +104,9 @@ const AppsConnected = () => {
                             ) : null}
                         </div>
                     </div>
-                    <ul className="space-y-3">
-                        {appsWithStatus.map((app) => {
+
+                    <ul className="flex-1 space-y-3">
+                        {visibleApps.map((app) => {
                             const Icon = app.icon;
                             return (
                                 <li
@@ -117,7 +130,45 @@ const AppsConnected = () => {
                                 </li>
                             );
                         })}
+                        {Array.from({ length: emptySlots }).map((_, idx) => (
+                            <li
+                                key={`apps-empty-${safeAppsPage}-${idx}`}
+                                aria-hidden
+                                className="group flex items-center justify-between gap-2 opacity-0 pointer-events-none select-none"
+                            >
+                                <div className="flex items-center gap-2 text-text">
+                                    <div className="size-5" />
+                                    <span className="text-base font-medium">.</span>
+                                </div>
+                                <div className="rounded-md bg-border px-4 py-1 text-xs font-medium">
+                                    .
+                                </div>
+                            </li>
+                        ))}
                     </ul>
+
+                    {appsPageCount > 1 ? (
+                        <div className="mt-auto flex items-center justify-end gap-2 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setAppsPage(Math.max(0, safeAppsPage - 1))}
+                                disabled={safeAppsPage <= 0}
+                                className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Previous apps"
+                            >
+                                <ChevronLeft className="size-5" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAppsPage(Math.min(appsPageCount - 1, safeAppsPage + 1))}
+                                disabled={safeAppsPage >= appsPageCount - 1}
+                                className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Next apps"
+                            >
+                                <ChevronRight className="size-5" />
+                            </button>
+                        </div>
+                    ) : null}
                 </CardContent>
             </Card>
         </div>

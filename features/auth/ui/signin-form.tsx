@@ -23,7 +23,7 @@ import { useAuthStore } from "@/entities/auth/model/store";
 import { formatAuthErrorMessage } from "@/shared/lib/auth/auth-utils";
 import { resolvePostLoginAuthNavigation, setAuthNavigation } from "@/shared/lib/auth/auth-navigation";
 import { buildDashboardOrgRoute, DASHBOARD_NEW_ORGANIZATION_ROUTE, getActiveOrgId, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver";
-import { userOrgs } from "@/shared/api/org";
+import { userOrgs } from "@/entities/organization/api/org";
 
 const loginSchema = z.object({
     email: z.email({ message: "Invalid email address" }).min(1, { message: "Email is required" }),

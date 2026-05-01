@@ -12,7 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { cn } from "@/lib/utils"
 import inviteEmptyIcon from "@/assets/invite.svg"
 
-import { acceptInvite } from "@/shared/api/org"
+import { acceptInvite } from "@/entities/organization/api/org"
 import { buildDashboardOrgRoute, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
 
 import { ArrowLeft } from "lucide-react"

@@ -10,7 +10,7 @@ import {
 
 } from "@/shared/lib/auth/post-auth-org-resolver";
 import { LoaderSpinner } from "@/shared/ui/LoaderSpinner";
-import { userOrgs } from "@/shared/api/org";
+import { userOrgs } from "@/entities/organization/api/org";
 
 export default function Home() {
     const router = useRouter();

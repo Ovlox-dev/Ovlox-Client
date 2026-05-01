@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useProjectStore } from "@/store/project.store";
 import { useRouter } from "next/navigation";
-import { getProject } from "@/shared/api/projects";
+import { getProject } from "@/entities/project";
 import { IProject } from "@/types/prisma-generated";
 import { toast } from "sonner";
 

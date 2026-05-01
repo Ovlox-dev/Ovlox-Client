@@ -4,7 +4,7 @@ import { useCallback, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 
-import { userOrgs } from "@/shared/api/org"
+import { userOrgs } from "@/entities/organization/api/org"
 import { buildDashboardOrgRoute, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
 
 import { Plus, Building2, MoreHorizontal, Search, Settings2, FileText, Copy, Link, Trash2, LogOut } from "lucide-react"

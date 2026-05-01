@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { useGetProject } from "@/shared/queries/projects.queries";
+import { useGetProject } from "@/entities/project";
 import { RoleBadge } from "@/shared/ui/role-badge";
 
 interface ReviewStepProps {

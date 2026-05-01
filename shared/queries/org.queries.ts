@@ -16,7 +16,7 @@ import {
     getOrgIntegrationStatusByIntegrationId,
     addIntegrations,
     UserOrgsFilters,
-} from "@/shared/api/org";
+} from "@/entities/organization/api/org";
 
 export const orgKeys = {
     all: ["orgs"] as const,
