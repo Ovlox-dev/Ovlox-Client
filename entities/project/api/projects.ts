@@ -57,6 +57,33 @@ export const listProjectMembers = async (orgId: string, projectId: string): Prom
     return response.data;
 };
 
+export interface ProjectIntegrationLink {
+    id: string;
+    integrationId: string;
+    projectId: string;
+    integration?: {
+        id: string;
+        type?: string;
+        status?: string;
+        organizationId?: string;
+        name?: string;
+        metadata?: Record<string, unknown> | null;
+    };
+    metadata?: Record<string, unknown> | null;
+    createdAt?: string;
+}
+
+export const listProjectIntegrations = async (
+    orgId: string,
+    projectId: string,
+): Promise<ProjectIntegrationLink[]> => {
+    const response = await apiClient.get<ProjectIntegrationLink[] | { data: ProjectIntegrationLink[] }>(
+        `/orgs/${orgId}/projects/${projectId}/integrations`,
+    );
+    const payload = response.data as ProjectIntegrationLink[] | { data: ProjectIntegrationLink[] };
+    return Array.isArray(payload) ? payload : (payload?.data ?? []);
+};
+
 export const addProjectMember = async (orgId: string, projectId: string, data: AddProjectMemberRequest): Promise<{ message: string }> => {
     const response = await apiClient.post<{ message: string }>(`/orgs/${orgId}/projects/${projectId}/members`, data);
     return response.data;
@@ -72,8 +99,21 @@ export const updateProjectMemberRole = async (orgId: string, projectId: string, 
     return response.data;
 };
 
-export const syncProjectMembers = async (orgId: string, projectId: string): Promise<{ message: string }> => {
-    const response = await apiClient.post<{ message: string }>(`/orgs/${orgId}/projects/${projectId}/members/sync`, {});
+export interface SyncProjectMembersResponse {
+    message: string;
+    added?: number;
+    removed?: number;
+    updated?: number;
+}
+
+export const syncProjectMembers = async (
+    orgId: string,
+    projectId: string,
+): Promise<SyncProjectMembersResponse> => {
+    const response = await apiClient.post<SyncProjectMembersResponse>(
+        `/orgs/${orgId}/projects/${projectId}/members/sync`,
+        {},
+    );
     return response.data;
 };
 

@@ -47,19 +47,19 @@ export function IntegrationCardShell({
     <div className="block h-full">
       <Card
         className={cn(
-          "flex h-full flex-col rounded-xl border border-white/10 bg-[#0D0D0D] shadow-none",
+          "flex h-full flex-col rounded-xl border border-border bg-card shadow-none",
           className
         )}
       >
         <CardContent className="space-y-2 ">
           <div className="flex items-start justify-between">
-            <Icon className="text-white size-8" />
+            <Icon className="text-foreground size-8" />
             <StatusDot connected={connected} processing={processing} />
           </div>
 
           <div>
-            <h2 className="text-base font-semibold text-white">{title}</h2>
-            <p className="text-sm text-[#79868C]">{description}</p>
+            <h2 className="text-base font-semibold text-foreground">{title}</h2>
+            <p className="text-sm text-muted-foreground">{description}</p>
           </div>
 
           {actions ? (

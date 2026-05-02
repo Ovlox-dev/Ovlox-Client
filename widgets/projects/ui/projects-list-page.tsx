@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { useParams } from "next/navigation"
+import Link from "next/link"
+import { useParams, useRouter } from "next/navigation"
 
 import { Plus, MoreHorizontal, Copy, Trash2, Download, Clock } from "lucide-react"
 
@@ -52,6 +53,7 @@ const data = [
 
 export function ProjectsListPage() {
     const params = useParams<{ organizationId: string }>()
+    const router = useRouter()
     const organizationId = params?.organizationId ?? ""
     const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all")
     const [sortFilter, setSortFilter] = React.useState<string>("")
@@ -156,7 +158,16 @@ export function ProjectsListPage() {
                             return (
                                 <article
                                     key={project.id}
-                                    className="border-[0.5px] border-border rounded-2xl p-4 bg-card flex flex-col space-y-4"
+                                    role="link"
+                                    tabIndex={0}
+                                    onClick={() => router.push(`/${organizationId}/projects/${project.id}`)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            e.preventDefault()
+                                            router.push(`/${organizationId}/projects/${project.id}`)
+                                        }
+                                    }}
+                                    className="border-[0.5px] border-border rounded-2xl p-4 bg-card flex flex-col space-y-4 cursor-pointer transition-colors hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 >
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
@@ -171,6 +182,7 @@ export function ProjectsListPage() {
                                                     <Button
                                                         variant="ghost"
                                                         size="icon-sm"
+                                                        onClick={(e) => e.stopPropagation()}
                                                     >
                                                         <MoreHorizontal />
                                                     </Button>
@@ -199,7 +211,15 @@ export function ProjectsListPage() {
                                             </Popover>
                                         </div>
 
-                                        <h3 className="text-text font-semibold text-xl">{project.name}</h3>
+                                        <h3 className="text-text font-semibold text-xl">
+                                            <Link
+                                                href={`/${organizationId}/projects/${project.id}`}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="hover:underline"
+                                            >
+                                                {project.name}
+                                            </Link>
+                                        </h3>
 
                                         {/* <Progress
                                     value={projectProgress}

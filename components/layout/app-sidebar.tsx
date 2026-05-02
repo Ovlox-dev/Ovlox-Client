@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { useParams } from "next/navigation"
-import { LayoutDashboard, Users, GitBranch, Plug } from "lucide-react"
+import { LayoutDashboard, Users, GitBranch, Plug, Inbox } from "lucide-react"
 
 import OvloxLogo from '@/assets/ovlox.svg'
 
@@ -14,6 +14,8 @@ import { ProjectSwitcher } from "@/widgets/projects/ui/project-switcher"
 import { OrganizationSwitcher } from "@/components/layout/organization-switcher"
 import { useAuthStore } from "@/entities/auth"
 import type { IUser } from "@/types/prisma-generated"
+import { usePermission } from "@/hooks/usePermission"
+import { PermissionName } from "@/shared/lib/auth/permissions"
 
 function navUserFromSession(user: IUser | null) {
   if (!user) {
@@ -34,36 +36,50 @@ export function AppSidebar() {
   const params = useParams()
   const organizationId = (params?.organizationId as string) ?? ""
   const sessionUser = useAuthStore((s) => s.auth.user)
+  const { can, isLoading: isPermissionLoading } = usePermission(organizationId || null)
 
-  const baseNavItems = [
+  type NavSubItem = { title: string; url?: string; requiredPermission?: PermissionName }
+  type NavItem = {
+    title: string
+    url?: string
+    icon?: typeof LayoutDashboard
+    isActive?: boolean
+    requiredPermission?: PermissionName
+    items?: NavSubItem[]
+  }
+
+  const allNavItems: NavItem[] = [
     {
       title: "Dashboard",
       url: `/${organizationId}/dashboard`,
       icon: LayoutDashboard,
+      requiredPermission: PermissionName.VIEW_PROJECTS,
     },
     {
       title: "Integrations",
       icon: Plug,
       url: `/${organizationId}/integrations`,
+      requiredPermission: PermissionName.MANAGE_INTEGRATIONS,
     },
     {
       title: "Members",
       icon: Users,
       url: `/${organizationId}/members`,
+      requiredPermission: PermissionName.INVITE_MEMBERS,
+    },
+    {
+      title: "Writebacks",
+      icon: Inbox,
+      url: `/${organizationId}/writebacks`,
+      requiredPermission: PermissionName.APPROVE_WRITEBACKS,
     },
     {
       title: "Organizations",
       icon: Users,
       isActive: true,
       items: [
-        {
-          title: "All Organizations",
-          url: `/${organizationId}/organizations`,
-        },
-        {
-          title: "New Organization",
-          url: "/new-organization",
-        },
+        { title: "All Organizations", url: `/${organizationId}/organizations` },
+        { title: "New Organization", url: "/new-organization" },
       ],
     },
     {
@@ -71,17 +87,31 @@ export function AppSidebar() {
       icon: GitBranch,
       isActive: true,
       items: [
-        {
-          title: "All Projects",
-          url: `/${organizationId}/projects`,
-        },
-        {
-          title: "New Project",
-          url: `/${organizationId}/projects/new-project`,
-        },
+        { title: "All Projects", url: `/${organizationId}/projects`, requiredPermission: PermissionName.VIEW_PROJECTS },
+        { title: "New Project", url: `/${organizationId}/projects/new-project`, requiredPermission: PermissionName.CREATE_PROJECTS },
       ],
     },
   ];
+
+  /**
+   * Permission-gate before rendering. While the membership query is in-flight we keep all items visible
+   * (avoids a flash of empty nav) — the backend still 403s if a viewer clicks something they shouldn't see.
+   */
+  const baseNavItems = isPermissionLoading || !organizationId
+    ? allNavItems.map(({ requiredPermission: _omit, ...rest }) => rest)
+    : allNavItems
+        .filter((item) => !item.requiredPermission || can(item.requiredPermission))
+        .map((item) => {
+          const { requiredPermission: _omit, items, ...rest } = item;
+          if (!items) { return rest; }
+          const allowedSubItems = items.filter((sub) => !sub.requiredPermission || can(sub.requiredPermission));
+          if (allowedSubItems.length === 0) { return null; }
+          return {
+            ...rest,
+            items: allowedSubItems.map(({ requiredPermission: _o, ...subRest }) => subRest),
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
 
   const user = navUserFromSession(sessionUser)
 

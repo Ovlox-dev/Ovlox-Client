@@ -3,8 +3,19 @@ import { clearClientSessionState, getAccessToken } from "@/shared/lib/auth/token
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
+/**
+ * In the browser, hit /api/v1/* on this origin. Next.js rewrites (next.config.ts) forward the
+ * request server-to-server to NEXT_PUBLIC_API_URL — this keeps HttpOnly cookies same-origin so
+ * SameSite=Lax cookies attach correctly. The browser sees localhost:3000/api/v1 in the URL bar;
+ * the actual upstream call to api.ovlox.dev happens server-side.
+ *
+ * On the server (SSR / route handlers), use the absolute upstream URL directly since there's
+ * no Next rewrite layer running there.
+ */
 const absoluteApiBaseUrl = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/v1`;
-export const apiBaseUrl = absoluteApiBaseUrl;
+const browserApiBaseUrl = "/api/v1";
+
+export const apiBaseUrl = typeof window === "undefined" ? absoluteApiBaseUrl : browserApiBaseUrl;
 
 export const apiClient = axios.create({
     baseURL: apiBaseUrl,

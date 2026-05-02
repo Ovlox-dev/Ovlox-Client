@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
 import { ChevronLeft, ChevronRight, FolderOpen, Plus } from "lucide-react";
@@ -135,7 +136,10 @@ export function DashboardProjectsCard() {
                 key={safeProjectPage * PROJECTS_PER_PAGE + i}
                 className="flex items-center justify-between gap-1"
               >
-                <div className="flex min-w-0 items-center gap-2">
+                <Link
+                  href={`/${organizationId}/projects/${project.id}`}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-accent-contrast/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   <FolderOpen className="size-8 shrink-0 text-muted" />
                   <div className="min-w-0">
                     <p className="truncate font-medium text-text">{project.name}</p>
@@ -145,7 +149,7 @@ export function DashboardProjectsCard() {
                         : "Created recently"}
                     </p>
                   </div>
-                </div>
+                </Link>
               </li>
             ))
           )}

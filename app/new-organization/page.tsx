@@ -77,7 +77,7 @@ export default function NewUserPage() {
   return (
     <div>
       {phase === "setupWorkspace" && (
-        <div className="flex items-center justify-center min-h-[80vh]">
+        <div className="flex items-center justify-center min-h-svh sm:min-h-[80vh]">
           <div className="max-w-3xl mx-auto space-y-8 text-center w-full">
             <>
               <div className="space-y-2">
