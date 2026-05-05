@@ -253,9 +253,9 @@ export function ProjectsListPage() {
                                                         .slice(0, 3)
                                                         .map((connection) => {
                                                             const provider =
-                                                                (connection.provider ?? connection.integration?.type) as
-                                                                | ExternalProvider
-                                                                | undefined
+                                                                (connection.integration?.type) as
+                                                                    | ExternalProvider
+                                                                    | undefined
                                                             const Icon = provider
                                                                 ? appIconMap[provider]
                                                                 : null
