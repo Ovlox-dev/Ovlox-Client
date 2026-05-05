@@ -41,8 +41,10 @@ export const getChannels = async (integrationId: string, guildId: string): Promi
 }
 
 export const syncChannels = async (integrationId: string, guildId?: string) => {
-    const response = await apiClient.post<ApiResponse>(`/integrations/discord/sync-channels/${integrationId}`, null, {
-        params: { guildId }
-    });
+    const response = await apiClient.post<ApiResponse>(
+        `/integrations/discord/sync-channels/${integrationId}`,
+        null,
+        guildId ? { params: { guildId } } : undefined,
+    );
     return response.data
 };

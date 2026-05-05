@@ -46,7 +46,7 @@ export const useSyncChannels = () => {
             syncChannels(integrationId, guildId),
         onSuccess: (_, vars) => {
             qc.invalidateQueries({
-                queryKey: ["discord-channels", vars.integrationId, vars.guildId],
+                queryKey: ["discord-channels", vars.integrationId],
             });
         },
     });

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { SetupLayout } from "./setup-layout"
 import { LinkIntegrationsStep } from "./steps/link-integrations-setup"
@@ -9,7 +10,9 @@ import { AddMembersStep } from "./steps/add-members"
 import { ReviewStep } from "./steps/review-step"
 
 import { listIntegrations } from "@/entities/organization/api/org"
+import { projectKeys } from "@/entities/project/queries/projects.queries"
 import { syncGithubRepositories } from "@/entities/github"
+import { syncChannels } from "@/shared/api/integration-discord"
 import { syncJiraProjects } from "@/shared/api/integration-jira"
 import { syncLinearTeams } from "@/shared/api/integration-linear"
 import { syncSlackChannels } from "@/shared/api/integration-slack"
@@ -26,6 +29,7 @@ export function ProjectSetupWizard() {
     const organizationId = params?.organizationId ?? ""
     const projectId = params?.projectId ?? ""
     const [step, setStep] = useState<SetupStep>("integrations")
+    const queryClient = useQueryClient()
 
     useEffect(() => {
         if (!organizationId) { return }
@@ -55,13 +59,19 @@ export function ProjectSetupWizard() {
                             syncPromises.push(syncSlackChannels(i.integrationId))
                             break
                         case ExternalProvider.DISCORD:
+                            syncPromises.push(syncChannels(i.integrationId))
                             break
                         default:
                             break
                     }
                 }
 
-                await Promise.all(syncPromises)
+                await Promise.allSettled(syncPromises)
+
+                if (cancelled) { return }
+                await queryClient.invalidateQueries({
+                    queryKey: projectKeys.resources(organizationId, projectId),
+                })
             } catch {
                 // best-effort sync; UI should remain usable even if sync fails
             }
@@ -70,7 +80,7 @@ export function ProjectSetupWizard() {
         return () => {
             cancelled = true
         }
-    }, [organizationId, projectId])
+    }, [organizationId, projectId, queryClient])
 
     return (
         <SetupLayout step={step}>

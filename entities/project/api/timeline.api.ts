@@ -44,12 +44,12 @@ export const getProjectTimeline = async (
     params?: GetTimelineParams,
 ): Promise<ProjectTimelineResponse> => {
     const queryParams: Record<string, string | number> = {};
-    if (params?.since) queryParams.since = params.since;
-    if (params?.until) queryParams.until = params.until;
+    if (params?.since) {queryParams.since = params.since;}
+    if (params?.until) {queryParams.until = params.until;}
     if (params?.categories && params.categories.length > 0) {
         queryParams.categories = params.categories.join(",");
     }
-    if (params?.limit) queryParams.limit = params.limit;
+    if (params?.limit) {queryParams.limit = params.limit;}
 
     const response = await apiClient.get<ProjectTimelineResponse>(
         `/orgs/${orgId}/projects/${projectId}/timeline`,

@@ -4,21 +4,29 @@ import { apiClient } from "@/shared/api/client";
  * mirror src/database/enums.ts → TaskStatus / TaskSource / TaskPriority. */
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE" | "BLOCKED" | "CANCELLED";
 export type TaskSource = "MANUAL" | "AUTO_DETECTED" | "IMPORTED";
-export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+/** Backend expects an integer 1..5 (inclusive). Higher = more urgent. */
+export type TaskPriority = 1 | 2 | 3 | 4 | 5;
 
 export interface Task {
     id: string;
     projectId: string;
+    /** Provider that originated the task (optional) */
+    provider?: string | null;
+    providerId?: string | null;
     title: string;
     description?: string | null;
     status: TaskStatus;
     priority?: TaskPriority | null;
     dueDate?: string | null;
     source: TaskSource;
+    autoDetectedFromId?: string | null;
     autoDetectedByMemberId?: string | null;
     metadata?: Record<string, unknown> | null;
     createdAt: string;
     updatedAt: string;
+    /** Newer API shape */
+    assignedTo?: Array<{ memberId: string }>;
+    taskTeam?: unknown | null;
     assignments?: Array<{ memberId: string; createdAt: string }>;
 }
 
@@ -53,11 +61,39 @@ export const listTasks = async (
     projectId: string,
     params?: ListTasksParams,
 ): Promise<{ tasks: Task[]; total: number }> => {
-    const response = await apiClient.get<{ tasks: Task[]; total: number }>(
+    const response = await apiClient.get<
+        | { tasks: Task[]; total: number }
+        | Task[]
+        | { data: { tasks?: Task[]; total?: number } }
+        | { data: Task[] }
+    >(
         `/orgs/${orgId}/projects/${projectId}/tasks`,
         { params },
     );
-    return response.data;
+    const payload = response.data as
+        | { tasks: Task[]; total: number }
+        | Task[]
+        | { data: { tasks?: Task[]; total?: number } }
+        | { data: Task[] };
+
+    if (Array.isArray(payload)) {
+        return { tasks: payload, total: payload.length };
+    }
+    if (payload && typeof payload === "object" && "tasks" in payload && Array.isArray((payload as { tasks?: Task[] }).tasks)) {
+        const p = payload as { tasks: Task[]; total?: number };
+        return { tasks: p.tasks, total: p.total ?? p.tasks.length };
+    }
+    if (payload && typeof payload === "object" && "data" in payload) {
+        const d = (payload as { data: unknown }).data;
+        if (Array.isArray(d)) {
+            return { tasks: d as Task[], total: (d as Task[]).length };
+        }
+        if (d && typeof d === "object" && Array.isArray((d as { tasks?: Task[] }).tasks)) {
+            const dt = d as { tasks: Task[]; total?: number };
+            return { tasks: dt.tasks, total: dt.total ?? dt.tasks.length };
+        }
+    }
+    return { tasks: [], total: 0 };
 };
 
 export const getTask = async (orgId: string, projectId: string, taskId: string): Promise<Task> => {

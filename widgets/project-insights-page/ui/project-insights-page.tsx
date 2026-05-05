@@ -6,9 +6,7 @@ import { useParams } from "next/navigation";
 import {
     BarChart3,
     TrendingUp,
-    CheckCircle2,
     Clock,
-    AlertCircle,
     Calendar,
     Activity,
     GitBranch,
@@ -26,8 +24,6 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
-    LineChart,
-    Line,
     BarChart,
     Bar,
     PieChart,
@@ -74,6 +70,24 @@ function rangeToSinceMs(range: TimeRange): number {
     return 90 * day;
 }
 
+function toValidMs(value: unknown): number | null {
+    if (value === null || value === undefined) { return null; }
+    if (value instanceof Date) {
+        const ms = value.getTime();
+        return Number.isFinite(ms) ? ms : null;
+    }
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) { return null; }
+        const ms = new Date(trimmed).getTime();
+        return Number.isFinite(ms) ? ms : null;
+    }
+    return null;
+}
+
 function bucketCountByDay(items: { ts: number }[], days: number): { label: string; value: number }[] {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -96,10 +110,15 @@ function bucketCountByDay(items: { ts: number }[], days: number): { label: strin
 export function ProjectInsightsPage() {
     const { organizationId, projectId } = useParams<{ organizationId: string; projectId: string }>();
     const [timeRange, setTimeRange] = React.useState<TimeRange>("week");
+    const [nowMs, setNowMs] = React.useState(() => Date.now());
+
+    React.useEffect(() => {
+        setNowMs(Date.now());
+    }, [timeRange]);
 
     const sinceIso = React.useMemo(
-        () => new Date(Date.now() - rangeToSinceMs(timeRange)).toISOString(),
-        [timeRange],
+        () => new Date(nowMs - rangeToSinceMs(timeRange)).toISOString(),
+        [timeRange, nowMs],
     );
 
     const { data: tasksResponse, isLoading: tasksLoading } = useListTasks(organizationId, projectId, { limit: 500 });
@@ -110,11 +129,12 @@ export function ProjectInsightsPage() {
     const { data: contribResponse } = useGetContributions(organizationId, projectId, {
         since: sinceIso,
     });
+
     const { data: linkedIntegrations } = useListProjectIntegrations(organizationId, projectId);
     const hasIntegrations = (linkedIntegrations?.length ?? 0) > 0;
 
-    const tasks = tasksResponse?.tasks ?? [];
-    const entries = timelineResponse?.entries ?? [];
+    const tasks = React.useMemo(() => tasksResponse?.tasks ?? [], [tasksResponse]);
+    const entries = React.useMemo(() => timelineResponse?.entries ?? [], [timelineResponse]);
     const days = timeRange === "week" ? 7 : timeRange === "month" ? 30 : 90;
 
     /** Status distribution, derived from real tasks. */
@@ -130,27 +150,13 @@ export function ProjectInsightsPage() {
         }));
     }, [tasks]);
 
-    /** Task completion trend over time, bucketed by day from `updatedAt`. */
-    const taskCompletionData = React.useMemo(() => {
-        const completedTs = tasks.filter((t) => t.status === "DONE").map((t) => ({ ts: new Date(t.updatedAt).getTime() }));
-        const inProgressTs = tasks.filter((t) => t.status === "IN_PROGRESS").map((t) => ({ ts: new Date(t.updatedAt).getTime() }));
-        const pendingTs = tasks.filter((t) => t.status === "TODO" || t.status === "REVIEW").map((t) => ({ ts: new Date(t.updatedAt).getTime() }));
-        const completed = bucketCountByDay(completedTs, days);
-        const pending = bucketCountByDay(pendingTs, days);
-        const inProgress = bucketCountByDay(inProgressTs, days);
-        return completed.map((c, i) => ({
-            day: c.label,
-            completed: c.value,
-            pending: pending[i]?.value ?? 0,
-            inProgress: inProgress[i]?.value ?? 0,
-        }));
-    }, [tasks, days]);
-
     /** Commit activity bucketed by day from timeline entries (COMMIT category). */
     const commitActivityData = React.useMemo(() => {
         const commits = entries
             .filter((e) => e.category === "COMMIT")
-            .map((e) => ({ ts: new Date(e.occurredAt).getTime() }));
+            .map((e) => toValidMs(e.occurredAt))
+            .filter((ms): ms is number => ms !== null)
+            .map((ts) => ({ ts }));
         const buckets = bucketCountByDay(commits, days);
         return buckets.map((b) => ({ date: b.label, commits: b.value }));
     }, [entries, days]);
@@ -172,33 +178,44 @@ export function ProjectInsightsPage() {
         const totalTasks = tasks.length;
         const completedTasks = tasks.filter((t) => t.status === "DONE").length;
         const activeTasks = tasks.filter((t) => t.status === "IN_PROGRESS" || t.status === "REVIEW").length;
-        const now = Date.now();
-        const overdueTasks = tasks.filter(
-            (t) => t.dueDate && new Date(t.dueDate).getTime() < now && t.status !== "DONE" && t.status !== "CANCELLED",
-        ).length;
+        const blockedTasks = tasks.filter((t) => t.status === "BLOCKED").length;
+        const cancelledTasks = tasks.filter((t) => t.status === "CANCELLED").length;
+        const overdueTasks = tasks.filter((t) => {
+            if (t.status === "DONE" || t.status === "CANCELLED") { return false; }
+            const dueMs = toValidMs(t.dueDate);
+            return dueMs !== null && dueMs < nowMs;
+        }).length;
         const completionRate = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
         const completedWithTimes = tasks.filter((t) => t.status === "DONE");
-        const avgMs = completedWithTimes.length === 0
-            ? 0
-            : completedWithTimes.reduce((acc, t) => acc + (new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime()), 0) /
-              completedWithTimes.length;
+        const lifetimes = completedWithTimes
+            .map((t) => {
+                const createdMs = toValidMs(t.createdAt);
+                const updatedMs = toValidMs(t.updatedAt);
+                if (createdMs === null || updatedMs === null) { return null; }
+                const diff = updatedMs - createdMs;
+                return diff >= 0 ? diff : null;
+            })
+            .filter((ms): ms is number => ms !== null);
+        const avgMs = lifetimes.length === 0 ? 0 : lifetimes.reduce((acc, ms) => acc + ms, 0) / lifetimes.length;
         const avgDays = avgMs === 0 ? "—" : `${(avgMs / (24 * 60 * 60 * 1000)).toFixed(1)}d`;
 
-        const completedInRange = completedWithTimes.filter(
-            (t) => new Date(t.updatedAt).getTime() >= Date.now() - rangeToSinceMs(timeRange),
-        ).length;
+        const rangeStartMs = nowMs - rangeToSinceMs(timeRange);
+        const completedInRange = completedWithTimes.filter((t) => {
+            const updatedMs = toValidMs(t.updatedAt);
+            return updatedMs !== null && updatedMs >= rangeStartMs;
+        }).length;
         const velocityPerDay = (completedInRange / days).toFixed(1);
 
         const commits = entries.filter((e) => e.category === "COMMIT").length;
 
-        return { totalTasks, completedTasks, activeTasks, overdueTasks, completionRate, avgDays, velocityPerDay, commits };
-    }, [tasks, entries, timeRange, days]);
+        return { totalTasks, completedTasks, activeTasks, blockedTasks, cancelledTasks, overdueTasks, completionRate, avgDays, velocityPerDay, commits };
+    }, [tasks, entries, timeRange, days, nowMs]);
 
     const isLoading = tasksLoading || timelineLoading;
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-6">
+        <div className="mx-auto space-y-6">
             <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
                 <div>
                     <h1 className="text-3xl font-bold mb-1 flex items-center gap-2">
@@ -212,9 +229,9 @@ export function ProjectInsightsPage() {
                         <SelectValue placeholder="Select range" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="week">This Week</SelectItem>
-                        <SelectItem value="month">This Month</SelectItem>
-                        <SelectItem value="quarter">This Quarter</SelectItem>
+                        <SelectItem value="week">Last 7 days</SelectItem>
+                        <SelectItem value="month">Last 30 days</SelectItem>
+                        <SelectItem value="quarter">Last 90 days</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -242,26 +259,27 @@ export function ProjectInsightsPage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        {/* Github Contributors */}
                         <Card className="p-6">
-                            <h2 className="text-lg font-semibold mb-4">Task Activity Trend</h2>
-                            {taskCompletionData.every((d) => d.completed === 0 && d.pending === 0 && d.inProgress === 0) ? (
-                                <p className="text-sm text-muted-foreground py-12 text-center">No task activity in this range.</p>
+                            <h2 className="text-lg font-semibold mb-4">Github Contributors</h2>
+                            {teamProductivityData.length === 0 ? (
+                                <p className="text-sm text-muted-foreground py-12 text-center">No contributor activity yet.</p>
                             ) : (
                                 <ResponsiveContainer width="100%" height={300}>
-                                    <LineChart data={taskCompletionData}>
+                                    <BarChart data={teamProductivityData}>
                                         <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="day" />
+                                        <XAxis dataKey="name" angle={-30} textAnchor="end" height={80} />
                                         <YAxis />
                                         <Tooltip />
                                         <Legend />
-                                        <Line type="monotone" dataKey="completed" stroke="#10b981" strokeWidth={2} />
-                                        <Line type="monotone" dataKey="pending" stroke="#8b5cf6" strokeWidth={2} />
-                                        <Line type="monotone" dataKey="inProgress" stroke="#3b82f6" strokeWidth={2} />
-                                    </LineChart>
+                                        <Bar dataKey="tasks" fill="#3b82f6" name="Total events" />
+                                    </BarChart>
                                 </ResponsiveContainer>
                             )}
                         </Card>
 
+                        {/* Task Status Distribution */}
                         <Card className="p-6">
                             <h2 className="text-lg font-semibold mb-4">Task Status Distribution</h2>
                             {statusDistribution.length === 0 ? (
@@ -287,39 +305,6 @@ export function ProjectInsightsPage() {
                                     </PieChart>
                                 </ResponsiveContainer>
                             )}
-                        </Card>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        <div className="lg:col-span-2">
-                            <Card className="p-6">
-                                <h2 className="text-lg font-semibold mb-4">Top Contributors</h2>
-                                {teamProductivityData.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground py-12 text-center">No contributor activity yet.</p>
-                                ) : (
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <BarChart data={teamProductivityData}>
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="name" angle={-30} textAnchor="end" height={80} />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Legend />
-                                            <Bar dataKey="tasks" fill="#3b82f6" name="Total events" />
-                                            <Bar dataKey="completed" fill="#10b981" name="Tasks" />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                )}
-                            </Card>
-                        </div>
-
-                        <Card className="p-6">
-                            <h2 className="text-lg font-semibold mb-4">Task Summary</h2>
-                            <div className="space-y-3">
-                                <SummaryRow icon={CheckCircle2} iconClass="text-green-600" label="Completed" value={stats.completedTasks} />
-                                <SummaryRow icon={Activity} iconClass="text-blue-600" label="Active" value={stats.activeTasks} />
-                                <SummaryRow icon={AlertCircle} iconClass="text-red-600" label="Overdue" value={stats.overdueTasks} valueClass="text-red-600" />
-                                <SummaryRow icon={BarChart3} iconClass="text-purple-600" label="Total" value={stats.totalTasks} bordered={false} />
-                            </div>
                         </Card>
                     </div>
 
@@ -369,31 +354,5 @@ function StatCard({
             <p className="text-3xl font-bold">{value}</p>
             {hint ? <p className="text-xs text-muted-foreground mt-2">{hint}</p> : null}
         </Card>
-    );
-}
-
-function SummaryRow({
-    icon: Icon,
-    iconClass,
-    label,
-    value,
-    valueClass,
-    bordered = true,
-}: {
-    icon: typeof Activity;
-    iconClass?: string;
-    label: string;
-    value: number;
-    valueClass?: string;
-    bordered?: boolean;
-}) {
-    return (
-        <div className={`flex items-center justify-between ${bordered ? "pb-3 border-b border-border" : ""}`}>
-            <div className="flex items-center gap-2">
-                <Icon className={`size-4 ${iconClass ?? ""}`} />
-                <span className="text-sm">{label}</span>
-            </div>
-            <span className={`font-semibold ${valueClass ?? ""}`}>{value}</span>
-        </div>
     );
 }

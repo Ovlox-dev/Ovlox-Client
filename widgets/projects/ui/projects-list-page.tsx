@@ -253,7 +253,7 @@ export function ProjectsListPage() {
                                                         .slice(0, 3)
                                                         .map((connection) => {
                                                             const provider =
-                                                                connection.integration?.type as
+                                                                (connection.provider ?? connection.integration?.type) as
                                                                 | ExternalProvider
                                                                 | undefined
                                                             const Icon = provider

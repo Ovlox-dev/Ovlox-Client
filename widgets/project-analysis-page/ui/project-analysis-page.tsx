@@ -62,8 +62,9 @@ export function ProjectAnalysisPage() {
     const connectedProviders = React.useMemo(() => {
         const set = new Set<string>();
         for (const link of linkedIntegrations ?? []) {
-            const t = link.integration?.type;
-            if (t) { set.add(t); }
+            const provider = link.provider ?? link.integration?.type;
+            const status = link.integrationStatus ?? link.integration?.status;
+            if (provider && (!status || status === "CONNECTED")) { set.add(provider); }
         }
         return set;
     }, [linkedIntegrations]);
@@ -81,7 +82,8 @@ export function ProjectAnalysisPage() {
 
     const githubIntegrationId = React.useMemo(() => {
         return (linkedIntegrations ?? []).find(
-            (l) => l.integration?.type === ExternalProvider.GITHUB,
+            (l) => (l.provider ?? l.integration?.type) === ExternalProvider.GITHUB
+                && ((l.integrationStatus ?? l.integration?.status) === "CONNECTED" || !(l.integrationStatus ?? l.integration?.status)),
         )?.integrationId;
     }, [linkedIntegrations]);
 
@@ -110,7 +112,7 @@ export function ProjectAnalysisPage() {
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-6">
+        <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h1 className="text-2xl font-bold">Data Source Analysis</h1>

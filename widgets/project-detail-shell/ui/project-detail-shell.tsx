@@ -9,20 +9,24 @@ import {
     ListTodo,
     BarChart3,
     GitBranch,
-    FolderGit2,
-    Calendar,
-    GitCommit,
+    // FolderGit2,
+    // Calendar,
+    // GitCommit,
     Activity,
-    AlertTriangle,
-    FileText,
-    Settings,
+    // AlertTriangle,
+    // FileText,
+    // Settings,
     type LucideIcon,
+    Edit3,
+    UserPlus,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useGetProject } from "@/entities/project";
 import { usePermission } from "@/hooks/usePermission";
 import { PermissionName } from "@/shared/lib/auth/permissions";
+import { Button } from "@/components/ui/button";
+import { PageTitle } from "@/components/page-title";
 
 type Tab = {
     label: string;
@@ -36,25 +40,28 @@ type Tab = {
 
 const TABS: Tab[] = [
     { label: "Overview", segment: "", icon: LayoutGrid, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Chat", segment: "chat", icon: MessageSquare, requiredPermission: PermissionName.VIEW_PROJECTS },
     { label: "Tasks", segment: "tasks", icon: ListTodo, requiredPermission: PermissionName.MANAGE_TASKS },
     { label: "Insights", segment: "insights", icon: BarChart3, requiredPermission: PermissionName.VIEW_PROJECTS },
     { label: "Analysis", segment: "analysis", icon: GitBranch, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Repos", segment: "repos", icon: FolderGit2, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Timeline", segment: "timeline", icon: Calendar, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Contributions", segment: "contributions", icon: GitCommit, requiredPermission: PermissionName.VIEW_PROJECTS },
+    { label: "Chat", segment: "chat", icon: MessageSquare, requiredPermission: PermissionName.VIEW_PROJECTS },
+    // { label: "Repos", segment: "repos", icon: FolderGit2, requiredPermission: PermissionName.VIEW_PROJECTS },
+    // { label: "Timeline", segment: "timeline", icon: Calendar, requiredPermission: PermissionName.VIEW_PROJECTS },
+    // { label: "Contributions", segment: "contributions", icon: GitCommit, requiredPermission: PermissionName.VIEW_PROJECTS },
     { label: "Events", segment: "events", icon: Activity, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Alerts", segment: "alerts", icon: AlertTriangle, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Reports", segment: "reports", icon: FileText, requiredPermission: PermissionName.VIEW_REPORTS },
-    {
-        label: "Settings",
-        segment: "settings",
-        href: (base) => `${base}/settings/branches`,
-        icon: Settings,
-        requiredPermission: PermissionName.EDIT_PROJECTS,
-    },
+    // { label: "Alerts", segment: "alerts", icon: AlertTriangle, requiredPermission: PermissionName.VIEW_PROJECTS },
+    // { label: "Reports", segment: "reports", icon: FileText, requiredPermission: PermissionName.VIEW_REPORTS },
+    // {
+    //     label: "Settings",
+    //     segment: "settings",
+    //     href: (base) => `${base}/settings/branches`,
+    //     icon: Settings,
+    //     requiredPermission: PermissionName.EDIT_PROJECTS,
+    // },
 ];
 
+const statusDotClass = "bg-radial from-[#19FF75] to-[#80FFB200]"
+
+const statusTextClass = "text-[#4CFF94]"
 /** Wraps every project sub-route with a shared header + horizontal tab bar. */
 export function ProjectDetailShell({ children }: { children: ReactNode }) {
     const params = useParams<{ organizationId: string; projectId: string }>();
@@ -85,13 +92,32 @@ export function ProjectDetailShell({ children }: { children: ReactNode }) {
     return (
         <div className="space-y-4">
             <div className="border-b border-border bg-background">
-                <div className="px-4 sm:px-6 pt-4">
-                    <h1 className="text-2xl font-semibold text-text">
-                        {project?.name ?? "Project"}
-                    </h1>
-                    {project?.description ? (
-                        <p className="text-sm text-muted-foreground line-clamp-1">{project.description}</p>
-                    ) : null}
+                <div className="flex items-start justify-between gap-4">
+                    <PageTitle
+                        title={project?.name ?? "Project"}
+                        description={project?.description || "Main interface for founders to monitor startup activity"}
+                        isLoading={false}
+                    />
+                    <div className="flex items-center gap-2">
+                        <div className="inline-flex items-center gap-2 rounded-full bg-accent-contrast px-3 py-1">
+                            <span className={`size-2 rounded-full ${statusDotClass}`} aria-hidden />
+                            <span className={`text-sm font-medium capitalize ${statusTextClass}`}>{project?.status?.toLowerCase()}</span>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            className="border-[0.5px] border-border bg-card"
+                        >
+                            <Edit3 />
+                            Edit Project
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className="border-[0.5px] border-border bg-card"
+                        >
+                            <UserPlus />
+                            Add Member
+                        </Button>
+                    </div>
                 </div>
                 <nav
                     aria-label="Project sections"

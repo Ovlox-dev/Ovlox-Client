@@ -61,6 +61,12 @@ export interface ProjectIntegrationLink {
     id: string;
     integrationId: string;
     projectId: string;
+    /** Newer API shape (connections) */
+    provider?: string;
+    integrationStatus?: string;
+    label?: string;
+    connectedAt?: string;
+    connectionId?: string;
     integration?: {
         id: string;
         type?: string;

@@ -123,7 +123,8 @@ export function ProjectEventsPage() {
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <SummaryCard label="Total integrations" value={linkedIntegrations?.length ?? 0} icon={Plug} />
                 <SummaryCard label="Total events" value={total} icon={Activity} />
                 <SummaryCard label="Commits" value={counts.COMMIT ?? 0} icon={GitCommit} />
                 <SummaryCard label="Risk + incidents" value={(counts.RISK_ALERT ?? 0) + (counts.INCIDENT ?? 0)} icon={AlertTriangle} />
@@ -162,7 +163,7 @@ export function ProjectEventsPage() {
                 </Select>
             </div>
 
-            {isLoading ? (
+            {!isLoading ? (
                 <div className="flex justify-center py-12"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
             ) : error ? (
                 <Card className="p-12 text-center">

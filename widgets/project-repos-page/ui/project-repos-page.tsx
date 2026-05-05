@@ -34,7 +34,10 @@ export function ProjectReposPage() {
 
     const { data: linkedIntegrations } = useListProjectIntegrations(organizationId, projectId);
     const hasGithub = React.useMemo(
-        () => (linkedIntegrations ?? []).some((l) => l.integration?.type === ExternalProvider.GITHUB),
+        () => (linkedIntegrations ?? []).some((l) =>
+            (l.provider ?? l.integration?.type) === ExternalProvider.GITHUB
+            && ((l.integrationStatus ?? l.integration?.status) === "CONNECTED" || !(l.integrationStatus ?? l.integration?.status)),
+        ),
         [linkedIntegrations],
     );
     const { data: repos, isLoading: reposLoading } = useListRepositories(organizationId, projectId, { limit: 50 });

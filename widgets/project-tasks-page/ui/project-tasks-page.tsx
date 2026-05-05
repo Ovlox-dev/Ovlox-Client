@@ -8,7 +8,6 @@ import {
     Search,
     Trash2,
     Loader2,
-    Calendar,
     UserPlus,
     Link2,
 } from "lucide-react";
@@ -63,14 +62,18 @@ const STATUSES: { value: TaskStatus; label: string; color: string }[] = [
 ];
 
 const PRIORITIES: { value: TaskPriority; label: string; color: string }[] = [
-    { value: "LOW", label: "Low", color: "text-slate-500" },
-    { value: "MEDIUM", label: "Medium", color: "text-blue-500" },
-    { value: "HIGH", label: "High", color: "text-orange-500" },
-    { value: "URGENT", label: "Urgent", color: "text-red-500" },
+    { value: 1, label: "Low", color: "text-slate-500" },
+    { value: 3, label: "Medium", color: "text-blue-500" },
+    { value: 4, label: "High", color: "text-orange-500" },
+    { value: 5, label: "Urgent", color: "text-red-500" },
 ];
 
 function statusMeta(s: TaskStatus) {
     return STATUSES.find((x) => x.value === s) ?? STATUSES[0];
+}
+
+function priorityMeta(p: TaskPriority) {
+    return PRIORITIES.find((x) => x.value === p) ?? PRIORITIES[1];
 }
 
 export function ProjectTasksPage() {
@@ -133,7 +136,7 @@ export function ProjectTasksPage() {
                     </p>
                 </Card>
             ) : (
-                <div className="grid gap-2">
+                <div className="grid grid-cols-3 gap-2">
                     {tasks.map((task) => (
                         <TaskRow key={task.id} task={task} organizationId={organizationId} projectId={projectId} />
                     ))}
@@ -147,7 +150,7 @@ function CreateTaskDialog({ organizationId, projectId }: { organizationId: strin
     const [open, setOpen] = React.useState(false);
     const [title, setTitle] = React.useState("");
     const [description, setDescription] = React.useState("");
-    const [priority, setPriority] = React.useState<TaskPriority>("MEDIUM");
+    const [priority, setPriority] = React.useState<TaskPriority>(3);
     const { mutate, isPending } = useCreateTask(organizationId, projectId);
 
     const handleCreate = () => {
@@ -158,7 +161,7 @@ function CreateTaskDialog({ organizationId, projectId }: { organizationId: strin
                 onSuccess: () => {
                     setTitle("");
                     setDescription("");
-                    setPriority("MEDIUM");
+                    setPriority(3);
                     setOpen(false);
                     toast.success("Task created");
                 },
@@ -180,11 +183,11 @@ function CreateTaskDialog({ organizationId, projectId }: { organizationId: strin
                 <div className="space-y-3">
                     <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
                     <Input placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
-                    <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+                    <Select value={String(priority)} onValueChange={(v) => setPriority(Number(v) as TaskPriority)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                             {PRIORITIES.map((p) => (
-                                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                                <SelectItem key={p.value} value={String(p.value)}>{p.label}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -206,76 +209,97 @@ function TaskRow({ task, organizationId, projectId }: { task: Task; organization
     const updateStatus = useUpdateTaskStatus(organizationId, projectId, task.id);
     const deleteTask = useDeleteTask(organizationId, projectId);
     const meta = statusMeta(task.status);
+    const priority = task.priority ? priorityMeta(task.priority) : null;
 
     return (
-        <Card className="p-3 flex items-center gap-3 flex-wrap">
-            <Select
-                value={task.status}
-                onValueChange={(v) =>
-                    updateStatus.mutate(v as TaskStatus, {
-                        onError: (err) => toast.error("Status update failed", { description: (err as Error).message }),
-                    })
-                }
-            >
-                <SelectTrigger className={cn("w-32 h-8 text-xs", meta.color)}>
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    {STATUSES.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-
-            <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{task.title}</p>
-                {task.description ? (
-                    <p className="text-xs text-muted-foreground truncate">{task.description}</p>
-                ) : null}
+        <Card className="p-4 border-border/60 hover:border-border hover:bg-accent-contrast/30 transition-colors">
+            <div className=" flex justify-between">
+                <div>
+                    <p className="font-semibold text-sm text-text truncate">{task.title}</p>
+                    {task.description ? (
+                        <p className="text-xs text-muted-foreground">
+                            {task.description}
+                        </p>
+                    ) : null}
+                </div>
+                <Select
+                    value={task.status}
+                    onValueChange={(v) =>
+                        updateStatus.mutate(v as TaskStatus, {
+                            onError: (err) => toast.error("Status update failed", { description: (err as Error).message }),
+                        })
+                    }
+                >
+                    <SelectTrigger className={cn("w-32 h-8 text-xs shrink-0", meta.color)}>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {STATUSES.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
 
-            {task.priority ? (
-                <Badge variant="outline" className="text-xs">
-                    {task.priority}
-                </Badge>
-            ) : null}
 
-            {task.dueDate ? (
-                <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                    <Calendar className="size-3" />
-                    {new Date(task.dueDate).toLocaleDateString()}
-                </span>
-            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
+                {task.assignedTo && Array.isArray(task.assignedTo) && task.assignedTo.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                        <p className="text-xs text-muted-foreground">Assigned to</p>
+                        <p className="text-xs text-text">{task.assignedTo.map((a) => a.memberId)}</p>
+                    </div>
+                )}
+                <AssigneePopover task={task} organizationId={organizationId} projectId={projectId} />
+            </div>
 
-            {task.source === "AUTO_DETECTED" ? (
-                <Badge variant="outline" className="text-[10px]">auto</Badge>
-            ) : null}
+            <div className="flex items-center justify-between">
+                <div className="flex gap-1.5">
+                    {priority ? (
+                        <Badge
+                            variant="outline"
+                            className={cn("text-[11px] h-5 px-2", priority.color)}
+                        >
+                            {priority.label}
+                        </Badge>
+                    ) : null}
 
-            <AssigneePopover task={task} organizationId={organizationId} projectId={projectId} />
+                    {task.source === "AUTO_DETECTED" ? (
+                        <Badge variant="outline" className="text-[11px] h-5 px-2">
+                            auto
+                        </Badge>
+                    ) : task.source === "MANUAL" ? (
+                        <Badge variant="outline" className="text-[11px] h-5 px-2">
+                            manual
+                        </Badge>
+                    ) : null}
+                </div>
+                <div>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Link to a raw event"
+                        onClick={() => setLinkOpen(true)}
+                    >
+                        <Link2 className="size-4" />
+                    </Button>
+                    <LinkEventDialog open={linkOpen} onOpenChange={setLinkOpen} organizationId={organizationId} projectId={projectId} taskId={task.id} />
 
-            <Button
-                variant="ghost"
-                size="icon-sm"
-                title="Link to a raw event"
-                onClick={() => setLinkOpen(true)}
-            >
-                <Link2 className="size-4" />
-            </Button>
-            <LinkEventDialog open={linkOpen} onOpenChange={setLinkOpen} organizationId={organizationId} projectId={projectId} taskId={task.id} />
-
-            <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => {
-                    if (typeof window !== "undefined" && !window.confirm(`Delete task "${task.title}"?`)) { return; }
-                    deleteTask.mutate(task.id, {
-                        onSuccess: () => toast.success("Task deleted"),
-                        onError: (err) => toast.error("Delete failed", { description: (err as Error).message }),
-                    });
-                }}
-            >
-                <Trash2 className="size-4 text-destructive" />
-            </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Delete task"
+                        onClick={() => {
+                            if (typeof window !== "undefined" && !window.confirm(`Delete task "${task.title}"?`)) { return; }
+                            deleteTask.mutate(task.id, {
+                                onSuccess: () => toast.success("Task deleted"),
+                                onError: (err) => toast.error("Delete failed", { description: (err as Error).message }),
+                            });
+                        }}
+                    >
+                        <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                </div>
+            </div>
         </Card>
     );
 }
@@ -301,14 +325,18 @@ function AssigneePopover({ task, organizationId, projectId }: { task: Task; orga
             .finally(() => setLoading(false));
     }, [open, members.length, organizationId]);
 
-    const assignedIds = new Set((task.assignments ?? []).map((a) => a.memberId));
+    const assignedIds = new Set(
+        ((task.assignments ?? task.assignedTo ?? []) as Array<{ memberId: string }>).map((a) => a.memberId),
+    );
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-1 h-8">
                     <UserPlus className="size-3.5" />
-                    <span className="text-xs">{(task.assignments?.length ?? 0)}</span>
+                    <span className="text-xs">
+                        {(((task.assignments ?? task.assignedTo) as Array<{ memberId: string }> | undefined)?.length ?? 0)}
+                    </span>
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-64 p-2" align="end">

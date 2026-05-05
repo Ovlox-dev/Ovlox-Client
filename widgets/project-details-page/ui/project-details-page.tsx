@@ -8,26 +8,21 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
 import {
-    Edit3,
-    UserPlus,
     Settings2,
+    Plug,
 } from "lucide-react"
+import { SiDiscord, SiFigma, SiGithub, SiJira, SiLinear, SiNotion, SiSlack } from "react-icons/si"
 
-import { PageTitle } from "@/components/page-title"
-import { Progress } from "@/components/ui/progress"
 import { useParams } from "next/navigation"
 import {
     useGetContributions,
-    useGetProject,
     useGetTimeline,
     useListProjectIntegrations,
 } from "@/entities/project"
 import { useListTasks } from "@/entities/task"
-import { ExternalProvider } from "@/types/enum"
+import Link from "next/link"
 
 type TimeRange = "7d" | "30d" | "months"
-
-const statusDotClass = "bg-radial from-[#19FF75] to-[#80FFB200]"
 
 /** Map a provider string to a friendly label. Defaults to the raw provider for unknown ones. */
 const PROVIDER_LABEL: Record<string, string> = {
@@ -56,15 +51,15 @@ function formatRelative(iso: string | null | undefined): string {
     return `${Math.floor(h / 24)}d ago`;
 }
 
-const ALL_PROVIDERS: ExternalProvider[] = [
-    ExternalProvider.GITHUB,
-    ExternalProvider.SLACK,
-    ExternalProvider.JIRA,
-    ExternalProvider.LINEAR,
-    ExternalProvider.DISCORD,
-    ExternalProvider.NOTION,
-    ExternalProvider.FIGMA,
-]
+const PROVIDER_ICON: Record<string, React.ElementType> = {
+    GITHUB: SiGithub,
+    SLACK: SiSlack,
+    JIRA: SiJira,
+    DISCORD: SiDiscord,
+    LINEAR: SiLinear,
+    NOTION: SiNotion,
+    FIGMA: SiFigma,
+}
 
 const SEGMENT_COLORS = ["#60CAF9", "#3B82F6", "#A78BFA", "#F472B6", "#34D399", "#FBBF24"] as const
 
@@ -104,19 +99,23 @@ export function ProjectDetailsPage() {
     const organizationId = params.organizationId
     const projectId = params.projectId
 
-    const { data: project, isLoading: isProjectLoading } = useGetProject(organizationId, projectId)
     const { data: linkedIntegrations } = useListProjectIntegrations(organizationId, projectId)
     const { data: tasksResponse } = useListTasks(organizationId, projectId, { limit: 200 })
     const { data: contribResponse } = useGetContributions(organizationId, projectId)
 
     const sinceForRange = React.useMemo(() => {
-        const now = Date.now()
+        const now = new Date().getTime()
         if (range === "7d") { return new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString() }
         if (range === "30d") { return new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString() }
         return new Date(now - 180 * 24 * 60 * 60 * 1000).toISOString()
     }, [range])
 
-    const { data: timelineResponse } = useGetTimeline(organizationId, projectId, {
+    const {
+        data: timelineResponse,
+        isLoading: timelineLoading,
+        isError: timelineIsError,
+        error: timelineError,
+    } = useGetTimeline(organizationId, projectId, {
         since: sinceForRange,
         limit: 200,
     })
@@ -143,7 +142,7 @@ export function ProjectDetailsPage() {
         }
         if (range === "30d") {
             const buckets = new Array(5).fill(0)
-            const now = Date.now()
+            const now = new Date().getTime()
             for (const e of entries) {
                 const ageDays = Math.floor((now - new Date(e.occurredAt).getTime()) / (24 * 60 * 60 * 1000))
                 const wk = Math.min(4, Math.floor(ageDays / 6))
@@ -171,7 +170,7 @@ export function ProjectDetailsPage() {
         const labelMap: Record<string, string> = {
             DONE: "Completed",
             IN_PROGRESS: "In Progress",
-            TODO: "Pending",
+            TODO: "To Do",
             REVIEW: "Review",
             BLOCKED: "Blocked",
             CANCELLED: "Cancelled",
@@ -196,20 +195,24 @@ export function ProjectDetailsPage() {
             .map((c) => ({
                 name: c.name || c.email || "Unknown",
                 avatarSeed: c.name || c.email || c.key,
+                commits: c.commits,
             }))
     }, [contribResponse])
 
-    /** Compose the integrations card from the org's set of providers, marking which are linked to this project. */
-    const integrations = React.useMemo(() => {
-        const linkedTypes = new Set(
-            (linkedIntegrations ?? []).map((l) => l.integration?.type).filter(Boolean) as string[],
-        )
-        return ALL_PROVIDERS.map((provider) => ({
-            key: provider,
-            status: linkedTypes.has(provider) ? ("connected" as const) : ("disconnected" as const),
-            action: linkedTypes.has(provider) ? "Connected" : "Connect",
-        }))
+    /** Only show providers that are actually connected to this project. */
+    const connectedIntegrations = React.useMemo(() => {
+        const set = new Set<string>()
+        for (const link of linkedIntegrations ?? []) {
+            const provider = link.provider ?? link.integration?.type
+            const status = link.integrationStatus ?? link.integration?.status
+            if (provider && (!status || status === "CONNECTED")) {
+                set.add(provider)
+            }
+        }
+        return Array.from(set).map((type) => ({ key: type, status: "connected" as const }))
     }, [linkedIntegrations])
+
+
 
     /** Map timeline entries to the team-activity panel format. */
     const teamActivity = React.useMemo(() => {
@@ -240,91 +243,40 @@ export function ProjectDetailsPage() {
 
     return (
         <div className="space-y-8">
-            <div className="flex items-start justify-between gap-4">
-                <PageTitle
-                    title={project?.name ?? "Project"}
-                    description={project?.description || "Main interface for founders to monitor startup activity"}
-                    isLoading={isProjectLoading}
-                />
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        className="border-[0.5px] border-border bg-card"
-                    >
-                        <Edit3 />
-                        Edit Project
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        className="border-[0.5px] border-border bg-card"
-                    >
-                        <UserPlus />
-                        Add Member
-                    </Button>
-                </div>
-            </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="grid grid-cols-2 gap-4">
-                    <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
-                        <div>
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="space-y-2">
-                                    <p className="text-sm font-medium text-muted uppercase tracking-wide">Stage</p>
-                                    <h2 className="text-xl font-semibold text-text">Building MVP</h2>
-                                    <div className="pt-1">
-                                        <p className="text-sm font-medium text-muted uppercase tracking-wide">Status</p>
-                                        <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-accent-contrast px-3 py-1">
-                                            <span className={`size-2 rounded-full ${statusDotClass}`} aria-hidden />
-                                            <span className="text-sm font-medium text-[#4CFF94]">On Track</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="mt-4 flex items-center gap-2 font-medium">
-                                <p className="text-muted">Last updated</p>
-                                <p className="text-text">2 hours ago</p>
-                            </div>
-                        </div>
-                        <div>
-                            <Progress
-                                value={50}
-                            />
-                        </div>
-                    </Card>
-
+                    {/* Integrations */}
                     <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
                         <div className="flex items-start justify-between gap-3 mb-4">
                             <div className="space-y-1">
                                 <p className="text-xs text-muted uppercase tracking-wide">Integrations</p>
                                 <h3 className="text-sm font-semibold text-text">Connected tools</h3>
                             </div>
-                            <div className="text-xs text-">Auto-sync</div>
+                            <Link href={`/${organizationId}/projects/${projectId}/setup`}>
+                                <Button
+                                    className="text-xs bg-accent-contrast border-border text-accent hover:bg-accent"
+                                    variant="ghost"
+                                >
+                                    ADD INTEGRATION
+                                </Button>
+                            </Link>
                         </div>
                         <div className="space-y-3">
-                            {integrations.map((tool) => {
+                            {connectedIntegrations.length === 0 ? (
+                                <p className="text-sm text-muted">No integrations connected yet.</p>
+                            ) : connectedIntegrations.map((tool) => {
+                                const Icon = PROVIDER_ICON[tool.key] ?? Plug
                                 return (
                                     <div key={tool.key} className="flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-3 min-w-0">
                                             <div className="size-9 rounded-xl bg-accent-contrast border-[0.5px] border-border flex items-center justify-center">
-                                                {/* <Icon className="size-5 text-text" /> */}
+                                                <Icon className="size-5 text-text" />
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-sm font-medium text-text truncate">{providerLabel(tool.key)}</p>
                                                 <p className="text-xs text-muted">Status: {tool.status === "connected" ? "connected" : "not connected"}</p>
                                             </div>
                                         </div>
-                                        <Button
-                                            variant={tool.status === "connected" ? "outline" : "default"}
-                                            size="xs"
-                                            className={
-                                                tool.status === "connected"
-                                                    ? "bg-accent-contrast border-border text-muted"
-                                                    : "bg-accent text-card hover:bg-[#4fb8e8]"
-                                            }
-                                        >
-                                            {tool.action}
-                                        </Button>
                                     </div>
                                 )
                             })}
@@ -335,6 +287,7 @@ export function ProjectDetailsPage() {
                         </div>
                     </Card>
 
+                    {/* Top Contributors */}
                     <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
@@ -356,13 +309,14 @@ export function ProjectDetailsPage() {
                                     </Avatar>
                                     <div className="text-center">
                                         <p className="text-xs font-medium text-text leading-tight">{c.name}</p>
-                                        <p className="text-[11px] text-muted">Contribution</p>
+                                        <p className="text-[11px] text-muted">{c.commits} commits</p>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </Card>
 
+                    {/* Task Status */}
                     <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
                         <div className="flex items-start justify-between gap-3 mb-4">
                             <div className="space-y-1">
@@ -422,6 +376,7 @@ export function ProjectDetailsPage() {
                     </Card>
                 </div>
 
+                {/* Activity Trend */}
                 <div className="grid grid-cols-1 gap-4">
                     <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
                         <div className="flex items-start justify-between gap-3 mb-4">
@@ -455,40 +410,58 @@ export function ProjectDetailsPage() {
                         </div>
 
                         <div className="w-full h-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                    data={activityChartData}
-                                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                                >
-                                    <defs>
-                                        <linearGradient id="activityGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#60CAF9" stopOpacity={0.95} />
-                                            <stop offset="100%" stopColor="#60CAF9" stopOpacity={0.2} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid vertical={false} stroke="#334155" strokeDasharray="3 3" />
-                                    <XAxis
-                                        dataKey="label"
-                                        stroke="#565F63"
-                                        tickLine={false}
-                                        axisLine={false}
-                                        tick={{ fill: "#79868C", fontSize: 12 }}
-                                    />
-                                    <YAxis
-                                        stroke="#565F63"
-                                        tickLine={false}
-                                        axisLine={false}
-                                        tick={{ fill: "#79868C", fontSize: 12 }}
-                                    />
-                                    <Tooltip content={activityTooltip} cursor={{ fill: "rgba(96, 202, 249, 0.12)" }} />
-                                    <Bar dataKey="value" fill="url(#activityGrad)" radius={[6, 6, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                            {timelineLoading ? (
+                                <div className="h-40 flex items-center justify-center">
+                                    <p className="text-sm text-muted">Loading activity…</p>
+                                </div>
+                            ) : timelineIsError ? (
+                                <div className="h-40 flex flex-col items-center justify-center text-center gap-1">
+                                    <p className="text-sm text-text">Activity unavailable</p>
+                                    <p className="text-xs text-muted">
+                                        {(timelineError as { message?: string } | null)?.message ?? "Timeline API error"}
+                                    </p>
+                                </div>
+                            ) : (timelineResponse?.entries?.length ?? 0) === 0 ? (
+                                <div className="h-40 flex items-center justify-center">
+                                    <p className="text-sm text-muted">No activity yet.</p>
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={activityChartData}
+                                        margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                                    >
+                                        <defs>
+                                            <linearGradient id="activityGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#60CAF9" stopOpacity={0.95} />
+                                                <stop offset="100%" stopColor="#60CAF9" stopOpacity={0.2} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid vertical={false} stroke="#334155" strokeDasharray="3 3" />
+                                        <XAxis
+                                            dataKey="label"
+                                            stroke="#565F63"
+                                            tickLine={false}
+                                            axisLine={false}
+                                            tick={{ fill: "#79868C", fontSize: 12 }}
+                                        />
+                                        <YAxis
+                                            stroke="#565F63"
+                                            tickLine={false}
+                                            axisLine={false}
+                                            tick={{ fill: "#79868C", fontSize: 12 }}
+                                        />
+                                        <Tooltip content={activityTooltip} cursor={{ fill: "rgba(96, 202, 249, 0.12)" }} />
+                                        <Bar dataKey="value" fill="url(#activityGrad)" radius={[6, 6, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
                         </div>
                     </Card>
                 </div>
             </div>
 
+            {/* Team Activity */}
             <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     <div className="space-y-1">
@@ -520,7 +493,15 @@ export function ProjectDetailsPage() {
                 </div>
 
                 <div className="mt-4 space-y-3">
-                    {filteredTeamActivity.map((a) => {
+                    {timelineLoading ? (
+                        <p className="text-sm text-muted">Loading activity…</p>
+                    ) : timelineIsError ? (
+                        <p className="text-sm text-muted">
+                            Timeline API error — activity can’t be shown right now.
+                        </p>
+                    ) : filteredTeamActivity.length === 0 ? (
+                        <p className="text-sm text-muted">No activity yet.</p>
+                    ) : filteredTeamActivity.map((a) => {
                         return (
                             <div
                                 key={a.id}
