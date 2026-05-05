@@ -10,6 +10,7 @@ import {
     getProject,
     getProjectSettings,
     linkIntegration,
+    listProjectIntegrations,
     listProjectMembers,
     listProjects,
     removeProjectMember,
@@ -121,6 +122,13 @@ export const useListProjectMembers = (orgId: string, projectId: string) =>
     useQuery({
         queryKey: projectKeys.members(orgId, projectId),
         queryFn: () => listProjectMembers(orgId, projectId),
+        enabled: !!orgId && !!projectId,
+    });
+
+export const useListProjectIntegrations = (orgId: string, projectId: string) =>
+    useQuery({
+        queryKey: [...projectKeys.detail(orgId, projectId), "integrations"] as const,
+        queryFn: () => listProjectIntegrations(orgId, projectId),
         enabled: !!orgId && !!projectId,
     });
 

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { SidebarInset, SidebarProvider, SidebarTrigger, } from "@/components/ui/sidebar"
@@ -9,15 +10,13 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { DashboardBreadcrumb } from "../dashboard-breadcrumb"
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
-  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
-import { Button } from "@/components/ui/button"
-import { PanelLeftIcon } from "lucide-react"
+import { MessageSquare } from "lucide-react"
+import { AiChatPanel, type AiChatScope } from "@/widgets/ai-chat-panel"
 
 export interface AppShellProps {
   children: React.ReactNode
@@ -42,28 +41,8 @@ export function AppShell({
           <div className="flex items-center justify-between flex-1">
             <DashboardBreadcrumb />
             <div className="flex items-center gap-2">
-              <Drawer direction="right">
-                <DrawerTrigger>
-                  <div className="bg-accent-contrast border border-border p-1.5 rounded-md text-muted">
-                    <PanelLeftIcon className="text-muted" />
-                  </div>
-                </DrawerTrigger>
-                <DrawerContent>
-                  <DrawerHeader>
-                    <DrawerTitle>Ai Chat Sidebar</DrawerTitle>
-                  </DrawerHeader>
-                  <DrawerFooter className="border-t border-border">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <DrawerClose>
-                          <Button variant="outline">Cancel</Button>
-                        </DrawerClose>
-                        <Button variant="outline">Save</Button>
-                      </div>
-                    </div>
-                  </DrawerFooter>
-                </DrawerContent>
-              </Drawer>
+              <AiChatDrawer />
+
               <ModeToggle />
             </div>
           </div>
@@ -80,4 +59,57 @@ export function AppShell({
       </SidebarInset>
     </SidebarProvider>
   )
+}
+
+/**
+ * Renders the right-side AI chat drawer. Scope is derived from the current route:
+ * if the user is viewing a project sub-route (`/[orgId]/projects/[projectId]/...`),
+ * the chat is bound to that project; otherwise it's bound to the org.
+ */
+function AiChatDrawer() {
+  const params = useParams<{ organizationId?: string; projectId?: string }>();
+  const organizationId = params?.organizationId ?? "";
+  const projectId = params?.projectId ?? "";
+
+  const scope: AiChatScope | null = projectId
+    ? { kind: "project", projectId }
+    : organizationId
+      ? { kind: "org", organizationId }
+      : null;
+
+  return (
+    <Drawer direction="right">
+      <DrawerTrigger asChild>
+        <button
+          type="button"
+          aria-label="Open AI chat"
+          className="bg-accent-contrast border border-border p-1.5 rounded-md text-muted hover:bg-muted transition-colors"
+        >
+          <MessageSquare className="size-4 text-muted" />
+        </button>
+      </DrawerTrigger>
+      <DrawerContent className="w-full! sm:w-105! sm:max-w-105!">
+        <DrawerHeader className="border-b border-border">
+          <DrawerTitle className="flex items-center gap-2 text-sm">
+            <MessageSquare className="size-4" />
+            {scope?.kind === "project" ? "Project AI Chat" : "Org AI Chat"}
+          </DrawerTitle>
+        </DrawerHeader>
+        <div className="flex-1 overflow-hidden p-3">
+          {scope ? (
+            <AiChatPanel
+              scope={scope}
+              compact
+              showConversationList={false}
+              height="h-full"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground p-6">
+              Open an organization or project to start a chat.
+            </div>
+          )}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
 }

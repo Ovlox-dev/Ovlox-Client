@@ -107,6 +107,41 @@ export const listIntegrations = async (orgId: string): Promise<OrgIntegrationSta
     return response.data;
 };
 
+export interface OrgAvailableResource {
+    id: string;
+    integrationId?: string;
+    provider?: string;
+    type?: string;
+    name?: string;
+    metadata?: Record<string, unknown>;
+}
+
+export interface ListOrgAvailableResourcesParams {
+    provider?: string;
+    integrationId?: string;
+    keyword?: string;
+    page?: number;
+    limit?: number;
+}
+
+export interface ListOrgAvailableResourcesResponse {
+    data: OrgAvailableResource[];
+    total?: number;
+    page?: number;
+    limit?: number;
+}
+
+export const listOrgAvailableResources = async (
+    orgId: string,
+    params?: ListOrgAvailableResourcesParams,
+): Promise<ListOrgAvailableResourcesResponse | OrgAvailableResource[]> => {
+    const response = await apiClient.get<ListOrgAvailableResourcesResponse | OrgAvailableResource[]>(
+        `/orgs/${orgId}/integrations/resources`,
+        { params },
+    );
+    return response.data;
+};
+
 export const getOrgIntegrationStatusByIntegrationId = async (orgId: string, integrationId: string): Promise<OrgIntegrationStatusItem> => {
     const response = await apiClient.get<OrgIntegrationStatusItem>(`/orgs/${orgId}/integrations/${integrationId}`);
     return response.data;

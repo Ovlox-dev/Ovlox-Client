@@ -167,7 +167,7 @@ const Team = ({
                                 onBlur={() => {
                                     if (inputValue.trim()) { addEmail(inputValue); }
                                 }}
-                                className="flex-1 min-w-[140px] bg-transparent border-0 py-1 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-0"
+                                className="flex-1 min-w-0 sm:min-w-35 bg-transparent border-0 py-1 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-0"
                             />
                         </div>
                         <Button
@@ -213,7 +213,7 @@ const Team = ({
                                     >
                                         <SelectTrigger
                                             size="sm"
-                                            className="h-8 rounded-full border-border bg-transparent dark:bg-card text-text text-xs w-[100px] disabled:opacity-70 disabled:pointer-events-none"
+                                            className="h-8 rounded-full border-border bg-transparent dark:bg-card text-text text-xs w-25 disabled:opacity-70 disabled:pointer-events-none"
                                         >
                                             <SelectValue />
                                         </SelectTrigger>

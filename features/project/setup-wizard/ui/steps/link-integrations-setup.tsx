@@ -473,6 +473,12 @@ function DiscordLinker(props: {
         [onAfterSync, setSelectedGuildId, syncChannels]
     )
 
+    const refreshChannels = React.useCallback(async () => {
+        if (!props.selectedGuildId) { return }
+        await syncChannels(props.selectedGuildId)
+        onAfterSync()
+    }, [onAfterSync, props.selectedGuildId, syncChannels])
+
     const linkSelectedChannels = React.useCallback(async () => {
         const resourceIds: string[] = []
         for (const channelId of selectedChannelIds) {
@@ -559,7 +565,7 @@ function DiscordLinker(props: {
                         <Button
                             type="button"
                             variant="secondary"
-                            onClick={() => props.syncChannels(props.selectedGuildId!)}
+                            onClick={() => void refreshChannels()}
                             disabled={props.isSyncing}
                         >
                             {props.isSyncing ? "Syncing..." : "Refresh channels"}

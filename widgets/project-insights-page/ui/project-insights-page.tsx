@@ -1,29 +1,29 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import * as React from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
     BarChart3,
     TrendingUp,
-    CheckCircle2,
     Clock,
-    AlertCircle,
-    Download,
     Calendar,
     Activity,
     GitBranch,
-} from "lucide-react"
+    Loader2,
+    Plug,
+} from "lucide-react";
+
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import {
-    LineChart,
-    Line,
     BarChart,
     Bar,
     PieChart,
@@ -35,259 +35,324 @@ import {
     Tooltip,
     Legend,
     ResponsiveContainer,
-} from "recharts"
+} from "recharts";
+import {
+    useGetContributions,
+    useGetTimeline,
+    useListProjectIntegrations,
+} from "@/entities/project";
+import { useListTasks } from "@/entities/task";
 
-type TimeRange = "week" | "month" | "quarter"
+type TimeRange = "week" | "month" | "quarter";
 
-const taskCompletionData = [
-    { day: "Mon", completed: 4, pending: 6, inProgress: 3 },
-    { day: "Tue", completed: 6, pending: 4, inProgress: 2 },
-    { day: "Wed", completed: 8, pending: 3, inProgress: 2 },
-    { day: "Thu", completed: 5, pending: 7, inProgress: 3 },
-    { day: "Fri", completed: 9, pending: 2, inProgress: 1 },
-    { day: "Sat", completed: 3, pending: 4, inProgress: 2 },
-    { day: "Sun", completed: 2, pending: 5, inProgress: 3 },
-]
+const STATUS_COLORS: Record<string, string> = {
+    DONE: "#10b981",
+    IN_PROGRESS: "#3b82f6",
+    TODO: "#8b5cf6",
+    REVIEW: "#f59e0b",
+    BLOCKED: "#ef4444",
+    CANCELLED: "#6b7280",
+};
 
-const teamProductivityData = [
-    { name: "John Doe", tasks: 24, completed: 18 },
-    { name: "Jane Smith", tasks: 22, completed: 19 },
-    { name: "Bob Wilson", tasks: 18, completed: 14 },
-    { name: "Alice Johnson", tasks: 20, completed: 16 },
-    { name: "Charlie Brown", tasks: 16, completed: 13 },
-]
+const STATUS_LABELS: Record<string, string> = {
+    DONE: "Completed",
+    IN_PROGRESS: "In Progress",
+    TODO: "To Do",
+    REVIEW: "In Review",
+    BLOCKED: "Blocked",
+    CANCELLED: "Cancelled",
+};
 
-const statusDistribution = [
-    { name: "Completed", value: 45, color: "#10b981" },
-    { name: "In Progress", value: 25, color: "#3b82f6" },
-    { name: "To Do", value: 20, color: "#8b5cf6" },
-    { name: "In Review", value: 10, color: "#f59e0b" },
-]
-
-const commitActivityData = [
-    { date: "Dec 1", commits: 12 },
-    { date: "Dec 2", commits: 19 },
-    { date: "Dec 3", commits: 15 },
-    { date: "Dec 4", commits: 22 },
-    { date: "Dec 5", commits: 18 },
-    { date: "Dec 6", commits: 25 },
-]
-
-export function ProjectInsightsPage() {
-    const [timeRange, setTimeRange] = React.useState<TimeRange>("week")
-
-    const stats = {
-        totalTasks: 100,
-        completedTasks: 45,
-        activeTasks: 35,
-        overdueTasks: 8,
-        completionRate: 45,
-        avgCompletionTime: "3.5 days",
-        teamVelocity: "+12%",
-        commits: 111,
-    }
-
-    return (
-        <div className="p-6 max-w-7xl mx-auto space-y-6">
-            <div className="flex items-start justify-between mb-6">
-                <div>
-                    <h1 className="text-3xl font-bold mb-1">Insights</h1>
-                    <p className="text-muted-foreground">Project analytics and performance metrics</p>
-                </div>
-                <div className="flex gap-2">
-                    <Select value={timeRange} onValueChange={(value: TimeRange) => setTimeRange(value)}>
-                        <SelectTrigger className="w-[140px]">
-                            <Calendar className="size-4 mr-2" />
-                            <SelectValue placeholder="Select range" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="week">This Week</SelectItem>
-                            <SelectItem value="month">This Month</SelectItem>
-                            <SelectItem value="quarter">This Quarter</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Button variant="outline" size="sm">
-                        <Download className="size-4" />
-                        Export
-                    </Button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                        <p className="text-sm text-muted-foreground">Completion Rate</p>
-                        <TrendingUp className="size-4 text-green-600" />
-                    </div>
-                    <p className="text-3xl font-bold">{stats.completionRate}%</p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                        <span className="text-green-600">+5%</span> vs last week
-                    </p>
-                </Card>
-
-                <Card className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                        <p className="text-sm text-muted-foreground">Team Velocity</p>
-                        <Activity className="size-4 text-blue-600" />
-                    </div>
-                    <p className="text-3xl font-bold">{stats.teamVelocity}</p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                        Tasks completed per day
-                    </p>
-                </Card>
-
-                <Card className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                        <p className="text-sm text-muted-foreground">Avg Completion Time</p>
-                        <Clock className="size-4 text-purple-600" />
-                    </div>
-                    <p className="text-3xl font-bold">{stats.avgCompletionTime}</p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                        Average time to complete
-                    </p>
-                </Card>
-
-                <Card className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                        <p className="text-sm text-muted-foreground">Commits</p>
-                        <GitBranch className="size-4 text-orange-600" />
-                    </div>
-                    <p className="text-3xl font-bold">{stats.commits}</p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                        Total commits this week
-                    </p>
-                </Card>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="p-6">
-                    <h2 className="text-lg font-semibold mb-4">Task Completion Trend</h2>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={taskCompletionData}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="day" />
-                            <YAxis />
-                            <Tooltip />
-                            <Legend />
-                            <Line type="monotone" dataKey="completed" stroke="#10b981" strokeWidth={2} />
-                            <Line type="monotone" dataKey="pending" stroke="#8b5cf6" strokeWidth={2} />
-                            <Line type="monotone" dataKey="inProgress" stroke="#3b82f6" strokeWidth={2} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </Card>
-
-                <Card className="p-6">
-                    <h2 className="text-lg font-semibold mb-4">Task Status Distribution</h2>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie
-                                data={statusDistribution}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                label={({ name, value }) => `${name} (${value})`}
-                                outerRadius={80}
-                                fill="#8884d8"
-                                dataKey="value"
-                            >
-                                {statusDistribution.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Tooltip />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2">
-                    <Card className="p-6">
-                        <h2 className="text-lg font-semibold mb-4">Team Productivity</h2>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={teamProductivityData}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                                <YAxis />
-                                <Tooltip />
-                                <Legend />
-                                <Bar dataKey="tasks" fill="#3b82f6" />
-                                <Bar dataKey="completed" fill="#10b981" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </Card>
-                </div>
-
-                <Card className="p-6">
-                    <h2 className="text-lg font-semibold mb-4">Task Summary</h2>
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between pb-3 border-b border-border">
-                            <div className="flex items-center gap-2">
-                                <CheckCircle2 className="size-4 text-green-600" />
-                                <span className="text-sm">Completed</span>
-                            </div>
-                            <span className="font-semibold">{stats.completedTasks}</span>
-                        </div>
-                        <div className="flex items-center justify-between pb-3 border-b border-border">
-                            <div className="flex items-center gap-2">
-                                <Activity className="size-4 text-blue-600" />
-                                <span className="text-sm">Active</span>
-                            </div>
-                            <span className="font-semibold">{stats.activeTasks}</span>
-                        </div>
-                        <div className="flex items-center justify-between pb-3 border-b border-border">
-                            <div className="flex items-center gap-2">
-                                <AlertCircle className="size-4 text-red-600" />
-                                <span className="text-sm">Overdue</span>
-                            </div>
-                            <span className="font-semibold text-red-600">{stats.overdueTasks}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <BarChart3 className="size-4 text-purple-600" />
-                                <span className="text-sm">Total</span>
-                            </div>
-                            <span className="font-semibold">{stats.totalTasks}</span>
-                        </div>
-                    </div>
-                </Card>
-            </div>
-
-            <Card className="p-6">
-                <h2 className="text-lg font-semibold mb-4">Commit Activity</h2>
-                <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={commitActivityData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="commits" fill="#f59e0b" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </Card>
-
-            <Card className="p-6 bg-muted/50">
-                <h2 className="text-lg font-semibold mb-3">Performance Summary</h2>
-                <ul className="space-y-2 text-sm">
-                    <li className="flex items-start gap-2">
-                        <span className="text-green-600 font-bold">✓</span>
-                        <span>Team is on track with <strong>45%</strong> completion rate, up 5% from last week</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                        <span className="text-orange-600 font-bold">!</span>
-                        <span><strong>8 tasks</strong> are currently overdue and need attention</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                        <span className="text-blue-600 font-bold">ℹ</span>
-                        <span>Average task completion time is <strong>3.5 days</strong>, target is 3 days</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                        <span className="text-purple-600 font-bold">+</span>
-                        <span>Commits trending upward with <strong>111 commits</strong> this week</span>
-                    </li>
-                </ul>
-            </Card>
-        </div>
-    )
+function rangeToSinceMs(range: TimeRange): number {
+    const day = 24 * 60 * 60 * 1000;
+    if (range === "week") { return 7 * day; }
+    if (range === "month") { return 30 * day; }
+    return 90 * day;
 }
 
+function toValidMs(value: unknown): number | null {
+    if (value === null || value === undefined) { return null; }
+    if (value instanceof Date) {
+        const ms = value.getTime();
+        return Number.isFinite(ms) ? ms : null;
+    }
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) { return null; }
+        const ms = new Date(trimmed).getTime();
+        return Number.isFinite(ms) ? ms : null;
+    }
+    return null;
+}
+
+function bucketCountByDay(items: { ts: number }[], days: number): { label: string; value: number }[] {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (days - 1));
+    const buckets = new Array(days).fill(0);
+    for (const item of items) {
+        const idx = Math.floor((item.ts - start.getTime()) / (24 * 60 * 60 * 1000));
+        if (idx >= 0 && idx < days) { buckets[idx] += 1; }
+    }
+    return buckets.map((value, i) => {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const label = days <= 14
+            ? d.toLocaleDateString(undefined, { weekday: "short" })
+            : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        return { label, value };
+    });
+}
+
+export function ProjectInsightsPage() {
+    const { organizationId, projectId } = useParams<{ organizationId: string; projectId: string }>();
+    const [timeRange, setTimeRange] = React.useState<TimeRange>("week");
+    const [nowMs, setNowMs] = React.useState(() => Date.now());
+
+    React.useEffect(() => {
+        setNowMs(Date.now());
+    }, [timeRange]);
+
+    const sinceIso = React.useMemo(
+        () => new Date(nowMs - rangeToSinceMs(timeRange)).toISOString(),
+        [timeRange, nowMs],
+    );
+
+    const { data: tasksResponse, isLoading: tasksLoading } = useListTasks(organizationId, projectId, { limit: 500 });
+    const { data: timelineResponse, isLoading: timelineLoading } = useGetTimeline(organizationId, projectId, {
+        since: sinceIso,
+        limit: 500,
+    });
+    const { data: contribResponse } = useGetContributions(organizationId, projectId, {
+        since: sinceIso,
+    });
+
+    const { data: linkedIntegrations } = useListProjectIntegrations(organizationId, projectId);
+    const hasIntegrations = (linkedIntegrations?.length ?? 0) > 0;
+
+    const tasks = React.useMemo(() => tasksResponse?.tasks ?? [], [tasksResponse]);
+    const entries = React.useMemo(() => timelineResponse?.entries ?? [], [timelineResponse]);
+    const days = timeRange === "week" ? 7 : timeRange === "month" ? 30 : 90;
+
+    /** Status distribution, derived from real tasks. */
+    const statusDistribution = React.useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const t of tasks) {
+            counts[t.status] = (counts[t.status] ?? 0) + 1;
+        }
+        return Object.entries(counts).map(([k, v]) => ({
+            name: STATUS_LABELS[k] ?? k,
+            value: v,
+            color: STATUS_COLORS[k] ?? "#94a3b8",
+        }));
+    }, [tasks]);
+
+    /** Commit activity bucketed by day from timeline entries (COMMIT category). */
+    const commitActivityData = React.useMemo(() => {
+        const commits = entries
+            .filter((e) => e.category === "COMMIT")
+            .map((e) => toValidMs(e.occurredAt))
+            .filter((ms): ms is number => ms !== null)
+            .map((ts) => ({ ts }));
+        const buckets = bucketCountByDay(commits, days);
+        return buckets.map((b) => ({ date: b.label, commits: b.value }));
+    }, [entries, days]);
+
+    /** Top 5 contributors by commits + PRs + tasks within the range. */
+    const teamProductivityData = React.useMemo(() => {
+        const contributors = contribResponse?.contributors ?? [];
+        return [...contributors]
+            .map((c) => ({
+                name: c.name || c.email || "Unknown",
+                tasks: c.commits + c.pullRequests + c.messages + c.tasks + c.other,
+                completed: c.tasks,
+            }))
+            .sort((a, b) => b.tasks - a.tasks)
+            .slice(0, 5);
+    }, [contribResponse]);
+
+    const stats = React.useMemo(() => {
+        const totalTasks = tasks.length;
+        const completedTasks = tasks.filter((t) => t.status === "DONE").length;
+        const activeTasks = tasks.filter((t) => t.status === "IN_PROGRESS" || t.status === "REVIEW").length;
+        const blockedTasks = tasks.filter((t) => t.status === "BLOCKED").length;
+        const cancelledTasks = tasks.filter((t) => t.status === "CANCELLED").length;
+        const overdueTasks = tasks.filter((t) => {
+            if (t.status === "DONE" || t.status === "CANCELLED") { return false; }
+            const dueMs = toValidMs(t.dueDate);
+            return dueMs !== null && dueMs < nowMs;
+        }).length;
+        const completionRate = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+
+        const completedWithTimes = tasks.filter((t) => t.status === "DONE");
+        const lifetimes = completedWithTimes
+            .map((t) => {
+                const createdMs = toValidMs(t.createdAt);
+                const updatedMs = toValidMs(t.updatedAt);
+                if (createdMs === null || updatedMs === null) { return null; }
+                const diff = updatedMs - createdMs;
+                return diff >= 0 ? diff : null;
+            })
+            .filter((ms): ms is number => ms !== null);
+        const avgMs = lifetimes.length === 0 ? 0 : lifetimes.reduce((acc, ms) => acc + ms, 0) / lifetimes.length;
+        const avgDays = avgMs === 0 ? "—" : `${(avgMs / (24 * 60 * 60 * 1000)).toFixed(1)}d`;
+
+        const rangeStartMs = nowMs - rangeToSinceMs(timeRange);
+        const completedInRange = completedWithTimes.filter((t) => {
+            const updatedMs = toValidMs(t.updatedAt);
+            return updatedMs !== null && updatedMs >= rangeStartMs;
+        }).length;
+        const velocityPerDay = (completedInRange / days).toFixed(1);
+
+        const commits = entries.filter((e) => e.category === "COMMIT").length;
+
+        return { totalTasks, completedTasks, activeTasks, blockedTasks, cancelledTasks, overdueTasks, completionRate, avgDays, velocityPerDay, commits };
+    }, [tasks, entries, timeRange, days, nowMs]);
+
+    const isLoading = tasksLoading || timelineLoading;
+
+    return (
+        <div className="mx-auto space-y-6">
+            <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
+                <div>
+                    <h1 className="text-3xl font-bold mb-1 flex items-center gap-2">
+                        <BarChart3 className="size-7" /> Insights
+                    </h1>
+                    <p className="text-muted-foreground">Project analytics and performance metrics</p>
+                </div>
+                <Select value={timeRange} onValueChange={(value: TimeRange) => setTimeRange(value)}>
+                    <SelectTrigger className="w-full sm:w-40">
+                        <Calendar className="size-4 mr-2" />
+                        <SelectValue placeholder="Select range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="week">Last 7 days</SelectItem>
+                        <SelectItem value="month">Last 30 days</SelectItem>
+                        <SelectItem value="quarter">Last 90 days</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {isLoading && tasks.length === 0 && entries.length === 0 ? (
+                <div className="flex justify-center py-12"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
+            ) : !hasIntegrations && tasks.length === 0 && entries.length === 0 ? (
+                <Card className="p-12 text-center">
+                    <Plug className="size-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+                    <h3 className="text-lg font-semibold mb-1">No integrations linked</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                        Insights are computed from ingested events and tasks. Connect at least one provider to start seeing data.
+                    </p>
+                    <Button asChild>
+                        <Link href={`/${organizationId}/projects/${projectId}/setup`}>Open setup wizard</Link>
+                    </Button>
+                </Card>
+            ) : (
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <StatCard label="Completion Rate" value={`${stats.completionRate}%`} icon={TrendingUp} accent="text-green-600" hint={`${stats.completedTasks} of ${stats.totalTasks} tasks`} />
+                        <StatCard label="Team Velocity" value={`${stats.velocityPerDay}/day`} icon={Activity} accent="text-blue-600" hint="Tasks completed per day" />
+                        <StatCard label="Avg Completion Time" value={stats.avgDays} icon={Clock} accent="text-purple-600" hint="Mean task lifetime" />
+                        <StatCard label="Commits" value={`${stats.commits}`} icon={GitBranch} accent="text-orange-600" hint={`In selected range`} />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        {/* Github Contributors */}
+                        <Card className="p-6">
+                            <h2 className="text-lg font-semibold mb-4">Github Contributors</h2>
+                            {teamProductivityData.length === 0 ? (
+                                <p className="text-sm text-muted-foreground py-12 text-center">No contributor activity yet.</p>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <BarChart data={teamProductivityData}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="name" angle={-30} textAnchor="end" height={80} />
+                                        <YAxis />
+                                        <Tooltip />
+                                        <Legend />
+                                        <Bar dataKey="tasks" fill="#3b82f6" name="Total events" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </Card>
+
+                        {/* Task Status Distribution */}
+                        <Card className="p-6">
+                            <h2 className="text-lg font-semibold mb-4">Task Status Distribution</h2>
+                            {statusDistribution.length === 0 ? (
+                                <p className="text-sm text-muted-foreground py-12 text-center">No tasks yet.</p>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <PieChart>
+                                        <Pie
+                                            data={statusDistribution}
+                                            cx="50%"
+                                            cy="50%"
+                                            labelLine={false}
+                                            label={({ name, value }) => `${name} (${value})`}
+                                            outerRadius={80}
+                                            fill="#8884d8"
+                                            dataKey="value"
+                                        >
+                                            {statusDistribution.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            )}
+                        </Card>
+                    </div>
+
+                    <Card className="p-6">
+                        <h2 className="text-lg font-semibold mb-4">Commit Activity</h2>
+                        {commitActivityData.every((d) => d.commits === 0) ? (
+                            <p className="text-sm text-muted-foreground py-12 text-center">
+                                No commits ingested in this range. Connect GitHub on the Integrations tab to start tracking.
+                            </p>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={commitActivityData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Bar dataKey="commits" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </Card>
+                </>
+            )}
+        </div>
+    );
+}
+
+function StatCard({
+    label,
+    value,
+    icon: Icon,
+    accent,
+    hint,
+}: {
+    label: string;
+    value: string;
+    icon: typeof Activity;
+    accent?: string;
+    hint?: string;
+}) {
+    return (
+        <Card className="p-4">
+            <div className="flex items-start justify-between mb-2">
+                <p className="text-sm text-muted-foreground">{label}</p>
+                <Icon className={`size-4 ${accent ?? ""}`} />
+            </div>
+            <p className="text-3xl font-bold">{value}</p>
+            {hint ? <p className="text-xs text-muted-foreground mt-2">{hint}</p> : null}
+        </Card>
+    );
+}

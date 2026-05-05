@@ -1,353 +1,260 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Input } from "@/components/ui/input"
+import * as React from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
-    Calendar,
-    Clock,
-    MapPin,
-    Plus,
+    Activity,
+    Loader2,
     Search,
-    MoreVertical,
-    CheckCircle2,
-    Edit,
-    Trash2,
-    Share2,
-} from "lucide-react"
+    GitCommit,
+    GitPullRequest,
+    AlertTriangle,
+    MessageSquare,
+    Sparkles,
+    Flag,
+    CircleDot,
+    Plug,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select"
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { useGetTimeline, useListProjectIntegrations, type TimelineEntry } from "@/entities/project";
 
-type Event = {
-    id: string
-    title: string
-    description: string
-    date: string
-    startTime: string
-    endTime: string
-    location?: string
-    type: "meeting" | "deadline" | "review" | "planning"
-    attendees: { name: string; avatar?: string }[]
-    status: "scheduled" | "ongoing" | "completed" | "cancelled"
+type RangeKey = "1d" | "7d" | "30d" | "all";
+
+const CATEGORY_OPTIONS: { value: string; label: string }[] = [
+    { value: "all", label: "All categories" },
+    { value: "COMMIT", label: "Commits" },
+    { value: "PULL_REQUEST", label: "Pull requests" },
+    { value: "INCIDENT", label: "Incidents" },
+    { value: "RISK_ALERT", label: "Risk alerts" },
+    { value: "FEATURE", label: "Features" },
+    { value: "DECISION", label: "Decisions" },
+    { value: "BLOCKER", label: "Blockers" },
+    { value: "MILESTONE", label: "Milestones" },
+    { value: "CONTEXT", label: "Context" },
+];
+
+const CATEGORY_META: Record<string, { icon: typeof GitCommit; classes: string; label: string }> = {
+    COMMIT: { icon: GitCommit, classes: "bg-blue-500/15 text-blue-600 border-blue-500/30", label: "Commit" },
+    PULL_REQUEST: { icon: GitPullRequest, classes: "bg-purple-500/15 text-purple-600 border-purple-500/30", label: "PR" },
+    INCIDENT: { icon: AlertTriangle, classes: "bg-red-500/15 text-red-600 border-red-500/30", label: "Incident" },
+    RISK_ALERT: { icon: AlertTriangle, classes: "bg-orange-500/15 text-orange-600 border-orange-500/30", label: "Risk" },
+    FEATURE: { icon: Sparkles, classes: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30", label: "Feature" },
+    DECISION: { icon: Flag, classes: "bg-amber-500/15 text-amber-700 border-amber-500/30", label: "Decision" },
+    BLOCKER: { icon: AlertTriangle, classes: "bg-red-500/15 text-red-600 border-red-500/30", label: "Blocker" },
+    MILESTONE: { icon: Flag, classes: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30", label: "Milestone" },
+    CONTEXT: { icon: MessageSquare, classes: "bg-zinc-500/15 text-zinc-600 border-zinc-500/30", label: "Context" },
+};
+
+function categoryMeta(c: string) {
+    return CATEGORY_META[c] ?? { icon: CircleDot, classes: "bg-muted text-muted-foreground border-border", label: c };
 }
 
-const sampleEvents: Event[] = [
-    {
-        id: "1",
-        title: "Sprint Planning",
-        description: "Plan tasks for the upcoming sprint",
-        date: "2024-12-06",
-        startTime: "10:00",
-        endTime: "11:30",
-        location: "Meeting Room A",
-        type: "planning",
-        attendees: [
-            { name: "John Doe", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=John" },
-            { name: "Jane Smith", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Jane" },
-            { name: "Bob Wilson", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bob" },
-        ],
-        status: "scheduled",
-    },
-    {
-        id: "2",
-        title: "Design Review",
-        description: "Review UI/UX designs for the new features",
-        date: "2024-12-06",
-        startTime: "14:00",
-        endTime: "15:00",
-        type: "review",
-        attendees: [
-            { name: "Alice Johnson", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alice" },
-            { name: "Charlie Brown", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie" },
-        ],
-        status: "scheduled",
-    },
-    {
-        id: "3",
-        title: "Backend API Meeting",
-        description: "Discuss API architecture and endpoints",
-        date: "2024-12-07",
-        startTime: "09:00",
-        endTime: "10:00",
-        location: "Online - Zoom",
-        type: "meeting",
-        attendees: [
-            { name: "Jane Smith", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Jane" },
-            { name: "Bob Wilson", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bob" },
-        ],
-        status: "scheduled",
-    },
-    {
-        id: "4",
-        title: "Feature Deadline",
-        description: "Complete authentication implementation",
-        date: "2024-12-10",
-        startTime: "17:00",
-        endTime: "17:00",
-        type: "deadline",
-        attendees: [
-            { name: "John Doe", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=John" },
-        ],
-        status: "scheduled",
-    },
-    {
-        id: "5",
-        title: "Code Review - Frontend",
-        description: "Review pull requests for frontend components",
-        date: "2024-12-08",
-        startTime: "15:30",
-        endTime: "16:30",
-        type: "review",
-        attendees: [
-            { name: "Alice Johnson", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alice" },
-            { name: "John Doe", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=John" },
-        ],
-        status: "scheduled",
-    },
-]
+function formatDateTime(iso: string): string {
+    const d = new Date(iso);
+    return d.toLocaleString();
+}
+
+function sinceFromRange(range: RangeKey): string | undefined {
+    const now = Date.now();
+    if (range === "1d") { return new Date(now - 24 * 60 * 60 * 1000).toISOString(); }
+    if (range === "7d") { return new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(); }
+    if (range === "30d") { return new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(); }
+    return undefined;
+}
 
 export function ProjectEventsPage() {
-    const [events] = React.useState<Event[]>(sampleEvents)
-    const [filterType, setFilterType] = React.useState<string>("all")
-    const [filterStatus, setFilterStatus] = React.useState<string>("all")
-    const [searchQuery, setSearchQuery] = React.useState("")
+    const { organizationId, projectId } = useParams<{ organizationId: string; projectId: string }>();
+    const [category, setCategory] = React.useState<string>("all");
+    const [range, setRange] = React.useState<RangeKey>("7d");
+    const [query, setQuery] = React.useState("");
 
-    const filteredEvents = React.useMemo(() => {
-        return events.filter((event) => {
-            const matchesSearch = searchQuery === "" ||
-                event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                event.description.toLowerCase().includes(searchQuery.toLowerCase())
-            const matchesType = filterType === "all" || event.type === filterType
-            const matchesStatus = filterStatus === "all" || event.status === filterStatus
-            return matchesSearch && matchesType && matchesStatus
-        })
-    }, [events, searchQuery, filterType, filterStatus])
+    const { data, isLoading, error } = useGetTimeline(organizationId, projectId, {
+        since: sinceFromRange(range),
+        categories: category === "all" ? undefined : [category],
+        limit: 200,
+    });
+    const { data: linkedIntegrations } = useListProjectIntegrations(organizationId, projectId);
+    const hasIntegrations = (linkedIntegrations?.length ?? 0) > 0;
 
-    const getEventColor = (type: Event["type"]) => {
-        switch (type) {
-            case "meeting":
-                return "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800"
-            case "deadline":
-                return "bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800"
-            case "review":
-                return "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800"
-            case "planning":
-                return "bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800"
+    const entries = React.useMemo(() => {
+        const all = data?.entries ?? [];
+        if (!query.trim()) { return all; }
+        const q = query.toLowerCase();
+        return all.filter(
+            (e) =>
+                e.title.toLowerCase().includes(q) ||
+                (e.summary?.toLowerCase().includes(q) ?? false),
+        );
+    }, [data, query]);
+
+    const counts = React.useMemo(() => {
+        const result: Record<string, number> = {};
+        for (const e of data?.entries ?? []) {
+            result[e.category] = (result[e.category] ?? 0) + 1;
         }
-    }
+        return result;
+    }, [data]);
 
-    const getStatusBadge = (status: Event["status"]) => {
-        switch (status) {
-            case "scheduled":
-                return <Badge variant="outline">Scheduled</Badge>
-            case "ongoing":
-                return <Badge className="bg-blue-600">Ongoing</Badge>
-            case "completed":
-                return <Badge className="bg-green-600">Completed</Badge>
-            case "cancelled":
-                return <Badge variant="destructive">Cancelled</Badge>
-        }
-    }
-
-    const upcomingEvents = events.filter(e => new Date(e.date) >= new Date()).length
-    const completedEvents = events.filter(e => e.status === "completed").length
+    const total = data?.entries?.length ?? 0;
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
-            <div className="flex items-start justify-between mb-6">
+        <div className="p-4 md:p-6 space-y-4">
+            <header className="flex items-start justify-between gap-2 flex-wrap">
                 <div>
-                    <h1 className="text-3xl font-bold mb-1">Events</h1>
-                    <p className="text-muted-foreground">Manage project meetings, deadlines, and reviews</p>
+                    <h1 className="text-2xl md:text-3xl font-bold mb-1 flex items-center gap-2">
+                        <Activity className="size-6" /> Events
+                    </h1>
+                    <p className="text-muted-foreground text-sm">
+                        Everything ingested for this project — commits, PRs, messages, incidents, decisions.
+                    </p>
                 </div>
-                <Button>
-                    <Plus className="size-4" />
-                    Create Event
-                </Button>
+            </header>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <SummaryCard label="Total integrations" value={linkedIntegrations?.length ?? 0} icon={Plug} />
+                <SummaryCard label="Total events" value={total} icon={Activity} />
+                <SummaryCard label="Commits" value={counts.COMMIT ?? 0} icon={GitCommit} />
+                <SummaryCard label="Risk + incidents" value={(counts.RISK_ALERT ?? 0) + (counts.INCIDENT ?? 0)} icon={AlertTriangle} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <Card className="p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Total Events</p>
-                            <p className="text-2xl font-bold mt-1">{events.length}</p>
-                        </div>
-                        <Calendar className="size-8 text-muted-foreground" />
-                    </div>
-                </Card>
-                <Card className="p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Upcoming</p>
-                            <p className="text-2xl font-bold mt-1">{upcomingEvents}</p>
-                        </div>
-                        <Clock className="size-8 text-blue-600" />
-                    </div>
-                </Card>
-                <Card className="p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Completed</p>
-                            <p className="text-2xl font-bold mt-1">{completedEvents}</p>
-                        </div>
-                        <CheckCircle2 className="size-8 text-green-600" />
-                    </div>
-                </Card>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
                     <Input
-                        placeholder="Search events..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search events…"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
                         className="pl-10"
                     />
                 </div>
-                <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className="w-full sm:w-40">
-                        <SelectValue placeholder="Event Type" />
+                <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="w-full sm:w-44">
+                        <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="meeting">Meetings</SelectItem>
-                        <SelectItem value="deadline">Deadlines</SelectItem>
-                        <SelectItem value="review">Reviews</SelectItem>
-                        <SelectItem value="planning">Planning</SelectItem>
+                        {CATEGORY_OPTIONS.map((c) => (
+                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-full sm:w-40">
-                        <SelectValue placeholder="Status" />
+                <Select value={range} onValueChange={(v) => setRange(v as RangeKey)}>
+                    <SelectTrigger className="w-full sm:w-32">
+                        <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="scheduled">Scheduled</SelectItem>
-                        <SelectItem value="ongoing">Ongoing</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="1d">Last 24h</SelectItem>
+                        <SelectItem value="7d">Last 7 days</SelectItem>
+                        <SelectItem value="30d">Last 30 days</SelectItem>
+                        <SelectItem value="all">All time</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
 
-            <div className="space-y-3">
-                {filteredEvents.length === 0 ? (
-                    <Card className="p-12">
-                        <div className="text-center">
-                            <Calendar className="size-12 text-muted-foreground mx-auto mb-4" />
-                            <h3 className="text-lg font-semibold mb-2">No events found</h3>
-                            <p className="text-muted-foreground">Try adjusting your search or filters</p>
-                        </div>
+            {!isLoading ? (
+                <div className="flex justify-center py-12"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
+            ) : error ? (
+                <Card className="p-12 text-center">
+                    <AlertTriangle className="size-10 mx-auto mb-3 text-destructive opacity-70" />
+                    <h3 className="text-lg font-semibold mb-1">Couldn&apos;t load events</h3>
+                    <p className="text-sm text-muted-foreground">{(error as Error)?.message ?? "Try again."}</p>
+                </Card>
+            ) : entries.length === 0 ? (
+                !hasIntegrations ? (
+                    <Card className="p-12 text-center">
+                        <Plug className="size-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+                        <h3 className="text-lg font-semibold mb-1">No integrations linked</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            Connect a provider (GitHub, Slack, Jira…) and select resources so we can ingest events for this project.
+                        </p>
+                        <Button asChild>
+                            <Link href={`/${organizationId}/projects/${projectId}/setup`}>Open setup wizard</Link>
+                        </Button>
+                    </Card>
+                ) : total === 0 ? (
+                    <Card className="p-12 text-center">
+                        <Activity className="size-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+                        <h3 className="text-lg font-semibold mb-1">No data ingested yet</h3>
+                        <p className="text-sm text-muted-foreground">
+                            Integrations are linked but ingestion hasn&apos;t produced events yet.
+                            Check the Recovery tab if backfills are stuck, or wait for the next sync.
+                        </p>
                     </Card>
                 ) : (
-                    filteredEvents.map((event) => (
-                        <Card key={event.id} className={`p-5 border-l-4 ${getEventColor(event.type)}`}>
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <h3 className="text-lg font-semibold">{event.title}</h3>
-                                        {getStatusBadge(event.status)}
-                                        <Badge variant="outline" className="capitalize">
-                                            {event.type}
-                                        </Badge>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground mb-3">{event.description}</p>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Calendar className="size-4 text-muted-foreground" />
-                                            {new Date(event.date).toLocaleDateString()}
-                                        </div>
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Clock className="size-4 text-muted-foreground" />
-                                            {event.startTime} - {event.endTime}
-                                        </div>
-                                        {event.location && (
-                                            <div className="flex items-center gap-2 text-sm">
-                                                <MapPin className="size-4 text-muted-foreground" />
-                                                {event.location}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-xs font-medium text-muted-foreground">Attendees:</p>
-                                        <div className="flex items-center gap-1">
-                                            {event.attendees.slice(0, 3).map((attendee, idx) => (
-                                                <Avatar key={idx} className="size-6 border-2 border-background">
-                                                    <AvatarImage src={attendee.avatar} />
-                                                    <AvatarFallback className="text-xs">
-                                                        {attendee.name.split(" ").map(n => n[0]).join("")}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                            ))}
-                                            {event.attendees.length > 3 && (
-                                                <div className="size-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold border-2 border-background">
-                                                    +{event.attendees.length - 3}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                            <MoreVertical className="size-4" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-40 p-0" align="end">
-                                        <Sidebar>
-                                            <SidebarContent>
-                                                <SidebarGroup>
-                                                    <SidebarGroupContent>
-                                                        <SidebarMenu>
-                                                            <SidebarMenuItem>
-                                                                <SidebarMenuButton>
-                                                                    <Edit className="size-4" />
-                                                                    <span>Edit</span>
-                                                                </SidebarMenuButton>
-                                                            </SidebarMenuItem>
-                                                            <SidebarMenuItem>
-                                                                <SidebarMenuButton>
-                                                                    <Share2 className="size-4" />
-                                                                    <span>Share</span>
-                                                                </SidebarMenuButton>
-                                                            </SidebarMenuItem>
-                                                            <SidebarMenuItem>
-                                                                <SidebarMenuButton className="text-destructive">
-                                                                    <Trash2 className="size-4" />
-                                                                    <span>Delete</span>
-                                                                </SidebarMenuButton>
-                                                            </SidebarMenuItem>
-                                                        </SidebarMenu>
-                                                    </SidebarGroupContent>
-                                                </SidebarGroup>
-                                            </SidebarContent>
-                                        </Sidebar>
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                        </Card>
-                    ))
-                )}
-            </div>
+                    <Card className="p-12 text-center">
+                        <Activity className="size-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+                        <h3 className="text-lg font-semibold mb-1">No events match</h3>
+                        <p className="text-sm text-muted-foreground">Try a wider time range or remove the search filter.</p>
+                    </Card>
+                )
+            ) : (
+                <div className="space-y-2">
+                    {entries.map((entry) => (
+                        <EventRow key={entry.id} entry={entry} />
+                    ))}
+                </div>
+            )}
         </div>
-    )
+    );
 }
 
+function SummaryCard({ label, value, icon: Icon }: { label: string; value: number; icon: typeof Activity }) {
+    return (
+        <Card className="p-4">
+            <div className="flex items-center justify-between">
+                <div>
+                    <p className="text-sm text-muted-foreground">{label}</p>
+                    <p className="text-2xl font-bold mt-1">{value}</p>
+                </div>
+                <Icon className="size-7 text-muted-foreground" />
+            </div>
+        </Card>
+    );
+}
+
+function EventRow({ entry }: { entry: TimelineEntry }) {
+    const meta = categoryMeta(entry.category);
+    const Icon = meta.icon;
+    const provider =
+        (entry.metadata?.provider as string | undefined) ??
+        (entry.metadata?.source as string | undefined);
+    return (
+        <Card className="p-3">
+            <div className="flex items-start gap-3">
+                <div className={cn("size-9 rounded-lg flex items-center justify-center shrink-0 border", meta.classes)}>
+                    <Icon className="size-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold truncate">{entry.title}</p>
+                        <Badge variant="outline" className={cn("text-[10px]", meta.classes)}>
+                            {meta.label}
+                        </Badge>
+                        {entry.severity ? (
+                            <Badge variant="outline" className="text-[10px]">{entry.severity}</Badge>
+                        ) : null}
+                        {provider ? (
+                            <Badge variant="outline" className="text-[10px]">{provider}</Badge>
+                        ) : null}
+                    </div>
+                    {entry.summary ? (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{entry.summary}</p>
+                    ) : null}
+                    <p className="text-[10px] text-muted-foreground mt-1">{formatDateTime(entry.occurredAt)}</p>
+                </div>
+            </div>
+        </Card>
+    );
+}

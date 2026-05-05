@@ -112,7 +112,10 @@ export function ProjectAnalysisGithubPage() {
 
     const githubIntegrationId = React.useMemo(() => {
         const connections = currentProject?.integrations || []
-        const githubConnection = connections.find((conn) => conn.integration?.type === ExternalProvider.GITHUB)
+        const githubConnection = connections.find((conn) =>
+            (conn.provider ?? conn.integration?.type) === ExternalProvider.GITHUB
+            && ((conn.integrationStatus ?? conn.integration?.status) === "CONNECTED" || !(conn.integrationStatus ?? conn.integration?.status)),
+        )
         return githubConnection?.integrationId
     }, [currentProject])
 
