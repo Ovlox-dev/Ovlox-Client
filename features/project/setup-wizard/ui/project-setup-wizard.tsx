@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 
 import { SetupLayout } from "./setup-layout"
@@ -20,6 +20,13 @@ import { ExternalProvider, IntegrationStatus } from "@/types/enum"
 
 type SetupStep = "integrations" | "members" | "review"
 
+function stepFromSearchParams(searchParams: Pick<URLSearchParams, "has">): SetupStep {
+    if (searchParams.has("members")) { return "members" }
+    if (searchParams.has("review")) { return "review" }
+    // default / "?integrations"
+    return "integrations"
+}
+
 export function ProjectSetupWizard() {
     const params = useParams<{
         organizationId: string
@@ -30,6 +37,22 @@ export function ProjectSetupWizard() {
     const projectId = params?.projectId ?? ""
     const [step, setStep] = useState<SetupStep>("integrations")
     const queryClient = useQueryClient()
+    const router = useRouter()
+    const searchParams = useSearchParams()
+
+    const navigateStep = (next: SetupStep) => {
+        setStep(next)
+        const params = new URLSearchParams(searchParams)
+        params.delete("integrations")
+        params.delete("members")
+        params.delete("review")
+        params.set(next, "")
+        router.push(`?${params.toString()}`)
+    }
+
+    useEffect(() => {
+        setStep(stepFromSearchParams(searchParams))
+    }, [searchParams])
 
     useEffect(() => {
         if (!organizationId) { return }
@@ -83,12 +106,12 @@ export function ProjectSetupWizard() {
     }, [organizationId, projectId, queryClient])
 
     return (
-        <SetupLayout step={step}>
+        <SetupLayout step={step} onStepChange={navigateStep}>
             {step === "integrations" && (
                 <LinkIntegrationsStep
                     organizationId={organizationId}
                     projectId={projectId}
-                    onNext={() => setStep("members")}
+                    onNext={() => navigateStep("members")}
                 />
             )}
 
@@ -96,8 +119,8 @@ export function ProjectSetupWizard() {
                 <AddMembersStep
                     organizationId={organizationId}
                     projectId={projectId}
-                    onNext={() => setStep("review")}
-                    onBack={() => setStep("integrations")}
+                    onNext={() => navigateStep("review")}
+                    onBack={() => navigateStep("integrations")}
                 />
             )}
 
@@ -105,7 +128,7 @@ export function ProjectSetupWizard() {
                 <ReviewStep
                     organizationId={organizationId}
                     projectId={projectId}
-                    onBack={() => setStep("members")}
+                    onBack={() => navigateStep("members")}
                 />
             )}
         </SetupLayout>

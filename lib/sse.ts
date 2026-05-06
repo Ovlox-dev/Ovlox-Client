@@ -34,8 +34,8 @@ export function createEventSource<T = unknown>(
     };
 
     eventSource.addEventListener("message", messageHandler);
-    if (handlers.onOpen) eventSource.addEventListener("open", handlers.onOpen);
-    if (handlers.onError) eventSource.addEventListener("error", handlers.onError);
+    if (handlers.onOpen) { eventSource.addEventListener("open", handlers.onOpen); }
+    if (handlers.onError) { eventSource.addEventListener("error", handlers.onError); }
 
     const unsubscribe = () => {
         eventSource.removeEventListener("message", messageHandler);

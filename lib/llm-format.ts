@@ -9,9 +9,11 @@ marked.setOptions({
 const ALLOWED_TAGS = [
     "h1", "h2", "h3", "h4",
     "p",
+    "br",
     "ul", "ol", "li",
     "strong", "em", "code", "pre",
     "blockquote",
+    "a",
 ];
 
 export async function llmMarkdownToHtml(markdown: string) {
@@ -21,6 +23,14 @@ export async function llmMarkdownToHtml(markdown: string) {
 
     return sanitizeHtml(rawHtml, {
         allowedTags: ALLOWED_TAGS,
-        allowedAttributes: {},
+        allowedAttributes: {
+            a: ["href", "target", "rel"],
+        },
+        transformTags: {
+            a: sanitizeHtml.simpleTransform("a", {
+                target: "_blank",
+                rel: "noreferrer noopener",
+            }),
+        },
     });
 }
