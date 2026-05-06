@@ -12,12 +12,12 @@ import {
     // FolderGit2,
     // Calendar,
     // GitCommit,
-    // Activity,
+    Activity,
     // AlertTriangle,
     // FileText,
     // Settings,
     type LucideIcon,
-    // Edit3,
+    Edit3,
     UserPlus,
 } from "lucide-react";
 
@@ -47,7 +47,7 @@ const TABS: Tab[] = [
     // { label: "Repos", segment: "repos", icon: FolderGit2, requiredPermission: PermissionName.VIEW_PROJECTS },
     // { label: "Timeline", segment: "timeline", icon: Calendar, requiredPermission: PermissionName.VIEW_PROJECTS },
     // { label: "Contributions", segment: "contributions", icon: GitCommit, requiredPermission: PermissionName.VIEW_PROJECTS },
-    // { label: "Events", segment: "events", icon: Activity, requiredPermission: PermissionName.VIEW_PROJECTS },
+    { label: "Events", segment: "events", icon: Activity, requiredPermission: PermissionName.VIEW_PROJECTS },
     // { label: "Alerts", segment: "alerts", icon: AlertTriangle, requiredPermission: PermissionName.VIEW_PROJECTS },
     // { label: "Reports", segment: "reports", icon: FileText, requiredPermission: PermissionName.VIEW_REPORTS },
     // {
@@ -103,22 +103,20 @@ export function ProjectDetailShell({ children }: { children: ReactNode }) {
                             <span className={`size-2 rounded-full ${statusDotClass}`} aria-hidden />
                             <span className={`text-sm font-medium capitalize ${statusTextClass}`}>{project?.status?.toLowerCase()}</span>
                         </div>
-                        {/* <Button
+                        <Button
                             variant="ghost"
                             className="border-[0.5px] border-border bg-card"
                         >
                             <Edit3 />
                             Edit Project
-                        </Button> */}
-                        <Link href={`/${organizationId}/projects/${projectId}/setup?members`}>
-                            <Button
-                                variant="ghost"
-                                className="border-[0.5px] border-border bg-card"
-                            >
-                                <UserPlus />
-                                Add Member
-                            </Button>
-                        </Link>
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className="border-[0.5px] border-border bg-card"
+                        >
+                            <UserPlus />
+                            Add Member
+                        </Button>
                     </div>
                 </div>
                 <nav

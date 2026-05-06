@@ -10,7 +10,6 @@ import {
     Loader2,
     UserPlus,
     Link2,
-    Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -49,11 +48,9 @@ import {
     useDeleteTask,
     useLinkRawEventToTask,
     useListTasks,
-    useUpdateTask,
     useUpdateTaskStatus,
 } from "@/entities/task";
-
-import { listProjectMembers } from "@/entities/project/api/projects";
+import { listMembers } from "@/entities/organization/api/org";
 
 const STATUSES: { value: TaskStatus; label: string; color: string }[] = [
     { value: "TODO", label: "To Do", color: "bg-slate-500/15 text-slate-600 border-slate-500/30" },
@@ -153,28 +150,18 @@ function CreateTaskDialog({ organizationId, projectId }: { organizationId: strin
     const [open, setOpen] = React.useState(false);
     const [title, setTitle] = React.useState("");
     const [description, setDescription] = React.useState("");
-    const [status, setStatus] = React.useState<TaskStatus>("TODO");
     const [priority, setPriority] = React.useState<TaskPriority>(3);
-    const [dueDate, setDueDate] = React.useState("");
     const { mutate, isPending } = useCreateTask(organizationId, projectId);
 
     const handleCreate = () => {
         if (!title.trim()) { return; }
         mutate(
-            {
-                title: title.trim(),
-                description: description.trim() || undefined,
-                status,
-                priority,
-                dueDate: dueDate.trim() || undefined,
-            },
+            { title: title.trim(), description: description.trim() || undefined, priority },
             {
                 onSuccess: () => {
                     setTitle("");
                     setDescription("");
-                    setStatus("TODO");
                     setPriority(3);
-                    setDueDate("");
                     setOpen(false);
                     toast.success("Task created");
                 },
@@ -196,14 +183,6 @@ function CreateTaskDialog({ organizationId, projectId }: { organizationId: strin
                 <div className="space-y-3">
                     <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
                     <Input placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
-                    <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            {STATUSES.map((s) => (
-                                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
                     <Select value={String(priority)} onValueChange={(v) => setPriority(Number(v) as TaskPriority)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -212,12 +191,6 @@ function CreateTaskDialog({ organizationId, projectId }: { organizationId: strin
                             ))}
                         </SelectContent>
                     </Select>
-                    <Input
-                        type="date"
-                        placeholder="Due date (optional)"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                    />
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
@@ -233,15 +206,10 @@ function CreateTaskDialog({ organizationId, projectId }: { organizationId: strin
 
 function TaskRow({ task, organizationId, projectId }: { task: Task; organizationId: string; projectId: string }) {
     const [linkOpen, setLinkOpen] = React.useState(false);
-    const [dueOpen, setDueOpen] = React.useState(false);
-    const [dueDraft, setDueDraft] = React.useState<string>(() => (task.dueDate ? String(task.dueDate).slice(0, 10) : ""));
     const updateStatus = useUpdateTaskStatus(organizationId, projectId, task.id);
-    const updateTask = useUpdateTask(organizationId, projectId, task.id);
     const deleteTask = useDeleteTask(organizationId, projectId);
     const meta = statusMeta(task.status);
     const priority = task.priority ? priorityMeta(task.priority) : null;
-    const assignees = (task.assignedTo ?? []).filter((a) => a?.isActive !== false);
-    const dueText = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : null;
 
     return (
         <Card className="p-4 border-border/60 hover:border-border hover:bg-accent-contrast/30 transition-colors">
@@ -275,103 +243,13 @@ function TaskRow({ task, organizationId, projectId }: { task: Task; organization
 
 
             <div className="flex flex-wrap items-center justify-between gap-1.5">
-                {assignees.length > 0 ? (
+                {task.assignedTo && Array.isArray(task.assignedTo) && task.assignedTo.length > 0 && (
                     <div className="flex items-center gap-1.5">
                         <p className="text-xs text-muted-foreground">Assigned to</p>
-                        <p className="text-xs text-text truncate">
-                            {assignees.map((a) => a.name).filter(Boolean).join(", ")}
-                        </p>
+                        <p className="text-xs text-text">{task.assignedTo.map((a) => a.memberId)}</p>
                     </div>
-                ) : null}
-                <div className="flex items-center gap-2">
-                    {dueText ? (
-                        <div className="flex items-center gap-1.5">
-                            <p className="text-xs text-muted-foreground">Due</p>
-                            <p className="text-xs text-text">{dueText}</p>
-                        </div>
-                    ) : (
-                        <p className="text-xs text-muted-foreground">No due date</p>
-                    )}
-
-                    <Popover open={dueOpen} onOpenChange={setDueOpen}>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 px-2 gap-1"
-                                title="Update due date"
-                                onClick={() => setDueDraft(task.dueDate ? String(task.dueDate).slice(0, 10) : "")}
-                            >
-                                <Calendar className="size-3.5" />
-                                <span className="text-xs">Due</span>
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 p-2" align="end">
-                            <p className="text-xs font-semibold text-muted-foreground px-1 mb-2">Due date</p>
-                            <Input
-                                type="date"
-                                value={dueDraft}
-                                onChange={(e) => setDueDraft(e.target.value)}
-                                className="h-9"
-                            />
-                            <div className="mt-2 flex items-center justify-end gap-2">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8"
-                                    onClick={() => setDueOpen(false)}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8"
-                                    onClick={() => {
-                                        updateTask.mutate(
-                                            { dueDate: dueDraft.trim() ? dueDraft.trim() : null },
-                                            {
-                                                onSuccess: () => {
-                                                    toast.success("Due date updated")
-                                                    setDueOpen(false)
-                                                },
-                                                onError: (err) => toast.error("Update failed", { description: (err as Error).message }),
-                                            },
-                                        )
-                                    }}
-                                    disabled={updateTask.isPending}
-                                >
-                                    {updateTask.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-                                    Save
-                                </Button>
-                            </div>
-                            {task.dueDate ? (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="mt-1 h-8 w-full justify-start text-destructive"
-                                    onClick={() => {
-                                        updateTask.mutate(
-                                            { dueDate: null },
-                                            {
-                                                onSuccess: () => {
-                                                    toast.success("Due date cleared")
-                                                    setDueOpen(false)
-                                                },
-                                                onError: (err) => toast.error("Update failed", { description: (err as Error).message }),
-                                            },
-                                        )
-                                    }}
-                                    disabled={updateTask.isPending}
-                                >
-                                    Clear due date
-                                </Button>
-                            ) : null}
-                        </PopoverContent>
-                    </Popover>
-
-                    <AssigneePopover task={task} organizationId={organizationId} projectId={projectId} />
-                </div>
+                )}
+                <AssigneePopover task={task} organizationId={organizationId} projectId={projectId} />
             </div>
 
             <div className="flex items-center justify-between">
@@ -426,28 +304,29 @@ function TaskRow({ task, organizationId, projectId }: { task: Task; organization
     );
 }
 
-type ProjectMemberItem = {
+type OrgMember = {
     id: string;
-    user?: { firstName?: string | null; lastName?: string | null; email?: string | null } | null;
+    userId?: string;
+    user?: { id?: string; firstName?: string | null; lastName?: string | null; email?: string | null };
 };
 
 function AssigneePopover({ task, organizationId, projectId }: { task: Task; organizationId: string; projectId: string }) {
     const [open, setOpen] = React.useState(false);
-    const [members, setMembers] = React.useState<ProjectMemberItem[]>([]);
+    const [members, setMembers] = React.useState<OrgMember[]>([]);
     const [loading, setLoading] = React.useState(false);
     const assign = useAssignTask(organizationId, projectId, task.id);
 
     React.useEffect(() => {
         if (!open || members.length > 0) { return; }
         setLoading(true);
-        listProjectMembers(organizationId, projectId)
-            .then((res) => setMembers((res ?? []) as unknown as ProjectMemberItem[]))
-            .catch((err) => toast.error("Failed to load project members", { description: (err as Error).message }))
+        listMembers(organizationId, { limit: 100 })
+            .then((res) => setMembers((res.data ?? []) as OrgMember[]))
+            .catch((err) => toast.error("Failed to load members", { description: (err as Error).message }))
             .finally(() => setLoading(false));
-    }, [open, members.length, organizationId, projectId]);
+    }, [open, members.length, organizationId]);
 
     const assignedIds = new Set(
-        (task.assignedTo ?? []).filter((a) => a?.isActive !== false).map((a) => a.assigneeId),
+        ((task.assignments ?? task.assignedTo ?? []) as Array<{ memberId: string }>).map((a) => a.memberId),
     );
 
     return (
@@ -456,7 +335,7 @@ function AssigneePopover({ task, organizationId, projectId }: { task: Task; orga
                 <Button variant="ghost" size="sm" className="gap-1 h-8">
                     <UserPlus className="size-3.5" />
                     <span className="text-xs">
-                        {assignedIds.size}
+                        {(((task.assignments ?? task.assignedTo) as Array<{ memberId: string }> | undefined)?.length ?? 0)}
                     </span>
                 </Button>
             </PopoverTrigger>

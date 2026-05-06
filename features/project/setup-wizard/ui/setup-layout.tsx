@@ -1,6 +1,5 @@
 import * as React from "react"
 import { Check } from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
@@ -36,26 +35,11 @@ function stepIndex(step: SetupStep) {
 export function SetupLayout({
     step,
     children,
-    onStepChange,
 }: {
     step: SetupStep
     children: React.ReactNode
-    onStepChange?: (step: SetupStep) => void
 }) {
     const activeIndex = stepIndex(step)
-    const router = useRouter()
-    const searchParams = useSearchParams()
-
-    const goToStep = React.useCallback((next: SetupStep) => {
-        onStepChange?.(next)
-        // Use "flag" query params like "?members" (serialized as "members=").
-        const params = new URLSearchParams(searchParams)
-        params.delete("integrations")
-        params.delete("members")
-        params.delete("review")
-        params.set(next, "")
-        router.push(`?${params.toString()}`)
-    }, [onStepChange, router, searchParams])
 
     return (
         <div className="min-h-screen bg-background">
@@ -79,18 +63,12 @@ export function SetupLayout({
                                 return (
                                     <li
                                         key={s.id}
-                                        className="list-none"
+                                        className={cn(
+                                            "rounded-lg border bg-card p-4 shadow-sm transition-colors",
+                                            isActive && "border-primary/50"
+                                        )}
                                     >
-                                        <button
-                                            type="button"
-                                            onClick={() => goToStep(s.id)}
-                                            className={cn(
-                                                "w-full rounded-lg border bg-card p-4 text-left shadow-sm transition-colors hover:bg-accent/20",
-                                                isActive && "border-primary/50"
-                                            )}
-                                            aria-current={isActive ? "step" : undefined}
-                                        >
-                                            <div className="flex items-start gap-3">
+                                        <div className="flex items-start gap-3">
                                             <div
                                                 className={cn(
                                                     "mt-0.5 flex size-8 items-center justify-center rounded-full border text-sm font-semibold",
@@ -128,7 +106,6 @@ export function SetupLayout({
                                                 </p>
                                             </div>
                                         </div>
-                                        </button>
                                     </li>
                                 )
                             })}

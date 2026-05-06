@@ -38,10 +38,10 @@
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
 	--radius-xl: calc(var(--radius) + 4px);
-
-
+	
+	
 	/* Custom color palette */
-
+	
 	/* Primary palette */
 	--color-background: var(--background);
 	--color-card: var(--card);
@@ -54,7 +54,7 @@
 	--color-text: var(--text);
 	--color-text-muted: var(--text-muted);
 	--color-text-accent: var(--text-accent);
-
+	
 	--color-accent: var(--accent);
 	--color-accent-contrast: var(--accent-contrast);
 
@@ -89,7 +89,7 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
-
+	
 	/* Primary palette */
 	--background: #F9FAFB;
 	--card: #FFFFFF;
@@ -139,7 +139,7 @@
 	--background: #020303;
 	--card: #0C0D0D;
 	--muted: #79868C;
-
+	
 	/* Border palette */
 	--border: #252828;
 
@@ -167,94 +167,4 @@
 /* hide scrollbar */
 .scrollbar-hide::-webkit-scrollbar {
 	display: none;
-}
-
-/* custom scrollbar */
-.custom-scrollbar::-webkit-scrollbar {
-	width: 10px;
-	height: 10px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-	background: transparent;
-	border-radius: 20px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-	background: #2e2f30;
-	border-radius: 20px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-	background: #b9c6d6;
-}
-
-/* Premium Markdown styling for AI chat messages */
-.ovlox-markdown {
-	@apply leading-relaxed;
-}
-
-.ovlox-markdown h1 {
-	@apply text-base font-semibold mt-3 mb-1.5;
-}
-
-.ovlox-markdown h2 {
-	@apply text-sm font-semibold mt-3 mb-1.5;
-}
-
-.ovlox-markdown h3 {
-	@apply text-sm font-semibold mt-3 mb-1.5;
-}
-
-.ovlox-markdown h4 {
-	@apply text-xs font-semibold mt-2.5 mb-1;
-}
-
-.ovlox-markdown p {
-	@apply text-inherit;
-}
-
-.ovlox-markdown p+p {
-	@apply mt-2;
-}
-
-.ovlox-markdown ul {
-	@apply list-disc pl-5 mt-2 space-y-1;
-}
-
-.ovlox-markdown ol {
-	@apply list-decimal pl-5 mt-2 space-y-1;
-}
-
-.ovlox-markdown li>p {
-	@apply inline;
-}
-
-.ovlox-markdown strong {
-	@apply font-semibold;
-}
-
-.ovlox-markdown a {
-	@apply underline underline-offset-4 text-[color:var(--text-accent)];
-}
-
-.ovlox-markdown code {
-	@apply rounded-md bg-muted px-1 py-0.5 font-mono text-[0.9em];
-}
-
-.ovlox-markdown pre {
-	@apply mt-2 overflow-x-auto rounded-xl border border-border bg-background/60 p-3;
-}
-
-.ovlox-markdown pre code {
-	@apply bg-transparent p-0;
-}
-
-.ovlox-markdown blockquote {
-	@apply mt-2 border-l-2 border-border pl-3 text-muted-foreground;
-}
-
-/* Slightly tighter headings inside bubbles */
-.ovlox-markdown :is(h1, h2, h3, h4):first-child {
-	@apply mt-0;
 }
