@@ -16,6 +16,8 @@ const getSocketUrl = () => {
 
 let socket: Socket | null = null;
 let connectingPromise: Promise<Socket> | null = null;
+const isDev = process.env.NODE_ENV !== "production";
+// let lastConnectErrorToastAt = 0;
 /**
  * Reference count of active consumers (chat panels currently mounted). The socket is
  * only torn down when the last consumer unmounts, preventing the drawer from killing
@@ -54,7 +56,9 @@ async function connectSocketAsync(): Promise<Socket> {
 
         const next = io(getSocketUrl(), {
             auth: token ? { token } : {},
-            transports: ["websocket"],
+            // Allow polling fallback for environments where WS is blocked/proxied.
+            // (If you remove this entirely, socket.io will negotiate transports anyway.)
+            transports: ["websocket", "polling"],
             reconnection: true,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
@@ -73,6 +77,22 @@ async function connectSocketAsync(): Promise<Socket> {
                 next.disconnect();
                 await reconnectWithFreshToken();
                 return;
+            }
+
+            // Visibility for non-auth failures: helpful during proxy/CORS/path issues.
+            if (isDev) {
+                // eslint-disable-next-line no-console
+                console.warn("[socket] connect_error", { message, error });
+
+                // const now = Date.now();
+                // if (now - lastConnectErrorToastAt > 10_000) {
+                //     lastConnectErrorToastAt = now;
+                //     toast.error(
+                //         message
+                //             ? `Chat connection failed: ${message}`
+                //             : "Chat connection failed. Check console for details."
+                //     );
+                // }
             }
         });
 
