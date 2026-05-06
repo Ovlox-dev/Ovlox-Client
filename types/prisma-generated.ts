@@ -1,6 +1,21 @@
-import { AccountType, AuthProvider, ExternalProvider, Gender, IntegrationAuthType, IntegrationStatus, OrgMemberStatus, PredefinedOrgRole, UserRole, InviteStatus, ConversationType, ChatRole } from "./enum";
-
-export type UserRoleType = typeof UserRole[keyof typeof UserRole];
+import { ProjectMember } from "./api-types";
+import {
+    AccountType,
+    AuthProvider,
+    ExternalProvider,
+    Gender,
+    IntegrationAuthType,
+    IntegrationStatus,
+    OrgMemberStatus,
+    PredefinedOrgRole,
+    UserRole,
+    InviteStatus,
+    ConversationType,
+    ChatRole,
+    ProjectStatus,
+    ProjectVisibility,
+    ProjectSyncStatus
+} from "./enum";
 
 export interface IUser {
     id: string;
@@ -59,6 +74,8 @@ export interface IOrganizationMember {
     invitedBy?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
+    contributions?: number;
+    projects?: IProject[];
 }
 
 export interface IIntegration {
@@ -67,15 +84,28 @@ export interface IIntegration {
     organizationId: string;
     type: ExternalProvider;
     authType: IntegrationAuthType;
-    config?: Record<string, any> | null;
     externalAccountId?: string | null;
     externalAccount?: string | null;
     status: IntegrationStatus;
+    accessToken?: string | null;
+    refreshToken?: string | null;
+    tokenExpiresAt?: string | null;
+    lastWebhookAt?: string | null;
+    lastValidatedAt?: string | null;
+    lastSyncAt?: string | null;
+    config?: Record<string, string> | null;
+    scope?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
     resources?: IIntegrationResource[];
 }
 
+export interface IIntegrationResourceMetadata {
+    private: boolean;
+    archived: boolean;
+    pushedAt: string;
+    updatedAt: string;
+}
 export interface IIntegrationResource {
     id: string;
     integrationId: string;
@@ -83,25 +113,10 @@ export interface IIntegrationResource {
     providerId: string;
     name: string;
     url?: string | null;
-    metadata?: Record<string, any> | null;
+    metadata?: IIntegrationResourceMetadata | null;
     imported: boolean;
     createdAt: Date | string;
     updatedAt: Date | string;
-}
-
-export interface IProject {
-    id: string;
-    organization?: IOrganization;
-    organizationId: string;
-    name: string;
-    slug: string;
-    description?: string | null;
-    createdById: string;
-    createdBy?: IUser;
-    settings?: Record<string, any> | null;
-    createdAt: Date | string;
-    updatedAt: Date | string;
-    integrations?: IIntegrationConnection[];
 }
 
 export interface IIntegrationConnection {
@@ -110,9 +125,32 @@ export interface IIntegrationConnection {
     projectId: string;
     integration?: IIntegration;
     integrationId: string;
-    items: Record<string, any> | null;
+    items: Record<string, unknown> | null;
     createdAt: Date | string;
     updatedAt: Date | string;
+}
+export interface IProject {
+    id: string;
+    organizationId: string;
+    name: string;
+    slug: string;
+    description?: string | null;
+    status: ProjectStatus;
+    visibility: ProjectVisibility;
+    syncStatus: ProjectSyncStatus;
+    lastSyncAt?: string | null;
+    syncError?: string | null;
+    isDeleted: boolean;
+    deletedAt?: string | null;
+    createdAt: Date | string;
+    updatedAt: Date | string;
+    organization?: IOrganization;
+    createdBy?: IUser;
+    integrations?: IIntegrationConnection[];
+    members?: ProjectMember[];
+    memberCount?: number;
+    resources?: IIntegrationResource[];
+    resourceCount?: number;
 }
 
 export interface IInvite {
@@ -125,6 +163,7 @@ export interface IInvite {
     invitedBy: string;
     token: string;
     status: InviteStatus;
+    expiresAt: string;
     userId?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
@@ -151,7 +190,7 @@ export interface IChatMessage {
     senderId?: string | null;
     senderMemberId?: string | null;
     sources?: IChatMessageSource[];
-    metadata?: Record<string, any> | null;
+    metadata?: Record<string, unknown> | null;
     createdAt: Date | string;
 }
 
@@ -167,7 +206,7 @@ export interface IChatMessageSource {
 export interface IJob {
     id: string;
     type: string;
-    payload: Record<string, any>;
+    payload: Record<string, unknown>;
     status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "RETRY";
     attempts: number;
     createdAt: Date | string;

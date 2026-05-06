@@ -1,14 +1,19 @@
-import { IUser, IOrganization, IProject, IIntegration, IOrganizationMember, IInvite, IConversation, IChatMessage, IJob } from "./prisma-generated";
-import { ExternalProvider, PredefinedOrgRole, IntegrationStatus, InviteStatus, ConversationType } from "./enum";
+import { IUser, IOrganization, IProject, IOrganizationMember, IInvite, IConversation, IChatMessage, IIntegration } from "./prisma-generated";
+import { ExternalProvider, PredefinedOrgRole, IntegrationStatus, ConversationType, OrgMemberStatus } from "./enum";
 
-// API Response wrapper
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
     success: boolean;
     message?: string;
     data?: T;
     count?: number;
     totalCount?: number;
     totalPages?: number;
+    pagination?: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
 }
 
 // API Error response
@@ -41,7 +46,7 @@ export interface RequestOtpRequest {
 export interface VerifyOtpRequest {
     email?: string;
     phoneNumber?: string;
-    otp: string;
+    otpString: string;
 }
 
 export interface AuthResponse {
@@ -60,6 +65,12 @@ export interface CreateOrgRequest {
     appProviders?: Array<{
         provider: ExternalProvider;
     }>;
+}
+
+export interface AddIntegrationsRequest {
+    provider: ExternalProvider;
+    label: string;
+
 }
 
 export interface CreateOrgResponse {
@@ -100,10 +111,37 @@ export interface CreateProjectRequest {
     description?: string;
 }
 
-export interface CreateProjectResponse extends IProject {}
+export interface CreateProjectResponse extends ApiResponse<IProject> {
+    data: IProject;
+}
 
 export interface ListProjectsResponse extends ApiResponse<IProject[]> {
     data: IProject[];
+}
+
+export interface AddProjectMemberRequest {
+    userId: string;
+    predefinedRole?: PredefinedOrgRole;
+    roleId?: string;
+}
+
+export interface UpdateProjectMemberRoleRequest {
+    predefinedRole?: PredefinedOrgRole;
+    roleId?: string;
+}
+
+export interface ProjectMember {
+    id: string;
+    projectId: string;
+    userId: string;
+    predefinedRole?: PredefinedOrgRole;
+    roleId?: string;
+    status: OrgMemberStatus;
+    addedBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+    user: IUser;
+    role: string;
 }
 
 export interface UpdateProjectRequest {
@@ -113,27 +151,33 @@ export interface UpdateProjectRequest {
 
 export interface LinkIntegrationRequest {
     integrationId: string;
-    items: {
-        repositories?: string[];
-        channels?: string[];
-        projects?: string[];
-        [key: string]: any;
-    };
+    resourceIds: string[];
 }
 
 export interface IntegrationResource {
     id: string;
     name: string;
     type: string;
-    [key: string]: any;
 }
 
-export interface GetResourcesResponse {
-    integrations: Array<{
-        id: string;
-        type: ExternalProvider;
-        resources: IntegrationResource[];
-    }>;
+
+export interface GetAvailableResourcesResponse {
+    id: string;
+    integrationId: string;
+    provider: ExternalProvider;
+    providerId: string;
+    name: string;
+    url: string;
+    metadata: {
+        private?: boolean;
+        archived?: boolean;
+        pushedAt?: string;
+        updatedAt?: string;
+    };
+    imported: boolean;
+    createdAt: string;
+    updatedAt: string;
+    integration: IIntegration;
 }
 
 // Integration API Types
@@ -152,7 +196,6 @@ export interface GitHubRepo {
     url?: string;
     updated_at?: string;
     pushed_at?: string;
-    [key: string]: any;
 }
 
 // Project-specific repository (with accessibility info)
@@ -204,30 +247,6 @@ export interface GitHubOverview {
     status: string;
 }
 
-export interface SlackChannel {
-    id: string;
-    name: string;
-    is_private: boolean;
-    is_archived: boolean;
-    [key: string]: any;
-}
-
-export interface DiscordChannel {
-    id: string;
-    name: string;
-    type: number;
-    guild_id: string;
-    [key: string]: any;
-}
-
-export interface JiraProject {
-    id: string;
-    key: string;
-    name: string;
-    projectTypeKey: string;
-    [key: string]: any;
-}
-
 // GitHub Commit Types
 export interface GitHubCommitSummary {
     sha: string;
@@ -271,7 +290,6 @@ export interface GitHubCommitFile {
     patch?: string;
     additions?: number;
     deletions?: number;
-    [key: string]: any;
 }
 
 export interface GitHubCommitDetail {
@@ -420,8 +438,6 @@ export interface ConversationWithDetails extends Omit<IConversation, 'messages'>
     organization?: IOrganization;
 }
 
-export interface JobStatusResponse extends IJob {}
-
 // WebSocket Event Types
 export interface WsNewMessageEvent {
     conversationId: string;
@@ -458,7 +474,6 @@ export interface IntegrationStatusEvent {
         id: string;
         type: ExternalProvider;
         status: IntegrationStatus;
-        [key: string]: any;
     }>;
 }
 
@@ -471,13 +486,13 @@ export interface OrgIntegrationOauthAccount {
 }
 
 export interface OrgIntegrationStatusItem {
+    integrationId: string;
     app: ExternalProvider;
     authType: string;
     status: IntegrationStatus;
-    integrationId: string;
+    statusMessage?: string;
     externalAccountId: string | null;
     externalAccount: string | null;
-    statusMessage?: string;
     oauthStatus?: OrgIntegrationOauthStatus;
     oauthConnectedAt?: string | null;
     oauthAccount?: OrgIntegrationOauthAccount | null;
@@ -492,7 +507,6 @@ export interface OrgIntegrationStatusItem {
         externalAccount: string | null;
         oauthAccount?: OrgIntegrationOauthAccount | null;
     }>;
-    [key: string]: any;
 }
 
 export interface OrgIntegrationStatusSseEvent {
@@ -504,7 +518,102 @@ export interface JobStatusEvent {
     jobId: string;
     status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
     attempts: number;
-    payload: Record<string, any>;
+    payload: Record<string, unknown>;
     updatedAt: string;
     completed?: boolean;
+}
+
+// Discord API Types
+export interface GetDiscordOAuthUrlResponse {
+    url: string;
+    message?: string;
+}
+export interface GetDiscordUserGuildsResponse {
+    id: string;
+    name: string;
+    icon: string | null;
+    botInstalled: boolean;
+}
+
+export interface GetDiscordChannelResponse {
+    id: string;
+    name: string;
+    type: number;
+    guild_id: string;
+}
+
+export interface GetSlackChannelResponse {
+    id: string,
+    created: number,
+    creator: string,
+    is_org_shared: boolean,
+    is_im: boolean,
+    context_team_id: string,
+    updated: number,
+    name: string,
+    name_normalized: string,
+    is_channel: boolean,
+    is_group: boolean,
+    is_mpim: boolean,
+    is_private: boolean,
+    is_archived: boolean,
+    is_general: boolean,
+    is_shared: boolean,
+    is_ext_shared: boolean,
+    unlinked: number,
+    is_pending_ext_shared: boolean,
+    pending_shared: [],
+    parent_conversation: string,
+    purpose: {
+        value: string,
+        creator: string,
+        last_set: number
+    },
+    topic: {
+        value: string,
+        creator: string,
+        last_set: number
+    },
+    shared_team_ids: [
+        string
+    ],
+    pending_connected_team_ids: [],
+    is_member: boolean,
+    num_members: number,
+    properties: {
+        use_case: string
+    },
+    previous_names: [
+        string
+    ]
+}
+
+export interface GetJiraProjectsResponse {
+    id: string,
+    expand: string,
+    self: string,
+    key: string,
+    name: string,
+    avatarUrls: {
+        "48x48": string,
+        "24x24": string,
+        "16x16": string,
+        "32x32": string,
+    },
+    projectTypeKey: string,
+    simplified: boolean,
+    style: string,
+    isPrivate: boolean,
+    properties: Record<string, unknown>,
+    entityId: string,
+    uuid: string
+}
+export interface ListLinearTeamsResponse {
+    id: string,
+    key: string,
+    name: string,
+    description: string,
+}
+export interface ListLinearIssuesResponse {
+    id: string,
 }

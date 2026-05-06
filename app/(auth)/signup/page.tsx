@@ -1,14 +1,12 @@
 import { Suspense } from "react"
-import { SignupForm } from "@/components/signup-form"
+import { SignupForm } from "@/features/auth";
 
 export default function Signup() {
     return (
-        <div className="bg-muted flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
-            <div className="w-full max-w-sm md:max-w-4xl">
-                <Suspense fallback={<div>Loading...</div>}>
-                    <SignupForm />
-                </Suspense>
-            </div>
+        <div className="">
+            <Suspense fallback={<div>Loading...</div>}>
+                <SignupForm />
+            </Suspense>
         </div>
     )
 }

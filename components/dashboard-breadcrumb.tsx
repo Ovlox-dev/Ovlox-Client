@@ -25,9 +25,9 @@ const LABEL_MAP: Record<string, string> = {
 }
 
 function formatSegment(segment: string) {
-    if (LABEL_MAP[segment]) return LABEL_MAP[segment]
+    if (LABEL_MAP[segment]) { return LABEL_MAP[segment]; }
     const decoded = decodeURIComponent(segment)
-    if (decoded.length > 18) return `${decoded.slice(0, 15)}...`
+    if (decoded.length > 18) { return `${decoded.slice(0, 15)}...`; }
     return decoded.charAt(0).toUpperCase() + decoded.slice(1)
 }
 
@@ -35,7 +35,7 @@ export function DashboardBreadcrumb() {
     const pathname = usePathname()
     const segments = React.useMemo(() => pathname.split("/").filter(Boolean), [pathname])
 
-    if (segments.length === 0) return null
+    if (segments.length === 0) { return null; }
 
     const breadcrumbs = segments.map((segment, idx) => {
         const href = "/" + segments.slice(0, idx + 1).join("/")

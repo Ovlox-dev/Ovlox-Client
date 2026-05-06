@@ -1,8 +1,9 @@
 import * as React from "react";
 import { useProjectStore } from "@/store/project.store";
 import { useRouter } from "next/navigation";
-import { getProject } from "@/services/project.service";
+import { getProject } from "@/entities/project";
 import { IProject } from "@/types/prisma-generated";
+import { toast } from "sonner";
 
 export const useProject = () => {
     const { currentProject, setCurrentProject, clearCurrentProject } = useProjectStore();
@@ -11,7 +12,7 @@ export const useProject = () => {
     const selectProject = React.useCallback(async (project: IProject, orgId?: string) => {
         setCurrentProject(project);
         if (orgId) {
-            router.push(`/organizations/${orgId}/projects/${project.id}`);
+            router.push(`/${orgId}/projects/${project.id}`);
         } else {
             router.push(`/projects/${project.id}`);
         }
@@ -23,7 +24,7 @@ export const useProject = () => {
             setCurrentProject(project);
             return project;
         } catch (error) {
-            console.error("Failed to load project", error);
+            toast.error("Failed to load project");
             throw error;
         }
     }, [setCurrentProject]);
