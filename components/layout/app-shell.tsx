@@ -20,6 +20,7 @@ import { AiChatPanel, type AiChatScope } from "@/widgets/ai-chat-panel"
 import { useOrgStore } from "@/shared/lib/organization/org-store"
 import { userOrgById } from "@/entities/organization/api/org"
 import { setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
+import { ChatRuntimeBridge } from "@/components/layout/chat-runtime-bridge"
 
 export interface AppShellProps {
   children: React.ReactNode
@@ -33,6 +34,7 @@ export function AppShell({
   return (
     <SidebarProvider defaultOpen={true}>
       <OrgRouteSync />
+      <ChatRuntimeBridge />
       <AppSidebar />
       <SidebarInset>
         <header

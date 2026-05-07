@@ -10,8 +10,12 @@ import { apiBaseUrl } from "@/shared/api/client";
 import { toast } from "sonner";
 
 const getSocketUrl = () => {
-    const baseUrl = apiBaseUrl.replace(/\/api\/v1$/, "");
-    return `${baseUrl}/chat`;
+    // Socket.IO can't go through Next's /api/v1 rewrite (HTTP-only — Vercel and most CDNs
+    // do not proxy WebSocket Upgrade). Connect to the backend's absolute origin so WS reaches
+    // the real server. CORS is permissive in prod and the handshake uses auth.token (JWT in
+    // payload), so cross-origin works without cookies.
+    const upstream = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    return `${upstream.replace(/\/api\/v1$/, "").replace(/\/+$/, "")}/chat`;
 };
 
 let socket: Socket | null = null;
