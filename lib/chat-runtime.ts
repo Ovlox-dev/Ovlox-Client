@@ -17,6 +17,7 @@ import {
     type JobStatusEvent,
     type SseSubscription,
 } from "./sse";
+import { ChatRole } from "@/types/enum";
 
 /**
  * Global runtime that owns chat streaming state across mount points.
@@ -36,16 +37,34 @@ import {
  *   - streaming state in a Zustand store (every panel reads the same buffer)
  *   - if every panel unmounts mid-stream, the runtime keeps listening and shows a toast
  *     when the answer lands
+ *
+ * Flicker prevention: when the SSE `answer` event (or the socket's assistant `newMessage`)
+ * arrives, the runtime stores the persisted assistant message id rather than clearing the
+ * streamed bubble immediately. The panel watches the message list and clears the runtime
+ * entry only once the persisted row is actually visible — avoids a "stream → blank → row"
+ * flash on the SSE/DB handoff.
  */
 
 // ───────────────────────────────────────────────────────────────
 //  Store
 // ───────────────────────────────────────────────────────────────
 
+export type StreamPending = {
+    userText: string;
+    sentAt: number;
+    /** Filled once the send succeeds so the optimistic user bubble can be hidden as soon as
+     *  the persisted user row lands in `messages`. */
+    persistedUserMessageId?: string | null;
+};
+
 export type StreamState = {
     buffer: string;
     jobId: string | null;
-    pending: { userText: string; sentAt: number } | null;
+    pending: StreamPending | null;
+    /** When the SSE `answer` event (or socket assistant `newMessage`) arrives we stash the
+     *  persisted assistant message id here. The panel keeps showing the streamed bubble
+     *  until that id is visible in the `messages` query result. */
+    persistedAssistantMessageId: string | null;
 };
 
 type StreamingStore = {
@@ -55,11 +74,20 @@ type StreamingStore = {
     startPending: (conversationId: string, userText: string) => void;
     setJobId: (conversationId: string, jobId: string) => void;
     appendChunk: (conversationId: string, delta: string) => void;
+    /** Used in degraded mode (server emitted only the final answer, no chunks). */
+    seedAnswerIfEmpty: (conversationId: string, answer: string) => void;
+    setPersistedUserMessageId: (conversationId: string, messageId: string | null) => void;
+    setPersistedAssistantMessageId: (conversationId: string, messageId: string | null) => void;
     clear: (conversationId: string) => void;
     setTitle: (conversationId: string, title?: string | null) => void;
 };
 
-const emptyStream = (): StreamState => ({ buffer: "", jobId: null, pending: null });
+const emptyStream = (): StreamState => ({
+    buffer: "",
+    jobId: null,
+    pending: null,
+    persistedAssistantMessageId: null,
+});
 
 export const useChatStreamingStore = create<StreamingStore>((set) => ({
     byConversation: {},
@@ -73,6 +101,7 @@ export const useChatStreamingStore = create<StreamingStore>((set) => ({
                     buffer: "",
                     jobId: null,
                     pending: { userText, sentAt: Date.now() },
+                    persistedAssistantMessageId: null,
                 },
             },
         })),
@@ -95,6 +124,44 @@ export const useChatStreamingStore = create<StreamingStore>((set) => ({
                 byConversation: {
                     ...state.byConversation,
                     [conversationId]: { ...prev, buffer: prev.buffer + delta },
+                },
+            };
+        }),
+
+    seedAnswerIfEmpty: (conversationId, answer) =>
+        set((state) => {
+            const prev = state.byConversation[conversationId];
+            if (!prev || prev.buffer || !answer) { return state; }
+            return {
+                byConversation: {
+                    ...state.byConversation,
+                    [conversationId]: { ...prev, buffer: answer },
+                },
+            };
+        }),
+
+    setPersistedUserMessageId: (conversationId, messageId) =>
+        set((state) => {
+            const prev = state.byConversation[conversationId];
+            if (!prev || !prev.pending) { return state; }
+            return {
+                byConversation: {
+                    ...state.byConversation,
+                    [conversationId]: {
+                        ...prev,
+                        pending: { ...prev.pending, persistedUserMessageId: messageId },
+                    },
+                },
+            };
+        }),
+
+    setPersistedAssistantMessageId: (conversationId, messageId) =>
+        set((state) => {
+            const prev = state.byConversation[conversationId] ?? emptyStream();
+            return {
+                byConversation: {
+                    ...state.byConversation,
+                    [conversationId]: { ...prev, persistedAssistantMessageId: messageId },
                 },
             };
         }),
@@ -167,22 +234,41 @@ function installListeners() {
         const rt = conversations.get(evt.conversationId);
         if (!rt) { return; }
 
-        const wasStreaming = !!useChatStreamingStore.getState().byConversation[evt.conversationId];
+        const store = useChatStreamingStore.getState();
+        const wasStreaming = !!store.byConversation[evt.conversationId];
 
+        // Tear down SSE — answer is now persisted, no more chunks coming for this job.
         if (rt.sseSub) { rt.sseSub.unsubscribe(); rt.sseSub = null; }
         rt.sseJobId = null;
-        useChatStreamingStore.getState().clear(evt.conversationId);
 
+        const role = evt.message?.role;
+        const messageId = evt.message?.id;
+
+        // Stash persisted ids for flicker-free transition. The panel's effects watch
+        // these and clear the runtime entry only once the persisted rows are visible.
+        if (messageId && role === ChatRole.USER) {
+            store.setPersistedUserMessageId(evt.conversationId, messageId);
+        } else if (messageId && role === ChatRole.ASSISTANT) {
+            store.setPersistedAssistantMessageId(evt.conversationId, messageId);
+        }
+
+        // Always invalidate so any mounted panel pulls the latest messages.
         try { onAssistantMessageReady?.({ conversationId: evt.conversationId }); } catch { /* swallow */ }
 
-        if (wasStreaming && rt.panelRefcount === 0) {
-            const title = useChatStreamingStore.getState().titles[evt.conversationId];
+        const isAssistantArrival = role === ChatRole.ASSISTANT;
+
+        // Toast when the assistant reply lands while no panel is visible.
+        if (isAssistantArrival && wasStreaming && rt.panelRefcount === 0) {
+            const title = store.titles[evt.conversationId];
             toast.success("Chat reply ready", {
                 description: title ? `New reply in "${title}"` : "Open chat to view the reply",
             });
+            // No panel will run the persistedAssistantMessageId watcher — clear directly.
+            store.clear(evt.conversationId);
         }
 
-        if (rt.panelRefcount === 0 && rt.backgroundHold) {
+        // Background-hold cleanup once the assistant message is in.
+        if (isAssistantArrival && rt.panelRefcount === 0 && rt.backgroundHold) {
             rt.backgroundHold = false;
             socketLeaveConversation(evt.conversationId);
             conversations.delete(evt.conversationId);
@@ -275,8 +361,9 @@ export function releaseConversation(conversationId: string) {
 
 /**
  * Open the SSE stream for an in-flight LLM job. Per-token chunks update the streaming
- * store; the final `answer` event closes the SSE. The socket's `newMessage` clears the
- * optimistic state and triggers the React-Query refetch via the bridge.
+ * store; the final `answer` event captures the persisted assistant message id (used by
+ * the panel to clear the streamed bubble flicker-free) and seeds the buffer if no chunks
+ * were delivered (degraded SSE mode).
  */
 export function startConversationJob(conversationId: string, jobId: string) {
     const rt = conversations.get(conversationId);
@@ -291,13 +378,22 @@ export function startConversationJob(conversationId: string, jobId: string) {
         (evt: JobStatusEvent) => {
             if (!evt || typeof evt !== "object") { return; }
             if ("jobId" in evt && evt.jobId !== jobId) { return; }
+            const store = useChatStreamingStore.getState();
             if ("kind" in evt && evt.kind === "chunk") {
-                useChatStreamingStore.getState().appendChunk(conversationId, evt.delta);
+                store.appendChunk(conversationId, evt.delta);
                 return;
             }
             if ("kind" in evt && evt.kind === "answer") {
                 if (rt.sseSub) { rt.sseSub.unsubscribe(); rt.sseSub = null; }
                 rt.sseJobId = null;
+                if (evt.chatMessageId) {
+                    store.setPersistedAssistantMessageId(conversationId, evt.chatMessageId);
+                }
+                if (evt.answer) {
+                    // No chunks were streamed (e.g. server fell back to non-streaming). Show
+                    // the final answer so the bubble isn't permanently blank.
+                    store.seedAnswerIfEmpty(conversationId, evt.answer);
+                }
             }
         },
         () => {
@@ -317,4 +413,11 @@ export function recordPendingExchange(conversationId: string, userText: string) 
 export function recordConversationTitle(conversationId: string, title?: string | null) {
     if (!conversationId) { return; }
     useChatStreamingStore.getState().setTitle(conversationId, title);
+}
+
+/** Stash the persisted user message id (returned from the send mutation) so the optimistic
+ *  user bubble can be hidden as soon as the persisted row appears in `messages`. */
+export function recordPersistedUserMessageId(conversationId: string, messageId: string) {
+    if (!conversationId || !messageId) { return; }
+    useChatStreamingStore.getState().setPersistedUserMessageId(conversationId, messageId);
 }

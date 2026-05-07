@@ -20,6 +20,7 @@ import {
     acquireConversation,
     recordConversationTitle,
     recordPendingExchange,
+    recordPersistedUserMessageId,
     releaseConversation,
     startConversationJob,
     useChatStreamingStore,
@@ -81,6 +82,12 @@ function resizeChatComposerTextarea(el: HTMLTextAreaElement | null) {
  * conversation, conversation switching, message fetching, sending, and live streaming via
  * the chat socket.
  *
+ * Streaming state, optimistic pending state, the SSE subscription, and the conversation
+ * room membership all live in `lib/chat-runtime.ts`. That makes the dedicated chat page and
+ * the right-side drawer share one stream + one socket room — opening/closing the drawer
+ * doesn't disturb the page's in-flight reply, and if both unmount mid-stream the user gets
+ * a toast when the answer lands.
+ *
  * - `compact = true` collapses the conversation list and tightens spacing for the drawer.
  * - `showConversationList = false` hides the sidebar entirely (forces single-conversation mode).
  */
@@ -111,14 +118,18 @@ export function AiChatPanel({
     const messagesEndRef = React.useRef<HTMLDivElement>(null);
     const composerTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
     const userNearBottomRef = React.useRef(true);
+    const didInitialScrollRef = React.useRef(false);
+    const prevMessagesLoadingRef = React.useRef<boolean>(true);
+    const layoutStabilizeTimerRef = React.useRef<number | null>(null);
 
     // Streaming state lives in the global runtime so both panel mounts (page + drawer)
-    // share the same buffer, optimistic pending, and jobId.
+    // share the same buffer, optimistic pending, and persisted-id flicker prevention.
     const streamState = useChatStreamingStore((s) =>
         activeConversationId ? s.byConversation[activeConversationId] : undefined,
     );
     const streamingBuffer = streamState?.buffer ?? "";
     const pending = streamState?.pending ?? null;
+    const persistedAssistantId = streamState?.persistedAssistantMessageId ?? null;
 
     const { data: conversations, isLoading: convosLoading, refetch: refetchConversations } = useListConversations(
         isProject ? { projectId } : { organizationId },
@@ -178,11 +189,20 @@ export function AiChatPanel({
         acquireConversation(activeConversationId);
         setShowJumpToLatest(false);
         userNearBottomRef.current = true;
-        window.requestAnimationFrame(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
-        });
+        didInitialScrollRef.current = false;
         return () => releaseConversation(activeConversationId);
     }, [activeConversationId]);
+
+    // Once the persisted assistant message lands in the message list, drop the streamed
+    // bubble. Doing this only after the persisted row is visible avoids the
+    // "stream → blank → row" flicker on the SSE/DB handoff.
+    React.useEffect(() => {
+        if (!activeConversationId) { return; }
+        if (!persistedAssistantId) { return; }
+        if (!messages || messages.length === 0) { return; }
+        if (!messages.some((m) => m.id === persistedAssistantId)) { return; }
+        useChatStreamingStore.getState().clear(activeConversationId);
+    }, [activeConversationId, persistedAssistantId, messages]);
 
     const isNearBottom = React.useCallback((el: HTMLElement) => {
         const thresholdPx = 80;
@@ -190,19 +210,90 @@ export function AiChatPanel({
         return remaining <= thresholdPx;
     }, []);
 
+    const scrollToBottom = React.useCallback((behavior: ScrollBehavior) => {
+        const el = scrollAreaRef.current;
+        if (el) {
+            el.scrollTo({ top: el.scrollHeight, behavior });
+            return;
+        }
+        messagesEndRef.current?.scrollIntoView({ behavior });
+    }, []);
+
+    // Layout-stable "pin to bottom" after initial load / loading transitions.
+    React.useLayoutEffect(() => {
+        const el = scrollAreaRef.current;
+        if (!el) { return; }
+
+        const hadLoading = prevMessagesLoadingRef.current;
+        prevMessagesLoadingRef.current = messagesLoading;
+
+        const messageCount = messages?.length ?? 0;
+        const justFinishedLoading = hadLoading && !messagesLoading;
+
+        if (!didInitialScrollRef.current && !messagesLoading && messageCount > 0) {
+            didInitialScrollRef.current = true;
+            userNearBottomRef.current = true;
+            setShowJumpToLatest(false);
+
+            // Double-rAF to let DOM paint and measure (prevents "lands short" on first load).
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => {
+                    scrollToBottom("auto");
+                });
+            });
+            return;
+        }
+
+        if (justFinishedLoading && userNearBottomRef.current) {
+            window.requestAnimationFrame(() => {
+                scrollToBottom("auto");
+            });
+        }
+    }, [messagesLoading, messages, scrollToBottom]);
+
+    // If content height grows after render (markdown, fonts, images), re-pin once when near bottom.
+    React.useEffect(() => {
+        const el = scrollAreaRef.current;
+        if (!el) { return; }
+
+        const ro = new ResizeObserver(() => {
+            if (!userNearBottomRef.current) { return; }
+            if (layoutStabilizeTimerRef.current) { window.clearTimeout(layoutStabilizeTimerRef.current); }
+            layoutStabilizeTimerRef.current = window.setTimeout(() => {
+                layoutStabilizeTimerRef.current = null;
+                if (!userNearBottomRef.current) { return; }
+                scrollToBottom("auto");
+            }, 80);
+        });
+
+        ro.observe(el);
+        return () => {
+            ro.disconnect();
+            if (layoutStabilizeTimerRef.current) {
+                window.clearTimeout(layoutStabilizeTimerRef.current);
+                layoutStabilizeTimerRef.current = null;
+            }
+        };
+    }, [scrollToBottom]);
+
     React.useEffect(() => {
         const el = scrollAreaRef.current;
         if (!el) { return; }
 
         const shouldAutoScroll = userNearBottomRef.current || isNearBottom(el);
         if (shouldAutoScroll) {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            // Use "auto" for initial/just-finished-load; "smooth" for incremental updates.
+            const behavior: ScrollBehavior = didInitialScrollRef.current ? "smooth" : "auto";
+            messagesEndRef.current?.scrollIntoView({ behavior });
             setShowJumpToLatest(false);
         } else {
             // New content came in while the user is reading older messages.
             setShowJumpToLatest(true);
         }
     }, [messages, streamingBuffer, pending, isNearBottom]);
+
+    const hidePendingUserBubble = !!pending?.persistedUserMessageId
+        && (messages ?? []).some((m) => m.id === pending.persistedUserMessageId);
 
     const handleSend = () => {
         const text = messageInput.trim();
@@ -221,14 +312,19 @@ export function AiChatPanel({
             { question: text },
             {
                 onSuccess: (res) => {
-                    const jobId = res?.jobId;
-                    if (!jobId || !activeConversationId) { return; }
-                    startConversationJob(activeConversationId, jobId);
+                    if (!activeConversationId) { return; }
+                    if (res?.userMessage?.id) {
+                        recordPersistedUserMessageId(activeConversationId, res.userMessage.id);
+                    }
+                    if (res?.jobId) {
+                        startConversationJob(activeConversationId, res.jobId);
+                    }
                 },
                 onError: (err) => {
                     toast.error("Failed to send", { description: (err as Error).message });
-                    // Roll back the optimistic state by clearing the runtime entry for this convo.
-                    useChatStreamingStore.getState().clear(activeConversationId);
+                    if (activeConversationId) {
+                        useChatStreamingStore.getState().clear(activeConversationId);
+                    }
                     setMessageInput(text);
                 },
             },
@@ -395,7 +491,7 @@ export function AiChatPanel({
                             />
                         ))
                     )}
-                    {pending ? (
+                    {pending && !hidePendingUserBubble ? (
                         <UserBubble
                             text={pending.userText}
                             compact={compact}
