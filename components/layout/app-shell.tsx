@@ -17,6 +17,9 @@ import {
 } from "@/components/ui/drawer"
 import { MessageSquare } from "lucide-react"
 import { AiChatPanel, type AiChatScope } from "@/widgets/ai-chat-panel"
+import { useOrgStore } from "@/shared/lib/organization/org-store"
+import { userOrgById } from "@/entities/organization/api/org"
+import { setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
 
 export interface AppShellProps {
   children: React.ReactNode
@@ -29,6 +32,7 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <SidebarProvider defaultOpen={true}>
+      <OrgRouteSync />
       <AppSidebar />
       <SidebarInset>
         <header
@@ -59,6 +63,47 @@ export function AppShell({
       </SidebarInset>
     </SidebarProvider>
   )
+}
+
+/**
+ * Reconciles the persisted org store against the URL `:organizationId` param. The store is
+ * `localStorage`-persisted, so navigating directly to a different org's URL (or returning to
+ * the app on a different org) leaves the store pointing at the OLD org. Components that read
+ * `useOrg().currentOrg.id` then fire backend calls with that stale org → 403/404 spam.
+ *
+ * This guard:
+ * - Reads `:organizationId` from the URL on every render
+ * - If it differs from `currentOrg.id`, fetches the right org and updates the store
+ * - Mounted once at AppShell so every page inside `/[organizationId]/*` is covered
+ */
+function OrgRouteSync() {
+  const params = useParams<{ organizationId?: string }>();
+  const urlOrgId = params?.organizationId;
+  const currentOrg = useOrgStore((s) => s.currentOrg);
+  const setCurrentOrg = useOrgStore((s) => s.setCurrentOrg);
+
+  React.useEffect(() => {
+    if (!urlOrgId) return;
+    if (currentOrg?.id === urlOrgId) return;
+
+    let cancelled = false;
+    userOrgById(urlOrgId)
+      .then(({ organization }) => {
+        if (cancelled) return;
+        setCurrentOrg(organization);
+        setActiveOrgId(organization.id);
+      })
+      .catch(() => {
+        // Org not accessible (membership revoked, deleted, wrong URL). Clear the
+        // stale store so downstream components don't keep firing with the bad id.
+        if (cancelled) return;
+        setCurrentOrg(null);
+      });
+
+    return () => { cancelled = true; };
+  }, [urlOrgId, currentOrg?.id, setCurrentOrg]);
+
+  return null;
 }
 
 /**

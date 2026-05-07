@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { useParams } from "next/navigation"
-import { LayoutDashboard, Users, GitBranch, Plug, Inbox } from "lucide-react"
+import { LayoutDashboard, Users, GitBranch, Plug, Inbox, Settings } from "lucide-react"
 
 import OvloxLogo from '@/assets/ovlox.svg'
 
@@ -72,6 +72,12 @@ export function AppSidebar() {
       icon: Inbox,
       url: `/${organizationId}/writebacks`,
       requiredPermission: PermissionName.APPROVE_WRITEBACKS,
+    },
+    {
+      title: "Settings",
+      icon: Settings,
+      url: `/${organizationId}/settings`,
+      requiredPermission: PermissionName.MANAGE_ORG,
     },
     {
       title: "Organizations",

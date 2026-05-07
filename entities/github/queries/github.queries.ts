@@ -230,8 +230,11 @@ export const useGithubOAuthCallback = () =>
 export const useSyncGithubRepositories = (integrationId: string) => {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (projectId?: string) =>
-            syncGithubRepositories(integrationId, projectId),
+        mutationFn: (input?: string | { projectId?: string; force?: boolean }) => {
+            // Backward-compatible signature: bare projectId string OR an options object.
+            const opts = typeof input === 'string' ? { projectId: input } : (input ?? {});
+            return syncGithubRepositories(integrationId, opts.projectId, { force: opts.force });
+        },
         onSuccess: () => {
             qc.invalidateQueries({
                 queryKey: githubKeys.repos(integrationId),

@@ -43,16 +43,22 @@ export interface ListResponse<T> {
     offset?: number;
 }
 
+// The backend returns lists under semantic keys (`repositories`, `files`, `risks`, `commits`)
+// not a generic `data` field, so we unwrap explicitly per endpoint here. The legacy
+// `unwrapList` helper below only checks `.data` — keep it for endpoints that DO use that
+// shape, but don't rely on it for the new ones.
+
 export const listRepositories = async (
     orgId: string,
     projectId: string,
     params?: { provider?: ExternalProvider | string; limit?: number; offset?: number },
-): Promise<ListResponse<RepositorySummary> | RepositorySummary[]> => {
-    const response = await apiClient.get<ListResponse<RepositorySummary> | RepositorySummary[]>(
+): Promise<RepositorySummary[]> => {
+    const response = await apiClient.get<{ repositories?: RepositorySummary[] } | RepositorySummary[]>(
         `/orgs/${orgId}/projects/${projectId}/repositories`,
         { params },
     );
-    return response.data;
+    if (Array.isArray(response.data)) return response.data;
+    return response.data.repositories ?? [];
 };
 
 export const getRepository = async (
@@ -70,12 +76,13 @@ export const listFileRisks = async (
     orgId: string,
     projectId: string,
     params?: { repositoryId?: string; minRiskScore?: number; limit?: number; offset?: number },
-): Promise<ListResponse<FileRiskItem> | FileRiskItem[]> => {
-    const response = await apiClient.get<ListResponse<FileRiskItem> | FileRiskItem[]>(
+): Promise<FileRiskItem[]> => {
+    const response = await apiClient.get<{ risks?: FileRiskItem[] } | FileRiskItem[]>(
         `/orgs/${orgId}/projects/${projectId}/repositories/risks`,
         { params },
     );
-    return response.data;
+    if (Array.isArray(response.data)) return response.data;
+    return response.data.risks ?? [];
 };
 
 export const listCodeFiles = async (
@@ -83,12 +90,13 @@ export const listCodeFiles = async (
     projectId: string,
     repositoryId: string,
     params?: { language?: string; minRiskScore?: number; limit?: number; offset?: number },
-): Promise<ListResponse<CodeFileSummary> | CodeFileSummary[]> => {
-    const response = await apiClient.get<ListResponse<CodeFileSummary> | CodeFileSummary[]>(
+): Promise<CodeFileSummary[]> => {
+    const response = await apiClient.get<{ files?: CodeFileSummary[] } | CodeFileSummary[]>(
         `/orgs/${orgId}/projects/${projectId}/repositories/${repositoryId}/files`,
         { params },
     );
-    return response.data;
+    if (Array.isArray(response.data)) return response.data;
+    return response.data.files ?? [];
 };
 
 export const getCodeFile = async (
@@ -108,3 +116,75 @@ export function unwrapList<T>(payload: ListResponse<T> | T[] | undefined | null)
     if (Array.isArray(payload)) { return payload; }
     return payload.data ?? [];
 }
+
+// ───────────────────────────────────────────
+//  Commits — file-scoped + project-wide
+// ───────────────────────────────────────────
+
+/** A single commit/file-change row, returned by both the file-scoped and project-wide endpoints. */
+export interface CommitFeedItem {
+    rawEventId: string;
+    source?: string | null;
+    sourceId?: string | null;
+    content?: string | null;
+    timestamp?: string | null;
+    branchName?: string | null;
+    prNumber?: number | null;
+    authorName?: string | null;
+    authorEmail?: string | null;
+    authorMemberId?: string | null;
+    isPrimaryBranch?: boolean | null;
+    metadata?: Record<string, unknown> | null;
+    repository?: { id: string; name?: string; provider?: string; providerRepoId?: string; url?: string } | null;
+    llmSummary?: string | null;
+    summaryModel?: string | null;
+    fileChangesCount?: number;
+    additions?: number;
+    deletions?: number;
+
+    // Returned by the file-scoped endpoint additionally:
+    changeId?: string;
+    changeType?: string;
+    patch?: string | null;
+    changedAt?: string | null;
+    eventType?: string;
+}
+
+export interface CommitsListResponse {
+    commits: CommitFeedItem[];
+    total: number;
+    limit: number;
+    offset: number;
+}
+
+export const listFileCommits = async (
+    orgId: string,
+    projectId: string,
+    fileId: string,
+    params?: { limit?: number; offset?: number },
+): Promise<CommitsListResponse> => {
+    const response = await apiClient.get<CommitsListResponse>(
+        `/orgs/${orgId}/projects/${projectId}/repositories/code-files/${fileId}/commits`,
+        { params },
+    );
+    return response.data;
+};
+
+export const listProjectCommits = async (
+    orgId: string,
+    projectId: string,
+    params?: {
+        repositoryId?: string;
+        author?: string;
+        since?: string;
+        until?: string;
+        limit?: number;
+        offset?: number;
+    },
+): Promise<CommitsListResponse> => {
+    const response = await apiClient.get<CommitsListResponse>(
+        `/orgs/${orgId}/projects/${projectId}/repositories/commits`,
+        { params },
+    );
+    return response.data;
+};

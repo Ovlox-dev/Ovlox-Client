@@ -15,6 +15,8 @@ import {
     listIntegrations,
     getOrgIntegrationStatusByIntegrationId,
     addIntegrations,
+    removeOrgIntegration,
+    resetOrgIntegration,
     UserOrgsFilters,
 } from "@/entities/organization/api/org";
 
@@ -211,6 +213,27 @@ export const useAddOrgIntegrations = (orgId: string) => {
             queryClient.invalidateQueries({
                 queryKey: orgKeys.integrations(orgId),
             });
+        },
+    });
+};
+
+export const useRemoveOrgIntegration = (orgId: string) => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (integrationId: string) => removeOrgIntegration(orgId, integrationId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: orgKeys.integrations(orgId) });
+        },
+    });
+};
+
+export const useResetOrgIntegration = (orgId: string) => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (integrationId: string) => resetOrgIntegration(orgId, integrationId),
+        onSuccess: (_data, integrationId) => {
+            queryClient.invalidateQueries({ queryKey: orgKeys.integrations(orgId) });
+            queryClient.invalidateQueries({ queryKey: orgKeys.integration(orgId, integrationId) });
         },
     });
 };
