@@ -67,6 +67,10 @@ export interface ProjectIntegrationLink {
     label?: string;
     connectedAt?: string;
     connectionId?: string;
+    /** Top-level fields returned by the project-integrations endpoint
+     *  (see projects.service.ts listProjectIntegrations SQL). */
+    lastWebhookAt?: string | null;
+    lastSyncAt?: string | null;
     integration?: {
         id: string;
         type?: string;
@@ -74,6 +78,9 @@ export interface ProjectIntegrationLink {
         organizationId?: string;
         name?: string;
         metadata?: Record<string, unknown> | null;
+        lastWebhookAt?: string | null;
+        lastValidatedAt?: string | null;
+        lastSyncAt?: string | null;
     };
     metadata?: Record<string, unknown> | null;
     createdAt?: string;

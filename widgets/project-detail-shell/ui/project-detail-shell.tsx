@@ -9,15 +9,15 @@ import {
     ListTodo,
     BarChart3,
     GitBranch,
+    Calendar,
+    GitCommit,
     // FolderGit2,
-    // Calendar,
-    // GitCommit,
-    Activity,
+    // Activity,
     // AlertTriangle,
     // FileText,
     // Settings,
     type LucideIcon,
-    Edit3,
+    // Edit3,
     UserPlus,
 } from "lucide-react";
 
@@ -42,12 +42,14 @@ const TABS: Tab[] = [
     { label: "Overview", segment: "", icon: LayoutGrid, requiredPermission: PermissionName.VIEW_PROJECTS },
     { label: "Tasks", segment: "tasks", icon: ListTodo, requiredPermission: PermissionName.MANAGE_TASKS },
     { label: "Insights", segment: "insights", icon: BarChart3, requiredPermission: PermissionName.VIEW_PROJECTS },
+    { label: "Timeline", segment: "timeline", icon: Calendar, requiredPermission: PermissionName.VIEW_PROJECTS },
+    { label: "Commits", segment: "commits", icon: GitCommit, requiredPermission: PermissionName.VIEW_PROJECTS },
     { label: "Analysis", segment: "analysis", icon: GitBranch, requiredPermission: PermissionName.VIEW_PROJECTS },
     { label: "Chat", segment: "chat", icon: MessageSquare, requiredPermission: PermissionName.VIEW_PROJECTS },
     // { label: "Repos", segment: "repos", icon: FolderGit2, requiredPermission: PermissionName.VIEW_PROJECTS },
     // { label: "Timeline", segment: "timeline", icon: Calendar, requiredPermission: PermissionName.VIEW_PROJECTS },
     // { label: "Contributions", segment: "contributions", icon: GitCommit, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Events", segment: "events", icon: Activity, requiredPermission: PermissionName.VIEW_PROJECTS },
+    // { label: "Events", segment: "events", icon: Activity, requiredPermission: PermissionName.VIEW_PROJECTS },
     // { label: "Alerts", segment: "alerts", icon: AlertTriangle, requiredPermission: PermissionName.VIEW_PROJECTS },
     // { label: "Reports", segment: "reports", icon: FileText, requiredPermission: PermissionName.VIEW_REPORTS },
     // {
@@ -103,20 +105,22 @@ export function ProjectDetailShell({ children }: { children: ReactNode }) {
                             <span className={`size-2 rounded-full ${statusDotClass}`} aria-hidden />
                             <span className={`text-sm font-medium capitalize ${statusTextClass}`}>{project?.status?.toLowerCase()}</span>
                         </div>
-                        <Button
+                        {/* <Button
                             variant="ghost"
                             className="border-[0.5px] border-border bg-card"
                         >
                             <Edit3 />
                             Edit Project
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            className="border-[0.5px] border-border bg-card"
-                        >
-                            <UserPlus />
-                            Add Member
-                        </Button>
+                        </Button> */}
+                        <Link href={`/${organizationId}/projects/${projectId}/setup?members`}>
+                            <Button
+                                variant="ghost"
+                                className="border-[0.5px] border-border bg-card"
+                            >
+                                <UserPlus />
+                                Add Member
+                            </Button>
+                        </Link>
                     </div>
                 </div>
                 <nav

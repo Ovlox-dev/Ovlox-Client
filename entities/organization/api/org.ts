@@ -155,3 +155,36 @@ export const addIntegrations = async (
     const response = await apiClient.post<ApiResponse<IIntegration>>(`/orgs/${orgId}/integrations`, data);
     return response.data;
 };
+
+/**
+ * Permanently delete an integration. Removes its config (tokens, refresh tokens),
+ * IntegrationResource rows, and any IntegrationConnection links to projects.
+ * Requires MANAGE_INTEGRATIONS permission. Idempotent — calling on a non-existent
+ * integrationId returns a 404; otherwise returns a success message.
+ */
+export const removeOrgIntegration = async (
+    orgId: string,
+    integrationId: string,
+): Promise<{ message: string }> => {
+    const response = await apiClient.delete<{ message: string }>(
+        `/orgs/${orgId}/integrations/${integrationId}`,
+    );
+    return response.data;
+};
+
+/**
+ * Reset (disconnect) an integration without deleting the row. Clears stored tokens
+ * and marks status NOT_CONNECTED, so the user can reinstall via the same row instead
+ * of creating a new integration. Useful when tokens are corrupted or the OAuth grant
+ * was revoked at the provider side and we want a clean reauth slate.
+ */
+export const resetOrgIntegration = async (
+    orgId: string,
+    integrationId: string,
+): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(
+        `/orgs/${orgId}/integrations/${integrationId}/reset`,
+        null,
+    );
+    return response.data;
+};

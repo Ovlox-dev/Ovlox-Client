@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/api/client";
+import { OrgMemberStatus, PredefinedOrgRole } from "@/types/enum";
 
 /* Backend lives at src/modules/tasks/tasks.controller.ts. The status / source / priority enums
  * mirror src/database/enums.ts → TaskStatus / TaskSource / TaskPriority. */
@@ -6,28 +7,50 @@ export type TaskStatus = "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE" | "BLOCKED" 
 export type TaskSource = "MANUAL" | "AUTO_DETECTED" | "IMPORTED";
 /** Backend expects an integer 1..5 (inclusive). Higher = more urgent. */
 export type TaskPriority = 1 | 2 | 3 | 4 | 5;
-
 export interface Task {
     id: string;
     projectId: string;
     /** Provider that originated the task (optional) */
     provider?: string | null;
     providerId?: string | null;
+    source: TaskSource;
+    autoDetectedFromId?: string | null;
+    autoDetectedByMemberId?: string | null;
     title: string;
     description?: string | null;
     status: TaskStatus;
     priority?: TaskPriority | null;
     dueDate?: string | null;
-    source: TaskSource;
-    autoDetectedFromId?: string | null;
-    autoDetectedByMemberId?: string | null;
+    featureId?: string | null;
+    completedAt?: string | null;
+    completedByMemberId?: string | null;
     metadata?: Record<string, unknown> | null;
     createdAt: string;
     updatedAt: string;
-    /** Newer API shape */
-    assignedTo?: Array<{ memberId: string }>;
-    taskTeam?: unknown | null;
-    assignments?: Array<{ memberId: string; createdAt: string }>;
+    assignedTo?: Array<{
+        id: string,
+        name: string,
+        role: TaskTeamMemberRole,
+        team: unknown | null,
+        taskId: string,
+        teamId: string | null,
+        assignee: {
+            id: string,
+            roleId: string | null,
+            status: OrgMemberStatus,
+            userId: string,
+            invitedBy: string | null,
+            createdAt: string,
+            updatedAt: string,
+            organizationId: string,
+            predefinedRole: PredefinedOrgRole,
+        },
+        isActive: boolean,
+        assignedAt: string,
+        assigneeId: string,
+        assignedById: string,
+        unassignedAt: string | null,
+    }>;
 }
 
 export interface CreateTaskRequest {
