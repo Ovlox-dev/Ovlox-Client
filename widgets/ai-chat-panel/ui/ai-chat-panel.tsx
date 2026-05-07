@@ -34,6 +34,12 @@ export type AiChatScope =
 type StreamingState = {
     buffer: string;
     jobId: string | null;
+    /**
+     * When the backend emits an SSE "answer" event it may include the persisted assistant
+     * message id. Keep showing the streamed bubble until that id appears in `messages` to
+     * avoid a "disappear → refetch → reappear" flicker.
+     */
+    persistedAssistantMessageId?: string | null;
 };
 
 /**
@@ -45,6 +51,11 @@ type StreamingState = {
 type PendingExchange = {
     userText: string;
     sentAt: number;
+    /**
+     * Filled after send succeeds so we can hide the optimistic user bubble once the
+     * persisted user message is present in `messages` (avoids duplicate "sending…"/"just now").
+     */
+    persistedUserMessageId?: string | null;
 } | null;
 
 function MarkdownMessage({
@@ -123,7 +134,7 @@ export function AiChatPanel({
 
     const [activeConversationId, setActiveConversationId] = React.useState<string | null>(null);
     const [messageInput, setMessageInput] = React.useState("");
-    const [streaming, setStreaming] = React.useState<StreamingState>({ buffer: "", jobId: null });
+    const [streaming, setStreaming] = React.useState<StreamingState>({ buffer: "", jobId: null, persistedAssistantMessageId: null });
     const [pending, setPending] = React.useState<PendingExchange>(null);
     const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
     const [showJumpToLatest, setShowJumpToLatest] = React.useState(false);
@@ -131,6 +142,9 @@ export function AiChatPanel({
     const messagesEndRef = React.useRef<HTMLDivElement>(null);
     const composerTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
     const userNearBottomRef = React.useRef(true);
+    const didInitialScrollRef = React.useRef(false);
+    const prevMessagesLoadingRef = React.useRef<boolean>(true);
+    const layoutStabilizeTimerRef = React.useRef<number | null>(null);
     const sseRef = React.useRef<SseSubscription | null>(null);
     const sseJobIdRef = React.useRef<string | null>(null);
     const sseFallbackTimerRef = React.useRef<number | null>(null);
@@ -145,13 +159,17 @@ export function AiChatPanel({
     const { mutate: createConversation, isPending: creatingConversation } = useCreateConversation();
     const { mutate: sendMessage, isPending: sending } = useSendMessage(activeConversationId ?? "");
 
+    const clearOptimistic = React.useCallback(() => {
+        setStreaming({ buffer: "", jobId: null, persistedAssistantMessageId: null });
+        setPending(null);
+    }, []);
+
     const deferClearOptimisticAfterRefetch = React.useCallback(() => {
         let cleared = false;
         const clear = () => {
             if (cleared) { return; }
             cleared = true;
-            setStreaming({ buffer: "", jobId: null });
-            setPending(null);
+            clearOptimistic();
         };
 
         const timer = window.setTimeout(clear, 500);
@@ -159,7 +177,7 @@ export function AiChatPanel({
             window.clearTimeout(timer);
             clear();
         });
-    }, [refetchMessages]);
+    }, [refetchMessages, clearOptimistic]);
 
     const newConversationPayload = React.useCallback(
         (title: string) => {
@@ -220,9 +238,10 @@ export function AiChatPanel({
         joinConversation(activeConversationId);
         // Switching conversations should drop any leftover optimistic state from the previous one.
         setPending(null);
-        setStreaming({ buffer: "", jobId: null });
+        setStreaming({ buffer: "", jobId: null, persistedAssistantMessageId: null });
         setShowJumpToLatest(false);
         userNearBottomRef.current = true;
+        didInitialScrollRef.current = false;
         // Force scroll to the latest message on conversation switch.
         window.requestAnimationFrame(() => {
             messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
@@ -268,7 +287,7 @@ export function AiChatPanel({
                     ? evt.error
                     : "Try again.";
                 toast.error("Chat processing failed", { description });
-                setStreaming({ buffer: "", jobId: null });
+                setStreaming({ buffer: "", jobId: null, persistedAssistantMessageId: null });
                 setPending(null);
                 if (sseFallbackTimerRef.current) {
                     window.clearTimeout(sseFallbackTimerRef.current);
@@ -288,11 +307,88 @@ export function AiChatPanel({
         };
     }, [activeConversationId, deferClearOptimisticAfterRefetch]);
 
+    // Once the persisted assistant message lands in the message list, drop the streamed bubble.
+    React.useEffect(() => {
+        const assistantId = streaming.persistedAssistantMessageId;
+        if (!assistantId) { return; }
+        if (!messages || messages.length === 0) { return; }
+        const hasPersistedAssistant = messages.some((m) => m.id === assistantId);
+        if (!hasPersistedAssistant) { return; }
+        setStreaming({ buffer: "", jobId: null, persistedAssistantMessageId: null });
+        setPending(null);
+    }, [messages, streaming.persistedAssistantMessageId]);
+
     const isNearBottom = React.useCallback((el: HTMLElement) => {
         const thresholdPx = 80;
         const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
         return remaining <= thresholdPx;
     }, []);
+
+    const scrollToBottom = React.useCallback((behavior: ScrollBehavior) => {
+        const el = scrollAreaRef.current;
+        if (el) {
+            el.scrollTo({ top: el.scrollHeight, behavior });
+            return;
+        }
+        messagesEndRef.current?.scrollIntoView({ behavior });
+    }, []);
+
+    // Layout-stable "pin to bottom" after initial load / loading transitions.
+    React.useLayoutEffect(() => {
+        const el = scrollAreaRef.current;
+        if (!el) { return; }
+
+        const hadLoading = prevMessagesLoadingRef.current;
+        prevMessagesLoadingRef.current = messagesLoading;
+
+        const messageCount = messages?.length ?? 0;
+        const justFinishedLoading = hadLoading && !messagesLoading;
+
+        if (!didInitialScrollRef.current && !messagesLoading && messageCount > 0) {
+            didInitialScrollRef.current = true;
+            userNearBottomRef.current = true;
+            setShowJumpToLatest(false);
+
+            // Double-rAF to let DOM paint and measure (prevents "lands short" on first load).
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => {
+                    scrollToBottom("auto");
+                });
+            });
+            return;
+        }
+
+        if (justFinishedLoading && userNearBottomRef.current) {
+            window.requestAnimationFrame(() => {
+                scrollToBottom("auto");
+            });
+        }
+    }, [messagesLoading, messages, scrollToBottom]);
+
+    // If content height grows after render (markdown, fonts, images), re-pin once when near bottom.
+    React.useEffect(() => {
+        const el = scrollAreaRef.current;
+        if (!el) { return; }
+
+        const ro = new ResizeObserver(() => {
+            if (!userNearBottomRef.current) { return; }
+            if (layoutStabilizeTimerRef.current) { window.clearTimeout(layoutStabilizeTimerRef.current); }
+            layoutStabilizeTimerRef.current = window.setTimeout(() => {
+                layoutStabilizeTimerRef.current = null;
+                if (!userNearBottomRef.current) { return; }
+                scrollToBottom("auto");
+            }, 80);
+        });
+
+        ro.observe(el);
+        return () => {
+            ro.disconnect();
+            if (layoutStabilizeTimerRef.current) {
+                window.clearTimeout(layoutStabilizeTimerRef.current);
+                layoutStabilizeTimerRef.current = null;
+            }
+        };
+    }, [scrollToBottom]);
 
     React.useEffect(() => {
         const el = scrollAreaRef.current;
@@ -300,13 +396,19 @@ export function AiChatPanel({
 
         const shouldAutoScroll = userNearBottomRef.current || isNearBottom(el);
         if (shouldAutoScroll) {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            // Use "auto" for initial/just-finished-load; "smooth" for incremental updates.
+            const behavior: ScrollBehavior = didInitialScrollRef.current ? "smooth" : "auto";
+            messagesEndRef.current?.scrollIntoView({ behavior });
             setShowJumpToLatest(false);
         } else {
             // New content came in while the user is reading older messages.
             setShowJumpToLatest(true);
         }
     }, [messages, streaming.buffer, pending, isNearBottom]);
+
+    const hidePendingUserBubble = !!pending?.persistedUserMessageId
+        && (messages ?? []).some((m) => m.id === pending.persistedUserMessageId);
+
 
     const handleSend = () => {
         const text = messageInput.trim();
@@ -319,7 +421,7 @@ export function AiChatPanel({
         sseRef.current = null;
         sseJobIdRef.current = null;
 
-        setStreaming({ buffer: "", jobId: null });
+        setStreaming({ buffer: "", jobId: null, persistedAssistantMessageId: null });
         setPending({ userText: text, sentAt: Date.now() });
         setMessageInput("");
         // Sending is an explicit "take me to the latest" action even if the user was scrolled up.
@@ -331,11 +433,12 @@ export function AiChatPanel({
             { question: text },
             {
                 onSuccess: (res) => {
+                    setPending((prev) => prev ? ({ ...prev, persistedUserMessageId: res?.userMessage?.id ?? null }) : prev);
                     refetchMessages();
                     const jobId = res?.jobId;
                     if (!jobId) { return; }
 
-                    setStreaming((prev) => ({ ...prev, jobId }));
+                    setStreaming((prev) => ({ ...prev, jobId, persistedAssistantMessageId: null }));
                     socketSawChunkForJobRef.current[jobId] = false;
 
                     const startSse = (id: string) => {
@@ -353,14 +456,22 @@ export function AiChatPanel({
                             if ("jobId" in evt && evt.jobId !== id) { return; }
 
                             if ("kind" in evt && evt.kind === "chunk") {
-                                setStreaming((prev) => ({ buffer: prev.buffer + evt.delta, jobId: id }));
+                                setStreaming((prev) => ({ buffer: prev.buffer + evt.delta, jobId: id, persistedAssistantMessageId: prev.persistedAssistantMessageId ?? null }));
                                 return;
                             }
                             if ("kind" in evt && evt.kind === "answer") {
                                 sseRef.current?.unsubscribe();
                                 sseRef.current = null;
                                 sseJobIdRef.current = null;
-                                deferClearOptimisticAfterRefetch();
+                                // Don't clear the streamed bubble immediately — keep it until the
+                                // persisted assistant row is visible to avoid flicker.
+                                setStreaming((prev) => ({
+                                    buffer: prev.buffer || evt.answer || "",
+                                    jobId: id,
+                                    persistedAssistantMessageId: evt.chatMessageId ?? null,
+                                }));
+                                setPending((prev) => prev ? prev : null);
+                                void refetchMessages();
                             }
                         };
 
@@ -541,7 +652,7 @@ export function AiChatPanel({
                             />
                         ))
                     )}
-                    {pending ? (
+                    {pending && !hidePendingUserBubble ? (
                         <UserBubble
                             text={pending.userText}
                             compact={compact}

@@ -1,4 +1,5 @@
 import { apiBaseUrl } from "@/shared/api/client";
+import { getAccessToken } from "@/shared/lib/auth/token-service";
 
 /**
  * Generic Server-Sent Events helper. The backend exposes three SSE streams (project readiness,
@@ -9,7 +10,11 @@ import { apiBaseUrl } from "@/shared/api/client";
  * using the `unsubscribe` callback for React effect teardown.
  */
 export interface SseSubscription {
-    eventSource: EventSource;
+    /**
+     * Kept for backwards compatibility with the previous native EventSource implementation.
+     * Fetch-based SSE does not expose an EventSource instance.
+     */
+    eventSource?: EventSource;
     unsubscribe: () => void;
 }
 
@@ -21,28 +26,103 @@ export function createEventSource<T = unknown>(
         onOpen?: () => void;
     },
 ): SseSubscription {
-    const eventSource = new EventSource(url, { withCredentials: true });
+    const abortController = new AbortController();
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    let unsubscribed = false;
 
-    const messageHandler = (event: MessageEvent) => {
+    const dispatchData = (rawData: string) => {
+        const data = rawData.trimEnd();
+        if (!data) { return; }
         try {
-            const parsed = JSON.parse(event.data) as T;
+            const parsed = JSON.parse(data) as T;
             handlers.onMessage(parsed);
         } catch {
             // Some backends emit raw strings — surface as-is rather than dropping.
-            handlers.onMessage(event.data as unknown as T);
+            handlers.onMessage(data as unknown as T);
         }
     };
 
-    eventSource.addEventListener("message", messageHandler);
-    if (handlers.onOpen) { eventSource.addEventListener("open", handlers.onOpen); }
-    if (handlers.onError) { eventSource.addEventListener("error", handlers.onError); }
+    const start = async () => {
+        try {
+            const accessToken = getAccessToken();
+            const headers: Record<string, string> = {
+                Accept: "text/event-stream",
+            };
+            if (accessToken) {
+                headers.Authorization = `Bearer ${accessToken}`;
+            }
 
-    const unsubscribe = () => {
-        eventSource.removeEventListener("message", messageHandler);
-        eventSource.close();
+            const res = await fetch(url, {
+                method: "GET",
+                credentials: "include",
+                headers,
+                signal: abortController.signal,
+            });
+
+            if (!res.ok || !res.body) {
+                handlers.onError?.(new Event("error"));
+                return;
+            }
+
+            handlers.onOpen?.();
+
+            const localReader = res.body.getReader();
+            reader = localReader;
+            const decoder = new TextDecoder();
+
+            // Minimal SSE parser:
+            // - events separated by a blank line
+            // - payload is one or more `data:` lines, joined with `\n`
+            let buffer = "";
+            let dataLines: string[] = [];
+
+            while (!abortController.signal.aborted) {
+                const { value, done } = await localReader.read();
+                if (done) { break; }
+
+                buffer += decoder.decode(value, { stream: true });
+                buffer = buffer.replace(/\r\n/g, "\n");
+
+                let idx: number;
+                while ((idx = buffer.indexOf("\n")) !== -1) {
+                    const line = buffer.slice(0, idx);
+                    buffer = buffer.slice(idx + 1);
+
+                    if (line === "") {
+                        if (dataLines.length > 0) {
+                            dispatchData(dataLines.join("\n"));
+                            dataLines = [];
+                        }
+                        continue;
+                    }
+
+                    if (line.startsWith("data:")) {
+                        dataLines.push(line.slice("data:".length).trimStart());
+                    }
+                }
+            }
+        } catch {
+            // Abort should be a silent teardown.
+            if (!abortController.signal.aborted) {
+                handlers.onError?.(new Event("error"));
+            }
+        } finally {
+            try { await reader?.cancel(); } catch { /* ignore */ }
+            reader = null;
+        }
     };
 
-    return { eventSource, unsubscribe };
+    // Fire and forget; callers control via unsubscribe.
+    void start();
+
+    const unsubscribe = () => {
+        if (unsubscribed) { return; }
+        unsubscribed = true;
+        abortController.abort();
+        // reader.cancel() is handled in finally.
+    };
+
+    return { unsubscribe };
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
