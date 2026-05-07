@@ -34,7 +34,9 @@ export default function GitHubIntegrationPage() {
     if (!integrationId) { return; }
     try {
       setSyncing(true)
-      await syncGithubRepositories(integrationId)
+      // Manual sync — explicit user action, force a full re-walk to pick up history that
+      // may have changed (renamed branches, force-pushes, repo permissions added, etc.).
+      await syncGithubRepositories(integrationId, undefined, { force: true })
       await refetchRepositories()
     } finally {
       setSyncing(false)

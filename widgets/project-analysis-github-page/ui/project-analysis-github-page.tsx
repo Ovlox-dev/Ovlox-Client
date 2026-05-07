@@ -40,9 +40,10 @@ import {
     type GitHubPullRequest,
     type GitHubIssue,
 } from "@/entities/github"
-import { useOrg } from "@/entities/organization"
-import { useProject } from "@/hooks/useProject"
+import { useListProjectIntegrations, useListRepositories } from "@/entities/project"
 import { ExternalProvider } from "@/types/enum"
+import { Plug } from "lucide-react"
+import Link from "next/link"
 import { llmMarkdownToHtml } from "@/lib/llm-format"
 import { DiffViewer } from "@/components/diff-viewer"
 import {
@@ -58,19 +59,21 @@ type CommitSummary = GitHubCommitSummary
 
 type CommitDetail = GitHubCommitDetail
 
+type IssueState = "open" | "closed" | "all"
+
 export function ProjectAnalysisGithubPage() {
     const router = useRouter()
     const pathname = usePathname()
     const searchParams = useSearchParams()
-    const params = useParams()
-    const projectId = params.projectId as string
-    const { currentOrg } = useOrg()
-    const { loadProject, currentProject } = useProject()
+    const params = useParams<{ organizationId: string; projectId: string }>()
+    const organizationId = params.organizationId
+    const projectId = params.projectId
     const [selectedCategory, setSelectedCategory] = React.useState<"commits" | "prs" | "issues">("commits")
     const [commits, setCommits] = React.useState<CommitSummary[]>([])
     const [commitDetail, setCommitDetail] = React.useState<CommitDetail | null>(null)
     const [selectedCommit, setSelectedCommit] = React.useState<CommitSummary | null>(null)
     const [isLoadingCommits, setIsLoadingCommits] = React.useState(true)
+    const [commitsLimit, setCommitsLimit] = React.useState(20)
     const [isLoadingDetail, setIsLoadingDetail] = React.useState(false)
     const [showDiffModal, setShowDiffModal] = React.useState(false)
     const [showDebugModal, setShowDebugModal] = React.useState(false)
@@ -78,8 +81,32 @@ export function ProjectAnalysisGithubPage() {
     const [debugResult, setDebugResult] = React.useState<DebugGithubCommitResponse | null>(null)
     const [isDebugLoading, setIsDebugLoading] = React.useState(false)
     const [debugHtml, setDebugHtml] = React.useState<string | null>(null)
-    const [repositories] = React.useState<Array<{ full_name: string; name: string }>>([])
     const [selectedRepoFullName, setSelectedRepoFullName] = React.useState<string>("")
+    const [issueState, setIssueState] = React.useState<IssueState>("open")
+
+    // Project repos populate the dropdown — Repository.name on the backend is in
+    // `owner/repo` format (set by normalizeGithubRepository) which is exactly what the
+    // commits/PRs/issues endpoints expect as the `repo` query param.
+    const { data: projectRepos } = useListRepositories(organizationId, projectId, { limit: 50 })
+    const repositories = React.useMemo(
+        () =>
+            (projectRepos ?? [])
+                .filter((r): r is typeof r & { name: string } => !!r.name)
+                .map((r) => ({ full_name: r.name, name: r.name })),
+        [projectRepos],
+    )
+
+    // Resolve GitHub integration via the project-integrations endpoint (URL-driven, not
+    // store-driven, so we don't pick up a stale orgId from an earlier session).
+    const { data: linkedIntegrations } = useListProjectIntegrations(organizationId, projectId)
+    const githubIntegrationId = React.useMemo(() => {
+        const link = (linkedIntegrations ?? []).find((l) => {
+            const provider = l.provider ?? l.integration?.type
+            const status = l.integrationStatus ?? l.integration?.status
+            return provider === ExternalProvider.GITHUB && (status === "CONNECTED" || !status)
+        })
+        return link?.integrationId
+    }, [linkedIntegrations])
 
     const [pullRequests, setPullRequests] = React.useState<GitHubPullRequest[]>([])
     const [issues, setIssues] = React.useState<GitHubIssue[]>([])
@@ -100,39 +127,44 @@ export function ProjectAnalysisGithubPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
+    // Auto-pick the first repo when the dropdown becomes available so the page is
+    // immediately usable. The user can switch later. Reads ?repo= from the URL on first
+    // mount so deep links work, then writes back when the user changes selection.
     React.useEffect(() => {
-        if (currentOrg?.id && projectId) {
-            loadProject(currentOrg.id, projectId as string).catch((err) => {
-                toast.error("Failed to load project for GitHub analysis", {
-                    description: err.message,
-                })
-            })
+        if (selectedRepoFullName || repositories.length === 0) return
+        const fromUrl = searchParams.get("repo")
+        const initial = fromUrl && repositories.some((r) => r.full_name === fromUrl)
+            ? fromUrl
+            : repositories[0].full_name
+        setSelectedRepoFullName(initial)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [repositories])
+
+    // Sync the selected repo to the URL so refreshes preserve it.
+    React.useEffect(() => {
+        if (!selectedRepoFullName) return
+        const next = new URLSearchParams(searchParams)
+        if (next.get("repo") !== selectedRepoFullName) {
+            next.set("repo", selectedRepoFullName)
+            router.replace(`${pathname}?${next.toString()}`)
         }
-    }, [currentOrg?.id, projectId, loadProject])
-
-    const githubIntegrationId = React.useMemo(() => {
-        const connections = currentProject?.integrations || []
-        const githubConnection = connections.find((conn) => {
-            const provider = conn.integration?.type
-            const status = conn.integration?.status
-
-            return (
-                provider === ExternalProvider.GITHUB &&
-                (status === "CONNECTED" || !status)
-            )
-        })
-        return githubConnection?.integrationId
-    }, [currentProject])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedRepoFullName])
 
     React.useEffect(() => {
         const loadCommits = async () => {
             if (!githubIntegrationId) {
                 setCommits([])
+                setIsLoadingCommits(false)
                 return
             }
             try {
                 setIsLoadingCommits(true)
-                const data = await getGithubCommits(githubIntegrationId)
+                const data = await getGithubCommits(githubIntegrationId, {
+                    projectId,
+                    repoFullName: selectedRepoFullName || undefined,
+                    limit: commitsLimit,
+                })
                 setCommits(data)
             } catch (err) {
                 toast.error("Failed to load GitHub commits", {
@@ -145,7 +177,7 @@ export function ProjectAnalysisGithubPage() {
         }
 
         loadCommits()
-    }, [githubIntegrationId])
+    }, [githubIntegrationId, projectId, selectedRepoFullName, commitsLimit])
 
     React.useEffect(() => {
         const loadPRsAndIssues = async () => {
@@ -159,8 +191,18 @@ export function ProjectAnalysisGithubPage() {
                 setIsLoadingPRs(true)
                 setIsLoadingIssues(true)
                 const [prs, iss] = await Promise.all([
-                    getGithubPullRequests(githubIntegrationId, { repoFullName: selectedRepoFullName, state: "open", limit: 50 }),
-                    getGithubIssues(githubIntegrationId, { repoFullName: selectedRepoFullName, state: "open", limit: 50 }),
+                    getGithubPullRequests(githubIntegrationId, {
+                        repoFullName: selectedRepoFullName,
+                        projectId,
+                        state: issueState,
+                        limit: 50,
+                    }),
+                    getGithubIssues(githubIntegrationId, {
+                        repoFullName: selectedRepoFullName,
+                        projectId,
+                        state: issueState,
+                        limit: 50,
+                    }),
                 ])
                 setPullRequests(prs)
                 setIssues(iss)
@@ -177,7 +219,7 @@ export function ProjectAnalysisGithubPage() {
         }
 
         void loadPRsAndIssues()
-    }, [githubIntegrationId, selectedRepoFullName])
+    }, [githubIntegrationId, selectedRepoFullName, issueState, projectId])
 
     const handleTabChange = (val: string) => {
         setSelectedCategory(val as "commits" | "prs" | "issues")
@@ -205,23 +247,44 @@ export function ProjectAnalysisGithubPage() {
         }
     }
 
-    const handleSelectCommit = async (commit: CommitSummary) => {
-        if (!githubIntegrationId) { return }
-        setSelectedCommit(commit)
+    const loadCommitDetail = React.useCallback(
+        async (commit: CommitSummary, options?: { refresh?: boolean }) => {
+            if (!githubIntegrationId) { return }
+            setSelectedCommit(commit)
+            try {
+                setIsLoadingDetail(true)
+                const detail = await getGithubCommitDetails(githubIntegrationId, commit.sha, {
+                    projectId,
+                    repoFullName: selectedRepoFullName || undefined,
+                    refresh: options?.refresh,
+                })
+                setCommitDetail(detail)
+                setSummaryHtml(await llmMarkdownToHtml(detail.aiSummary))
+                if (options?.refresh) {
+                    toast.success("Re-ran AI analysis on this commit")
+                }
+            } catch (error) {
+                toast.error("Failed to load commit detail", {
+                    description: error instanceof Error ? error.message : "Unknown error",
+                })
+                if (!options?.refresh) {
+                    setCommitDetail(null)
+                }
+            } finally {
+                setIsLoadingDetail(false)
+            }
+        },
+        [githubIntegrationId, projectId, selectedRepoFullName],
+    )
+
+    const handleSelectCommit = (commit: CommitSummary) => {
         setCommitDetail(null)
-        try {
-            setIsLoadingDetail(true)
-            const detail = await getGithubCommitDetails(githubIntegrationId, commit.sha)
-            setCommitDetail(detail)
-            setSummaryHtml(await llmMarkdownToHtml(detail.aiSummary))
-        } catch (error) {
-            toast.error("Failed to load commit detail", {
-                description: error instanceof Error ? error.message : "Unknown error",
-            })
-            setCommitDetail(null)
-        } finally {
-            setIsLoadingDetail(false)
-        }
+        void loadCommitDetail(commit)
+    }
+
+    const handleReanalyzeCommit = () => {
+        if (!selectedCommit) { return }
+        void loadCommitDetail(selectedCommit, { refresh: true })
     }
 
     const getSecurityBadge = (level: string) => {
@@ -268,16 +331,31 @@ export function ProjectAnalysisGithubPage() {
             </div>
 
             <div className="space-y-2">
-                <h4 className="font-medium flex items-center gap-2">
-                    <Code className="size-4" />
-                    AI Summary
-                </h4>
+                <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-medium flex items-center gap-2">
+                        <Code className="size-4" />
+                        AI Summary
+                    </h4>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={handleReanalyzeCommit}
+                        disabled={isLoadingDetail}
+                        title="Bypass the cached analysis and re-run code-quality + security analysis. Costs credits."
+                    >
+                        {isLoadingDetail ? "Re-analyzing…" : "Re-analyze"}
+                    </Button>
+                </div>
                 {summaryHtml && (
                     <div
                         className="prose prose-sm max-w-none text-sm text-muted-foreground"
                         dangerouslySetInnerHTML={{ __html: summaryHtml }}
                     />
                 )}
+                <p className="text-[10px] text-muted-foreground/70">
+                    Cached after first analysis. Click <strong>Re-analyze</strong> to refresh with the current diff.
+                </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -408,6 +486,25 @@ export function ProjectAnalysisGithubPage() {
         </div>
     )
 
+    // Render an explicit empty state when GitHub isn't linked to this project — much
+    // clearer than "no commits found", and gives the user a CTA to fix it.
+    if (!githubIntegrationId && linkedIntegrations) {
+        return (
+            <div className="p-6 max-w-3xl mx-auto">
+                <Card className="p-12 text-center">
+                    <Plug className="size-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+                    <h3 className="text-lg font-semibold mb-1">GitHub isn&apos;t connected to this project</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                        Link a GitHub repository to see AI analysis for commits, PRs, and issues.
+                    </p>
+                    <Button asChild>
+                        <Link href={`/${organizationId}/projects/${projectId}/setup`}>Open setup wizard</Link>
+                    </Button>
+                </Card>
+            </div>
+        )
+    }
+
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
@@ -425,15 +522,31 @@ export function ProjectAnalysisGithubPage() {
             </div>
 
             <Tabs value={selectedCategory} onValueChange={handleTabChange}>
-                <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <div className="text-sm text-muted-foreground">Repository</div>
-                    <div className="min-w-[280px]">
+                    <div className="flex items-center gap-2">
+                        {(selectedCategory === "prs" || selectedCategory === "issues") ? (
+                            <Select value={issueState} onValueChange={(v) => setIssueState(v as IssueState)}>
+                                <SelectTrigger className="w-32">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="open">Open</SelectItem>
+                                    <SelectItem value="closed">Closed</SelectItem>
+                                    <SelectItem value="all">All</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        ) : null}
                         <Select value={selectedRepoFullName} onValueChange={(v) => setSelectedRepoFullName(v)}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select repository" />
+                            <SelectTrigger className="min-w-70">
+                                <SelectValue placeholder={repositories.length === 0 ? "No repos synced" : "Select repository"} />
                             </SelectTrigger>
                             <SelectContent>
-                                {repositories.map((r) => (
+                                {repositories.length === 0 ? (
+                                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                        No repos linked to this project yet.
+                                    </div>
+                                ) : repositories.map((r) => (
                                     <SelectItem key={r.full_name} value={r.full_name}>
                                         {r.full_name}
                                     </SelectItem>
@@ -530,6 +643,18 @@ export function ProjectAnalysisGithubPage() {
                                 </Card>
                             ))
                         )}
+                        {!selectedCommit && commits.length > 0 && commits.length >= commitsLimit ? (
+                            <div className="flex justify-center pt-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCommitsLimit((n) => n + 20)}
+                                    disabled={isLoadingCommits}
+                                >
+                                    {isLoadingCommits ? "Loading…" : "Load more commits"}
+                                </Button>
+                            </div>
+                        ) : null}
                     </TabsContent>
 
                     <TabsContent value="prs" className="mt-0 space-y-3">

@@ -4,9 +4,11 @@ import {
     getCodeFile,
     getRepository,
     listCodeFiles,
+    listFileCommits,
     listFileRisks,
+    listProjectCommits,
     listRepositories,
-    unwrapList,
+    type CommitsListResponse,
 } from "../api/repositories.api";
 import type { ExternalProvider } from "@/types/enum";
 import { projectKeys } from "./projects.queries";
@@ -22,6 +24,10 @@ const repoKeys = {
         [...projectKeys.detail(orgId, projectId), "repositories", repositoryId, "files", params] as const,
     file: (orgId: string, projectId: string, fileId: string) =>
         [...projectKeys.detail(orgId, projectId), "repositories", "code-file", fileId] as const,
+    fileCommits: (orgId: string, projectId: string, fileId: string, params?: unknown) =>
+        [...projectKeys.detail(orgId, projectId), "repositories", "code-file", fileId, "commits", params] as const,
+    projectCommits: (orgId: string, projectId: string, params?: unknown) =>
+        [...projectKeys.detail(orgId, projectId), "repositories", "commits", params] as const,
 };
 
 export const useListRepositories = (
@@ -31,7 +37,7 @@ export const useListRepositories = (
 ) =>
     useQuery({
         queryKey: repoKeys.list(orgId, projectId, params),
-        queryFn: async () => unwrapList(await listRepositories(orgId, projectId, params)),
+        queryFn: () => listRepositories(orgId, projectId, params),
         enabled: !!orgId && !!projectId,
     });
 
@@ -49,7 +55,7 @@ export const useListFileRisks = (
 ) =>
     useQuery({
         queryKey: repoKeys.risks(orgId, projectId, params),
-        queryFn: async () => unwrapList(await listFileRisks(orgId, projectId, params)),
+        queryFn: () => listFileRisks(orgId, projectId, params),
         enabled: !!orgId && !!projectId,
     });
 
@@ -61,7 +67,7 @@ export const useListCodeFiles = (
 ) =>
     useQuery({
         queryKey: repoKeys.files(orgId, projectId, repositoryId ?? "", params),
-        queryFn: async () => unwrapList(await listCodeFiles(orgId, projectId, repositoryId!, params)),
+        queryFn: () => listCodeFiles(orgId, projectId, repositoryId!, params),
         enabled: !!orgId && !!projectId && !!repositoryId,
     });
 
@@ -70,4 +76,34 @@ export const useGetCodeFile = (orgId: string, projectId: string, fileId: string 
         queryKey: repoKeys.file(orgId, projectId, fileId ?? ""),
         queryFn: () => getCodeFile(orgId, projectId, fileId!),
         enabled: !!orgId && !!projectId && !!fileId,
+    });
+
+export const useListFileCommits = (
+    orgId: string,
+    projectId: string,
+    fileId: string | undefined,
+    params?: { limit?: number; offset?: number },
+) =>
+    useQuery<CommitsListResponse>({
+        queryKey: repoKeys.fileCommits(orgId, projectId, fileId ?? "", params),
+        queryFn: () => listFileCommits(orgId, projectId, fileId!, params),
+        enabled: !!orgId && !!projectId && !!fileId,
+    });
+
+export const useListProjectCommits = (
+    orgId: string,
+    projectId: string,
+    params?: {
+        repositoryId?: string;
+        author?: string;
+        since?: string;
+        until?: string;
+        limit?: number;
+        offset?: number;
+    },
+) =>
+    useQuery<CommitsListResponse>({
+        queryKey: repoKeys.projectCommits(orgId, projectId, params),
+        queryFn: () => listProjectCommits(orgId, projectId, params),
+        enabled: !!orgId && !!projectId,
     });

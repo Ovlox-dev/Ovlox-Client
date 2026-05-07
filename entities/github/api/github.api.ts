@@ -69,9 +69,16 @@ export const getRepositoriesByProject = async (integrationId: string, projectId:
     return response.data;
 };
 
-export const syncGithubRepositories = async (integrationId: string, projectId?: string): Promise<SyncRepositoriesResponse> => {
+export const syncGithubRepositories = async (
+    integrationId: string,
+    projectId?: string,
+    options?: { force?: boolean },
+): Promise<SyncRepositoriesResponse> => {
     const params: Record<string, string> = {};
     if (projectId) { params.projectId = projectId; }
+    // force=true tells the backend to re-walk every commit and every file even when the
+    // repo already has ingested data. Use sparingly — full backfills are expensive.
+    if (options?.force) { params.force = "true"; }
 
     const response = await apiClient.post<SyncRepositoriesResponse>(`/integrations/github/sync-repos/${integrationId}`, null, { params });
     return response.data;
@@ -79,7 +86,7 @@ export const syncGithubRepositories = async (integrationId: string, projectId?: 
 
 export const getGithubOverview = async (integrationId: string, repoFullName?: string, projectId?: string): Promise<GitHubOverview> => {
     const params: Record<string, string> = {};
-    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (repoFullName) { params.repo = repoFullName; }
     if (projectId) { params.projectId = projectId; }
 
     const response = await apiClient.get<GitHubOverview>(`/integrations/github/overview/${integrationId}`, { params });
@@ -98,7 +105,7 @@ export const getGithubCommits = async (
 ): Promise<GitHubCommitSummary[]> => {
     const params: Record<string, string | number> = {};
     const repoFullName = options?.repoFullName ?? options?.repo;
-    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (repoFullName) { params.repo = repoFullName; }
     if (options?.branch) { params.branch = options.branch; }
     if (options?.projectId) { params.projectId = options.projectId; }
     if (options?.limit) { params.limit = options.limit; }
@@ -113,7 +120,7 @@ export const getGithubPullRequests = async (
 ): Promise<GitHubPullRequest[]> => {
     const params: Record<string, string | number> = {};
     const repoFullName = options?.repoFullName ?? options?.repo;
-    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (repoFullName) { params.repo = repoFullName; }
     if (options?.state) { params.state = options.state; }
     if (options?.projectId) { params.projectId = options.projectId; }
     if (options?.limit) { params.limit = options.limit; }
@@ -128,7 +135,7 @@ export const getGithubIssues = async (
 ): Promise<GitHubIssue[]> => {
     const params: Record<string, string | number> = {};
     const repoFullName = options?.repoFullName ?? options?.repo;
-    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (repoFullName) { params.repo = repoFullName; }
     if (options?.state) { params.state = options.state; }
     if (options?.projectId) { params.projectId = options.projectId; }
     if (options?.limit) { params.limit = options.limit; }
@@ -140,12 +147,15 @@ export const getGithubIssues = async (
 export const getGithubCommitDetails = async (
     integrationId: string,
     sha: string,
-    options?: { repoFullName?: string; projectId?: string; repo?: string }
+    options?: { repoFullName?: string; projectId?: string; repo?: string; refresh?: boolean }
 ): Promise<GitHubCommitDetail> => {
     const params: Record<string, string> = {};
     const repoFullName = options?.repoFullName ?? options?.repo;
-    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (repoFullName) { params.repo = repoFullName; }
     if (options?.projectId) { params.projectId = options.projectId; }
+    // Pass refresh=true to bypass the LLM analysis cache and re-run code quality / security
+    // analyses. By default the backend serves cached results to avoid re-charging credits.
+    if (options?.refresh) { params.refresh = "true"; }
 
     const response = await apiClient.get<GitHubCommitDetail>(`/integrations/github/commit/details/${integrationId}/${sha}`, { params });
     return response.data;
@@ -158,7 +168,7 @@ export const debugGithubCommit = async (
 ): Promise<DebugGithubCommitResponse> => {
     const params: Record<string, string> = {};
     const repoFullName = options?.repoFullName ?? options?.repo;
-    if (repoFullName) { params.repoFullName = repoFullName; }
+    if (repoFullName) { params.repo = repoFullName; }
     if (options?.projectId) { params.projectId = options.projectId; }
 
     const response = await apiClient.get<DebugGithubCommitResponse>(`/integrations/github/debug/${integrationId}/${sha}`, { params });

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
     Activity,
     Loader2,
@@ -75,22 +75,74 @@ function sinceFromRange(range: RangeKey): string | undefined {
     return undefined;
 }
 
+const SOURCE_OPTIONS: { value: string; label: string }[] = [
+    { value: "all", label: "All sources" },
+    { value: "GITHUB", label: "GitHub" },
+    { value: "JIRA", label: "Jira" },
+    { value: "LINEAR", label: "Linear" },
+    { value: "SLACK", label: "Slack" },
+    { value: "DISCORD", label: "Discord" },
+    { value: "NOTION", label: "Notion" },
+    { value: "FIGMA", label: "Figma" },
+];
+
+/** Read the source field off whichever shape the timeline metadata uses for that entry. */
+function entrySource(entry: TimelineEntry): string | null {
+    const m = entry.metadata as Record<string, unknown> | null | undefined;
+    if (!m) return null;
+    const provider = (m.provider ?? m.source) as string | undefined;
+    return provider ? provider.toUpperCase() : null;
+}
+
 export function ProjectEventsPage() {
     const { organizationId, projectId } = useParams<{ organizationId: string; projectId: string }>();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const pathname = usePathname();
+
+    // Initialize source filter from `?source=` so links from the Analysis page deep-link directly.
+    const initialSource = (searchParams.get("source") ?? "all").toUpperCase();
     const [category, setCategory] = React.useState<string>("all");
     const [range, setRange] = React.useState<RangeKey>("7d");
     const [query, setQuery] = React.useState("");
+    const [source, setSource] = React.useState<string>(
+        SOURCE_OPTIONS.some((o) => o.value === initialSource) ? initialSource : "all",
+    );
 
+    // Keep `?source=` in sync with the dropdown so refresh / share preserves the filter.
+    React.useEffect(() => {
+        const next = new URLSearchParams(searchParams);
+        if (source === "all") { next.delete("source"); }
+        else { next.set("source", source); }
+        const qs = next.toString();
+        const target = qs ? `${pathname}?${qs}` : pathname;
+        router.replace(target);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [source]);
+
+    // CRITICAL: memoize timeline query inputs by their controlling state. `sinceFromRange`
+    // calls `Date.now()`, which produces a different millisecond on every render. Passing
+    // it inline made TanStack Query see a new queryKey each render, triggering a
+    // refetch → re-render → refetch loop that hammered /timeline at ~10 req/s until the
+    // global 200/60s throttle returned 429.
+    const since = React.useMemo(() => sinceFromRange(range), [range]);
+    const categoriesArg = React.useMemo(
+        () => (category === "all" ? undefined : [category]),
+        [category],
+    );
     const { data, isLoading, error } = useGetTimeline(organizationId, projectId, {
-        since: sinceFromRange(range),
-        categories: category === "all" ? undefined : [category],
+        since,
+        categories: categoriesArg,
         limit: 200,
     });
     const { data: linkedIntegrations } = useListProjectIntegrations(organizationId, projectId);
     const hasIntegrations = (linkedIntegrations?.length ?? 0) > 0;
 
     const entries = React.useMemo(() => {
-        const all = data?.entries ?? [];
+        let all = data?.entries ?? [];
+        if (source !== "all") {
+            all = all.filter((e) => entrySource(e) === source);
+        }
         if (!query.trim()) { return all; }
         const q = query.toLowerCase();
         return all.filter(
@@ -98,7 +150,7 @@ export function ProjectEventsPage() {
                 e.title.toLowerCase().includes(q) ||
                 (e.summary?.toLowerCase().includes(q) ?? false),
         );
-    }, [data, query]);
+    }, [data, query, source]);
 
     const counts = React.useMemo(() => {
         const result: Record<string, number> = {};
@@ -140,6 +192,16 @@ export function ProjectEventsPage() {
                         className="pl-10"
                     />
                 </div>
+                <Select value={source} onValueChange={setSource}>
+                    <SelectTrigger className="w-full sm:w-40">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {SOURCE_OPTIONS.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                 <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger className="w-full sm:w-44">
                         <SelectValue />
@@ -163,7 +225,7 @@ export function ProjectEventsPage() {
                 </Select>
             </div>
 
-            {!isLoading ? (
+            {isLoading ? (
                 <div className="flex justify-center py-12"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
             ) : error ? (
                 <Card className="p-12 text-center">

@@ -96,7 +96,8 @@ export function ProjectAnalysisPage() {
             return;
         }
         setIsLoadingGithub(true);
-        getGithubOverview(githubIntegrationId, projectId)
+        // signature: (integrationId, repoFullName?, projectId?) — projectId goes in slot 3, not 2.
+        getGithubOverview(githubIntegrationId, undefined, projectId)
             .then((data) => setGithubOverview(data))
             .catch((err) => toast.error("Failed to fetch GitHub overview", {
                 description: err instanceof Error ? err.message : "Unknown error",
@@ -171,7 +172,15 @@ export function ProjectAnalysisPage() {
                                 .filter((s) => s.id !== "all" && s.id !== "GITHUB")
                                 .filter((s) => selectedSource === "all" || s.id === selectedSource)
                                 .map((source) => (
-                                    <ComingSoonCard key={source.id} source={source} />
+                                    <SourceActivityCard
+                                        key={source.id}
+                                        source={source}
+                                        onClick={() =>
+                                            router.push(
+                                                `/${organizationId}/projects/${projectId}/events?source=${source.id}`,
+                                            )
+                                        }
+                                    />
                                 ))}
                     </div>
 
@@ -304,10 +313,26 @@ function Stat({ label, value }: { label: string; value: number | string }) {
     );
 }
 
-function ComingSoonCard({ source }: { source: DataSource }) {
+/**
+ * Clickable per-source card. Routes to the project Events page pre-filtered to this provider,
+ * which renders all RawEvents from that source with their AI-generated summaries. Replaces
+ * the old "Coming soon" stub — the Events page is the actual per-source surface today.
+ */
+function SourceActivityCard({ source, onClick }: { source: DataSource; onClick: () => void }) {
     const Icon = source.icon;
     return (
-        <Card className="p-5 border-border/50">
+        <Card
+            onClick={onClick}
+            className="p-5 border-border/50 cursor-pointer hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onClick();
+                }
+            }}
+        >
             <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                     <div className={`p-2 rounded-lg ${source.bgColor}`}>
@@ -318,18 +343,23 @@ function ComingSoonCard({ source }: { source: DataSource }) {
                         <p className="text-xs text-muted-foreground">Source connected</p>
                     </div>
                 </div>
-                <Badge variant="outline" className="text-[10px]">Coming soon</Badge>
+                <Badge
+                    variant="outline"
+                    className="text-[10px] bg-emerald-500/15 text-emerald-700 border-emerald-500/30"
+                >
+                    <CheckCircle2 className="size-3 mr-1" /> Live
+                </Badge>
             </div>
             <p className="text-sm text-muted-foreground mb-1 flex items-center gap-2">
                 <TrendingUp className="size-4 text-blue-500" />
-                Source-level analysis is still being indexed.
+                Browse {source.name} events ingested for this project.
             </p>
             <p className="text-xs text-muted-foreground flex items-center gap-2 mt-2">
                 <AlertCircle className="size-3 text-amber-500" />
-                For now, search this source&apos;s events on the Events tab or ask the AI assistant.
+                Each event includes an AI-generated summary. Click to open the filtered feed.
             </p>
             <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-2">
-                <Clock className="size-3" /> Per-source summaries will land in an upcoming release.
+                <Clock className="size-3" /> Source-specific dashboards (like the GitHub one) are rolling out.
             </p>
         </Card>
     );

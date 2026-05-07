@@ -3,20 +3,24 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AlertTriangle, FileCode, FolderGit2, Loader2, Plug } from "lucide-react";
+import { AlertTriangle, FileCode, FolderGit2, Loader2, Plug, Search, X } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
     useGetCodeFile,
     useListCodeFiles,
+    useListFileCommits,
     useListFileRisks,
     useListProjectIntegrations,
     useListRepositories,
 } from "@/entities/project";
 import { ExternalProvider } from "@/types/enum";
+import { CommitFeed } from "./commit-feed";
+import { FileTree } from "./file-tree";
 
 function riskColor(score: number | null | undefined): string {
     const s = score ?? 0;
@@ -56,10 +60,55 @@ export function ProjectReposPage() {
         projectId,
         activeFileId ?? undefined,
     );
+    const [fileDetailTab, setFileDetailTab] = React.useState<"info" | "commits">("info");
+    const [commitsLimit, setCommitsLimit] = React.useState(15);
+    React.useEffect(() => {
+        // Reset tab + pagination whenever the user picks a different file.
+        setFileDetailTab("info");
+        setCommitsLimit(15);
+    }, [activeFileId]);
+    // TanStack Query's generic inference loses the response type at the call site here, so
+    // we cast through `unknown` to the known shape returned by listFileCommits().
+    const fileCommitsQuery = useListFileCommits(
+        organizationId,
+        projectId,
+        activeFileId ?? undefined,
+        { limit: commitsLimit, offset: 0 },
+    );
+    const fileCommits = fileCommitsQuery.data as
+        | { commits: import("@/entities/project").CommitFeedItem[]; total: number; limit: number; offset: number }
+        | undefined;
+    const commitsLoading = fileCommitsQuery.isLoading;
+    const commitsError = fileCommitsQuery.isError;
 
     const reposList = repos ?? [];
     const risksList = risks ?? [];
     const filesList = files ?? [];
+
+    const [fileQuery, setFileQuery] = React.useState("");
+    React.useEffect(() => {
+        // Reset search when switching repos.
+        setFileQuery("");
+    }, [activeRepoId]);
+
+    /** Per-language file count for the active repo, used by the language strip header. */
+    const languageStats = React.useMemo(() => {
+        const map = new Map<string, number>();
+        for (const f of filesList) {
+            const key = (f.language ?? "unknown").toLowerCase();
+            map.set(key, (map.get(key) ?? 0) + 1);
+        }
+        return Array.from(map.entries())
+            .filter(([k]) => k !== "unknown")
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6);
+    }, [filesList]);
+
+    /** Highest risk score across files in the active repo. */
+    const peakRisk = React.useMemo(
+        () => filesList.reduce((max, f) => Math.max(max, f.riskScore ?? 0), 0),
+        [filesList],
+    );
 
     return (
         <div className="p-4 md:p-6 space-y-4">
@@ -102,73 +151,143 @@ export function ProjectReposPage() {
                     </Button>
                 </Card>
             ) : tab === "repos" ? (
-                <div className="grid gap-4 md:grid-cols-[280px_1fr_1fr]">
-                    <Card className="p-3 space-y-1 max-h-[70vh] overflow-y-auto">
-                        <p className="text-xs uppercase font-semibold text-muted-foreground px-2 py-1">Repositories</p>
+                <div className="grid gap-4 md:grid-cols-[300px_1fr_1.2fr]">
+                    {/* Repository list — richer cards w/ file count + peak risk dot */}
+                    <Card className="p-3 space-y-1 max-h-[75vh] overflow-y-auto">
+                        <p className="text-xs uppercase font-semibold text-muted-foreground px-2 py-1">
+                            Repositories {reposList.length > 0 ? `(${reposList.length})` : ""}
+                        </p>
                         {reposLoading ? (
                             <div className="flex justify-center py-6"><Loader2 className="size-4 animate-spin" /></div>
                         ) : reposList.length === 0 ? (
                             <p className="text-xs text-muted-foreground p-2">No repos connected.</p>
                         ) : (
-                            reposList.map((repo) => (
-                                <button
-                                    key={repo.id}
-                                    onClick={() => { setActiveRepoId(repo.id); setActiveFileId(null); }}
-                                    className={cn(
-                                        "w-full text-left px-2 py-2 rounded-md text-sm transition-colors flex items-center gap-2",
-                                        repo.id === activeRepoId ? "bg-accent-contrast text-text" : "hover:bg-muted text-muted-foreground",
-                                    )}
-                                >
-                                    <FolderGit2 className="size-4 shrink-0" />
-                                    <span className="truncate">{repo.name ?? repo.externalId ?? repo.id}</span>
-                                </button>
-                            ))
+                            reposList.map((repo) => {
+                                const isActive = repo.id === activeRepoId;
+                                return (
+                                    <button
+                                        key={repo.id}
+                                        onClick={() => { setActiveRepoId(repo.id); setActiveFileId(null); }}
+                                        className={cn(
+                                            "w-full text-left px-2.5 py-2 rounded-md text-sm transition-colors flex items-start gap-2.5",
+                                            isActive ? "bg-accent-contrast text-text" : "hover:bg-muted/60 text-muted-foreground",
+                                        )}
+                                    >
+                                        <FolderGit2 className={cn("size-4 shrink-0 mt-0.5", isActive ? "text-foreground" : "text-blue-500/80")} />
+                                        <span className="flex-1 min-w-0">
+                                            <span className="block truncate font-medium">
+                                                {repo.name ?? repo.externalId ?? repo.id}
+                                            </span>
+                                            {repo.defaultBranch ? (
+                                                <span className="block text-[10px] text-muted-foreground/70 truncate font-mono">
+                                                    {repo.defaultBranch}
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                    </button>
+                                );
+                            })
                         )}
                     </Card>
 
-                    <Card className="p-3 space-y-1 max-h-[70vh] overflow-y-auto">
-                        <p className="text-xs uppercase font-semibold text-muted-foreground px-2 py-1">
-                            Files {activeRepoId ? `(${filesList.length})` : ""}
-                        </p>
-                        {!activeRepoId ? (
-                            <p className="text-xs text-muted-foreground p-2">Select a repository.</p>
-                        ) : filesLoading ? (
-                            <div className="flex justify-center py-6"><Loader2 className="size-4 animate-spin" /></div>
-                        ) : filesList.length === 0 ? (
-                            <p className="text-xs text-muted-foreground p-2">No files indexed yet.</p>
-                        ) : (
-                            filesList.map((f) => (
-                                <button
-                                    key={f.id}
-                                    onClick={() => setActiveFileId(f.id)}
-                                    className={cn(
-                                        "w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between gap-2",
-                                        f.id === activeFileId ? "bg-accent-contrast text-text" : "hover:bg-muted text-muted-foreground",
-                                    )}
-                                >
-                                    <span className="flex items-center gap-2 min-w-0">
-                                        <FileCode className="size-3.5 shrink-0" />
-                                        <span className="truncate font-mono">{f.path}</span>
-                                    </span>
-                                    {(f.riskScore ?? 0) > 0 ? (
-                                        <Badge variant="outline" className={cn("text-[10px]", riskColor(f.riskScore))}>
-                                            {Math.round(f.riskScore ?? 0)}
-                                        </Badge>
+                    {/* File tree — replaces the old flat list. Search across all paths. */}
+                    <Card className="p-3 max-h-[75vh] overflow-hidden flex flex-col">
+                        <div className="flex items-center justify-between mb-2 gap-2">
+                            <p className="text-xs uppercase font-semibold text-muted-foreground">
+                                Files {activeRepoId ? `(${filesList.length})` : ""}
+                            </p>
+                            {peakRisk > 0 ? (
+                                <Badge variant="outline" className={cn("text-[10px]", riskColor(peakRisk))}>
+                                    Peak risk {Math.round(peakRisk)}
+                                </Badge>
+                            ) : null}
+                        </div>
+
+                        {activeRepoId && filesList.length > 0 ? (
+                            <div className="space-y-2 mb-2">
+                                <div className="relative">
+                                    <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        value={fileQuery}
+                                        onChange={(e) => setFileQuery(e.target.value)}
+                                        placeholder="Search file path…"
+                                        className="h-8 pl-8 pr-7 text-xs"
+                                    />
+                                    {fileQuery ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => setFileQuery("")}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                            aria-label="Clear search"
+                                        >
+                                            <X className="size-3.5" />
+                                        </button>
                                     ) : null}
-                                </button>
-                            ))
-                        )}
+                                </div>
+                                {languageStats.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                        {languageStats.map(([lang, count]) => (
+                                            <Badge key={lang} variant="outline" className="text-[10px] px-1.5 py-0 font-mono uppercase">
+                                                {lang} <span className="ml-1 text-muted-foreground">{count}</span>
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
+
+                        <div className="flex-1 overflow-y-auto -mx-1 px-1">
+                            {!activeRepoId ? (
+                                <p className="text-xs text-muted-foreground p-2">Select a repository.</p>
+                            ) : filesLoading ? (
+                                <div className="flex justify-center py-6"><Loader2 className="size-4 animate-spin" /></div>
+                            ) : (
+                                <FileTree
+                                    files={filesList.map((f) => ({
+                                        id: f.id,
+                                        path: f.path,
+                                        language: f.language,
+                                        riskScore: f.riskScore,
+                                    }))}
+                                    activeFileId={activeFileId}
+                                    onSelect={setActiveFileId}
+                                    query={fileQuery}
+                                />
+                            )}
+                        </div>
                     </Card>
 
                     <Card className="p-4 max-h-[70vh] overflow-y-auto">
-                        <p className="text-xs uppercase font-semibold text-muted-foreground mb-2">File detail</p>
+                        <div className="flex items-center justify-between mb-3 gap-2">
+                            <p className="text-xs uppercase font-semibold text-muted-foreground">File detail</p>
+                            {activeFileId ? (
+                                <div className="flex gap-1">
+                                    <Button
+                                        variant={fileDetailTab === "info" ? "default" : "ghost"}
+                                        size="sm"
+                                        className="h-7 px-2 text-xs"
+                                        onClick={() => setFileDetailTab("info")}
+                                    >
+                                        Info
+                                    </Button>
+                                    <Button
+                                        variant={fileDetailTab === "commits" ? "default" : "ghost"}
+                                        size="sm"
+                                        className="h-7 px-2 text-xs"
+                                        onClick={() => setFileDetailTab("commits")}
+                                    >
+                                        Commits{fileCommits?.total ? ` (${fileCommits.total})` : ""}
+                                    </Button>
+                                </div>
+                            ) : null}
+                        </div>
                         {!activeFileId ? (
                             <p className="text-xs text-muted-foreground">Select a file to view details.</p>
                         ) : fileLoading ? (
                             <div className="flex justify-center py-6"><Loader2 className="size-4 animate-spin" /></div>
                         ) : !fileDetail ? (
                             <p className="text-xs text-muted-foreground">File not found.</p>
-                        ) : (
+                        ) : fileDetailTab === "info" ? (
                             <div className="space-y-3">
                                 <div>
                                     <p className="font-mono text-sm break-all">{fileDetail.path}</p>
@@ -196,7 +315,29 @@ export function ProjectReposPage() {
                                         </pre>
                                     </details>
                                 ) : null}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full"
+                                    onClick={() => setFileDetailTab("commits")}
+                                >
+                                    View commits to this file{fileCommits?.total ? ` (${fileCommits.total})` : ""}
+                                </Button>
                             </div>
+                        ) : (
+                            <CommitFeed
+                                commits={fileCommits?.commits ?? []}
+                                isLoading={commitsLoading}
+                                isError={commitsError}
+                                total={fileCommits?.total ?? 0}
+                                showFileStats
+                                showRepository={false}
+                                canLoadMore={(fileCommits?.commits.length ?? 0) < (fileCommits?.total ?? 0)}
+                                onLoadMore={() => setCommitsLimit((n) => n + 15)}
+                                isLoadingMore={commitsLoading && (fileCommits?.commits.length ?? 0) > 0}
+                                emptyTitle="No commits touch this file yet"
+                                emptyDescription="As commits land, their AI summaries will appear here."
+                            />
                         )}
                     </Card>
                 </div>

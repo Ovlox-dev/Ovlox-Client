@@ -24,7 +24,8 @@ import Link from "next/link"
 import { getInitials } from "@/shared/lib/use-initials"
 import { RoleBadge } from "@/shared/ui/role-badge"
 import { listProjectMembers } from "@/entities/project/api/projects"
-import { getContributionMap } from "@/entities/project/api/contributions.api"
+import { getProjectTimeline } from "@/entities/project/api/timeline.api"
+import { ProjectOverviewCards } from "./project-overview-cards"
 
 type TimeRange = "1d" | "7d" | "15d"
 
@@ -230,6 +231,12 @@ export function ProjectDetailsPage() {
 
     React.useEffect(() => {
         let cancelled = false
+        // Build the activity-trend series with ONE timeline call covering the full window
+        // and bucketing entries client-side. The previous implementation fired N parallel
+        // contributions calls (one per hour for "1d", one per day for "7d"/"15d"), which
+        // showed up in server logs as bursts of 12-24 GET /contributions hits per render
+        // and risked tripping the global 200/60s throttle. Timeline returns individual
+        // events with `occurredAt`, so we just count them per bucket locally.
         const load = async () => {
             if (!organizationId || !projectId) { return }
             setActivityLoading(true)
@@ -237,88 +244,77 @@ export function ProjectDetailsPage() {
 
             try {
                 const tasks = tasksResponse?.tasks ?? []
+                const isHourly = range === "1d"
+                const now = new Date()
 
-                if (range === "1d") {
-                    const now = new Date()
+                let bucketStarts: Date[]
+                let labelFor: (d: Date) => string
+
+                if (isHourly) {
                     const start = startOfDay(now)
                     const end = startOfHour(now)
                     const hours = Math.max(1, Math.floor((end.getTime() - start.getTime()) / (60 * 60 * 1000)) + 1)
-
-                    const completedByHour: Record<string, number> = {}
-                    for (const t of tasks) {
-                        if (t.status !== "DONE") { continue }
-                        const updated = new Date(t.updatedAt)
-                        const ms = updated.getTime()
-                        if (!Number.isFinite(ms)) { continue }
-                        if (ms < start.getTime() || ms >= addHours(end, 1).getTime()) { continue }
-                        const hk = startOfHour(updated).toISOString()
-                        completedByHour[hk] = (completedByHour[hk] ?? 0) + 1
-                    }
-
-                    const requests = new Array(hours).fill(0).map((_, i) => {
-                        const hourStart = addHours(start, i)
-                        const hourEndExclusive = addHours(hourStart, 1)
-                        return getContributionMap(organizationId, projectId, {
-                            since: hourStart.toISOString(),
-                            until: hourEndExclusive.toISOString(),
-                        })
-                    })
-
-                    const results = await Promise.all(requests)
-                    if (cancelled) { return }
-
-                    const next = results.map((r, i) => {
-                        const hour = addHours(start, i)
-                        const hourKey = startOfHour(hour).toISOString()
-                        const contributors = r?.contributors ?? []
-                        const commits = contributors.reduce((acc, c) => acc + (c.commits ?? 0), 0)
-                        const prs = contributors.reduce((acc, c) => acc + (c.pullRequests ?? 0), 0)
-                        const tasksCompleted = completedByHour[hourKey] ?? 0
-                        const label = hour.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-                        return { label, commits, prs, tasksCompleted, total: commits + prs + tasksCompleted }
-                    })
-
-                    setActivitySeries(next)
-                    return
+                    bucketStarts = new Array(hours).fill(0).map((_, i) => addHours(start, i))
+                    labelFor = (d: Date) => d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+                } else {
+                    const days = range === "7d" ? 7 : 15
+                    const today = startOfDay(now)
+                    const start = addDays(today, -(days - 1))
+                    bucketStarts = new Array(days).fill(0).map((_, i) => addDays(start, i))
+                    labelFor = days <= 7
+                        ? (d: Date) => d.toLocaleDateString(undefined, { weekday: "short" })
+                        : (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
                 }
 
-                const days = range === "7d" ? 7 : 15
-                const today = startOfDay(new Date())
-                const start = addDays(today, -(days - 1))
+                const windowStart = bucketStarts[0]
+                const windowEndExclusive = isHourly
+                    ? addHours(bucketStarts[bucketStarts.length - 1], 1)
+                    : addDays(bucketStarts[bucketStarts.length - 1], 1)
 
-                const completedByYmd: Record<string, number> = {}
+                /** Pick the bucket key for an event timestamp: hour or day boundary. */
+                const bucketKeyFor = (date: Date): string =>
+                    (isHourly ? startOfHour(date) : startOfDay(date)).toISOString()
+
+                // Bucket completed tasks client-side (already loaded via useListTasks).
+                const tasksCompletedByBucket: Record<string, number> = {}
                 for (const t of tasks) {
                     if (t.status !== "DONE") { continue }
                     const updated = new Date(t.updatedAt)
                     if (Number.isNaN(updated.getTime())) { continue }
-                    const dayKey = toYmd(startOfDay(updated))
-                    completedByYmd[dayKey] = (completedByYmd[dayKey] ?? 0) + 1
+                    if (updated.getTime() < windowStart.getTime() || updated.getTime() >= windowEndExclusive.getTime()) { continue }
+                    const key = bucketKeyFor(updated)
+                    tasksCompletedByBucket[key] = (tasksCompletedByBucket[key] ?? 0) + 1
                 }
 
-                const requests = new Array(days).fill(0).map((_, i) => {
-                    const dayStart = addDays(start, i)
-                    const dayEndExclusive = addDays(dayStart, 1)
-                    return getContributionMap(organizationId, projectId, {
-                        since: dayStart.toISOString(),
-                        until: dayEndExclusive.toISOString(),
-                    })
+                // ONE call instead of N. Limit covers the worst case (24h × ~50 events/hour).
+                const timeline = await getProjectTimeline(organizationId, projectId, {
+                    since: windowStart.toISOString(),
+                    until: windowEndExclusive.toISOString(),
+                    categories: ["COMMIT", "PULL_REQUEST"],
+                    limit: 1500,
                 })
-
-                const results = await Promise.all(requests)
                 if (cancelled) { return }
 
-                const next = results.map((r, i) => {
-                    const day = addDays(start, i)
-                    const key = toYmd(day)
-                    const contributors = r?.contributors ?? []
-                    const commits = contributors.reduce((acc, c) => acc + (c.commits ?? 0), 0)
-                    const prs = contributors.reduce((acc, c) => acc + (c.pullRequests ?? 0), 0)
-                    const tasksCompleted = completedByYmd[key] ?? 0
-                    const label = days <= 7
-                        ? day.toLocaleDateString(undefined, { weekday: "short" })
-                        : day.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                const commitsByBucket: Record<string, number> = {}
+                const prsByBucket: Record<string, number> = {}
+                for (const entry of timeline.entries ?? []) {
+                    const ts = new Date(entry.occurredAt)
+                    if (Number.isNaN(ts.getTime())) { continue }
+                    const key = bucketKeyFor(ts)
+                    if (entry.category === "COMMIT") {
+                        commitsByBucket[key] = (commitsByBucket[key] ?? 0) + 1
+                    } else if (entry.category === "PULL_REQUEST") {
+                        prsByBucket[key] = (prsByBucket[key] ?? 0) + 1
+                    }
+                }
+
+                const next = bucketStarts.map((bucket) => {
+                    const key = bucketKeyFor(bucket)
+                    const commits = commitsByBucket[key] ?? 0
+                    const prs = prsByBucket[key] ?? 0
+                    const tasksCompleted = tasksCompletedByBucket[key] ?? 0
                     return {
-                        label,
+                        label: labelFor(bucket),
                         commits,
                         prs,
                         tasksCompleted,
@@ -498,6 +494,10 @@ export function ProjectDetailsPage() {
 
     return (
         <div className="space-y-8">
+            {/* Snapshot cards: open risks, recent features, milestones, last sync —
+                each links to the relevant detail page. */}
+            <ProjectOverviewCards organizationId={organizationId} projectId={projectId} />
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="grid grid-cols-2 gap-4">
                     {/* Integrations */}
