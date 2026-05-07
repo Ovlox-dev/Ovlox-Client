@@ -13,50 +13,22 @@ import {
     useListMessages,
     useSendMessage,
 } from "@/entities/chat";
-import {
-    acquireChatSocket,
-    joinConversation,
-    leaveConversation,
-    onChatChunk,
-    onMessageProcessing,
-    onNewMessage,
-    releaseChatSocket,
-} from "@/lib/socket";
 import { ChatRole, ConversationType } from "@/types/enum";
 import type { ChatMessageWithDetails } from "@/types/api-types";
 import { useAuthStore } from "@/entities/auth";
-import { streamJobStatus, type JobStatusEvent, type SseSubscription } from "@/lib/sse";
+import {
+    acquireConversation,
+    recordConversationTitle,
+    recordPendingExchange,
+    recordPersistedUserMessageId,
+    releaseConversation,
+    startConversationJob,
+    useChatStreamingStore,
+} from "@/lib/chat-runtime";
 
 export type AiChatScope =
     | { kind: "project"; projectId: string }
     | { kind: "org"; organizationId: string };
-
-type StreamingState = {
-    buffer: string;
-    jobId: string | null;
-    /**
-     * When the backend emits an SSE "answer" event it may include the persisted assistant
-     * message id. Keep showing the streamed bubble until that id appears in `messages` to
-     * avoid a "disappear → refetch → reappear" flicker.
-     */
-    persistedAssistantMessageId?: string | null;
-};
-
-/**
- * Optimistic record of the user's most recently sent message + the assistant's pending state.
- * Cleared when the server-emitted `newMessage` arrives (which triggers a refetch that surfaces the
- * persisted rows). Lets the UI render the user's bubble + a "thinking…" placeholder *immediately*
- * after send, instead of waiting for HTTP/socket round-trips.
- */
-type PendingExchange = {
-    userText: string;
-    sentAt: number;
-    /**
-     * Filled after send succeeds so we can hide the optimistic user bubble once the
-     * persisted user message is present in `messages` (avoids duplicate "sending…"/"just now").
-     */
-    persistedUserMessageId?: string | null;
-} | null;
 
 function MarkdownMessage({
     markdown,
@@ -110,6 +82,12 @@ function resizeChatComposerTextarea(el: HTMLTextAreaElement | null) {
  * conversation, conversation switching, message fetching, sending, and live streaming via
  * the chat socket.
  *
+ * Streaming state, optimistic pending state, the SSE subscription, and the conversation
+ * room membership all live in `lib/chat-runtime.ts`. That makes the dedicated chat page and
+ * the right-side drawer share one stream + one socket room — opening/closing the drawer
+ * doesn't disturb the page's in-flight reply, and if both unmount mid-stream the user gets
+ * a toast when the answer lands.
+ *
  * - `compact = true` collapses the conversation list and tightens spacing for the drawer.
  * - `showConversationList = false` hides the sidebar entirely (forces single-conversation mode).
  */
@@ -134,8 +112,6 @@ export function AiChatPanel({
 
     const [activeConversationId, setActiveConversationId] = React.useState<string | null>(null);
     const [messageInput, setMessageInput] = React.useState("");
-    const [streaming, setStreaming] = React.useState<StreamingState>({ buffer: "", jobId: null, persistedAssistantMessageId: null });
-    const [pending, setPending] = React.useState<PendingExchange>(null);
     const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
     const [showJumpToLatest, setShowJumpToLatest] = React.useState(false);
     const scrollAreaRef = React.useRef<HTMLDivElement>(null);
@@ -145,39 +121,24 @@ export function AiChatPanel({
     const didInitialScrollRef = React.useRef(false);
     const prevMessagesLoadingRef = React.useRef<boolean>(true);
     const layoutStabilizeTimerRef = React.useRef<number | null>(null);
-    const sseRef = React.useRef<SseSubscription | null>(null);
-    const sseJobIdRef = React.useRef<string | null>(null);
-    const sseFallbackTimerRef = React.useRef<number | null>(null);
-    const socketSawChunkForJobRef = React.useRef<Record<string, boolean>>({});
+
+    // Streaming state lives in the global runtime so both panel mounts (page + drawer)
+    // share the same buffer, optimistic pending, and persisted-id flicker prevention.
+    const streamState = useChatStreamingStore((s) =>
+        activeConversationId ? s.byConversation[activeConversationId] : undefined,
+    );
+    const streamingBuffer = streamState?.buffer ?? "";
+    const pending = streamState?.pending ?? null;
+    const persistedAssistantId = streamState?.persistedAssistantMessageId ?? null;
 
     const { data: conversations, isLoading: convosLoading, refetch: refetchConversations } = useListConversations(
         isProject ? { projectId } : { organizationId },
     );
-    const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useListMessages(
+    const { data: messages, isLoading: messagesLoading } = useListMessages(
         activeConversationId ?? undefined,
     );
     const { mutate: createConversation, isPending: creatingConversation } = useCreateConversation();
     const { mutate: sendMessage, isPending: sending } = useSendMessage(activeConversationId ?? "");
-
-    const clearOptimistic = React.useCallback(() => {
-        setStreaming({ buffer: "", jobId: null, persistedAssistantMessageId: null });
-        setPending(null);
-    }, []);
-
-    const deferClearOptimisticAfterRefetch = React.useCallback(() => {
-        let cleared = false;
-        const clear = () => {
-            if (cleared) { return; }
-            cleared = true;
-            clearOptimistic();
-        };
-
-        const timer = window.setTimeout(clear, 500);
-        void refetchMessages().finally(() => {
-            window.clearTimeout(timer);
-            clear();
-        });
-    }, [refetchMessages, clearOptimistic]);
 
     const newConversationPayload = React.useCallback(
         (title: string) => {
@@ -219,104 +180,29 @@ export function AiChatPanel({
         newConversationPayload,
     ]);
 
-    React.useEffect(() => {
-        acquireChatSocket();
-        return () => {
-            if (sseFallbackTimerRef.current) {
-                window.clearTimeout(sseFallbackTimerRef.current);
-                sseFallbackTimerRef.current = null;
-            }
-            sseRef.current?.unsubscribe();
-            sseRef.current = null;
-            sseJobIdRef.current = null;
-            releaseChatSocket();
-        };
-    }, []);
-
+    // Refcounted runtime acquire — joins the room + installs the global socket listeners
+    // on first acquire across all panels, leaves the room only when the last panel unmounts
+    // (and only if no job is in flight, otherwise the runtime keeps watching to surface a
+    // toast when the answer arrives).
     React.useEffect(() => {
         if (!activeConversationId) { return; }
-        joinConversation(activeConversationId);
-        // Switching conversations should drop any leftover optimistic state from the previous one.
-        setPending(null);
-        setStreaming({ buffer: "", jobId: null, persistedAssistantMessageId: null });
+        acquireConversation(activeConversationId);
         setShowJumpToLatest(false);
         userNearBottomRef.current = true;
         didInitialScrollRef.current = false;
-        // Force scroll to the latest message on conversation switch.
-        window.requestAnimationFrame(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
-        });
-        socketSawChunkForJobRef.current = {};
-        if (sseFallbackTimerRef.current) {
-            window.clearTimeout(sseFallbackTimerRef.current);
-            sseFallbackTimerRef.current = null;
-        }
-        sseRef.current?.unsubscribe();
-        sseRef.current = null;
-        sseJobIdRef.current = null;
+        return () => releaseConversation(activeConversationId);
+    }, [activeConversationId]);
 
-        const offChunk = onChatChunk((evt) => {
-            if (evt.conversationId !== activeConversationId) { return; }
-            if (evt.jobId) {
-                socketSawChunkForJobRef.current[evt.jobId] = true;
-                if (sseFallbackTimerRef.current) {
-                    window.clearTimeout(sseFallbackTimerRef.current);
-                    sseFallbackTimerRef.current = null;
-                }
-            }
-            // SSE-first: if we're actively streaming this job via SSE, ignore socket chunks to avoid
-            // duplicated/competing deltas.
-            if (evt.jobId && sseJobIdRef.current === evt.jobId) { return; }
-            setStreaming((prev) => ({ buffer: prev.buffer + evt.delta, jobId: evt.jobId ?? prev.jobId }));
-        });
-        const offNew = onNewMessage((evt) => {
-            if (evt.conversationId !== activeConversationId) { return; }
-            deferClearOptimisticAfterRefetch();
-            if (sseFallbackTimerRef.current) {
-                window.clearTimeout(sseFallbackTimerRef.current);
-                sseFallbackTimerRef.current = null;
-            }
-            sseRef.current?.unsubscribe();
-            sseRef.current = null;
-            sseJobIdRef.current = null;
-        });
-        const offProcessing = onMessageProcessing((evt) => {
-            if (evt.conversationId !== activeConversationId) { return; }
-            if (evt.status === "failed") {
-                const description = typeof evt.error === "string" && evt.error
-                    ? evt.error
-                    : "Try again.";
-                toast.error("Chat processing failed", { description });
-                setStreaming({ buffer: "", jobId: null, persistedAssistantMessageId: null });
-                setPending(null);
-                if (sseFallbackTimerRef.current) {
-                    window.clearTimeout(sseFallbackTimerRef.current);
-                    sseFallbackTimerRef.current = null;
-                }
-                sseRef.current?.unsubscribe();
-                sseRef.current = null;
-                sseJobIdRef.current = null;
-            }
-        });
-
-        return () => {
-            leaveConversation(activeConversationId);
-            offChunk?.();
-            offNew?.();
-            offProcessing?.();
-        };
-    }, [activeConversationId, deferClearOptimisticAfterRefetch]);
-
-    // Once the persisted assistant message lands in the message list, drop the streamed bubble.
+    // Once the persisted assistant message lands in the message list, drop the streamed
+    // bubble. Doing this only after the persisted row is visible avoids the
+    // "stream → blank → row" flicker on the SSE/DB handoff.
     React.useEffect(() => {
-        const assistantId = streaming.persistedAssistantMessageId;
-        if (!assistantId) { return; }
+        if (!activeConversationId) { return; }
+        if (!persistedAssistantId) { return; }
         if (!messages || messages.length === 0) { return; }
-        const hasPersistedAssistant = messages.some((m) => m.id === assistantId);
-        if (!hasPersistedAssistant) { return; }
-        setStreaming({ buffer: "", jobId: null, persistedAssistantMessageId: null });
-        setPending(null);
-    }, [messages, streaming.persistedAssistantMessageId]);
+        if (!messages.some((m) => m.id === persistedAssistantId)) { return; }
+        useChatStreamingStore.getState().clear(activeConversationId);
+    }, [activeConversationId, persistedAssistantId, messages]);
 
     const isNearBottom = React.useCallback((el: HTMLElement) => {
         const thresholdPx = 80;
@@ -404,25 +290,18 @@ export function AiChatPanel({
             // New content came in while the user is reading older messages.
             setShowJumpToLatest(true);
         }
-    }, [messages, streaming.buffer, pending, isNearBottom]);
+    }, [messages, streamingBuffer, pending, isNearBottom]);
 
     const hidePendingUserBubble = !!pending?.persistedUserMessageId
         && (messages ?? []).some((m) => m.id === pending.persistedUserMessageId);
 
-
     const handleSend = () => {
         const text = messageInput.trim();
         if (!text || !activeConversationId || sending) { return; }
-        if (sseFallbackTimerRef.current) {
-            window.clearTimeout(sseFallbackTimerRef.current);
-            sseFallbackTimerRef.current = null;
-        }
-        sseRef.current?.unsubscribe();
-        sseRef.current = null;
-        sseJobIdRef.current = null;
 
-        setStreaming({ buffer: "", jobId: null, persistedAssistantMessageId: null });
-        setPending({ userText: text, sentAt: Date.now() });
+        // Optimistic state goes through the global runtime so both panel mounts (page +
+        // drawer) reflect the same in-flight exchange.
+        recordPendingExchange(activeConversationId, text);
         setMessageInput("");
         // Sending is an explicit "take me to the latest" action even if the user was scrolled up.
         userNearBottomRef.current = true;
@@ -433,67 +312,19 @@ export function AiChatPanel({
             { question: text },
             {
                 onSuccess: (res) => {
-                    setPending((prev) => prev ? ({ ...prev, persistedUserMessageId: res?.userMessage?.id ?? null }) : prev);
-                    refetchMessages();
-                    const jobId = res?.jobId;
-                    if (!jobId) { return; }
-
-                    setStreaming((prev) => ({ ...prev, jobId, persistedAssistantMessageId: null }));
-                    socketSawChunkForJobRef.current[jobId] = false;
-
-                    const startSse = (id: string) => {
-                        if (sseJobIdRef.current === id && sseRef.current) { return; }
-                        if (sseFallbackTimerRef.current) {
-                            window.clearTimeout(sseFallbackTimerRef.current);
-                            sseFallbackTimerRef.current = null;
-                        }
-                        sseRef.current?.unsubscribe();
-                        sseRef.current = null;
-
-                        sseJobIdRef.current = id;
-                        const onEvent = (evt: JobStatusEvent) => {
-                            if (!evt || typeof evt !== "object") { return; }
-                            if ("jobId" in evt && evt.jobId !== id) { return; }
-
-                            if ("kind" in evt && evt.kind === "chunk") {
-                                setStreaming((prev) => ({ buffer: prev.buffer + evt.delta, jobId: id, persistedAssistantMessageId: prev.persistedAssistantMessageId ?? null }));
-                                return;
-                            }
-                            if ("kind" in evt && evt.kind === "answer") {
-                                sseRef.current?.unsubscribe();
-                                sseRef.current = null;
-                                sseJobIdRef.current = null;
-                                // Don't clear the streamed bubble immediately — keep it until the
-                                // persisted assistant row is visible to avoid flicker.
-                                setStreaming((prev) => ({
-                                    buffer: prev.buffer || evt.answer || "",
-                                    jobId: id,
-                                    persistedAssistantMessageId: evt.chatMessageId ?? null,
-                                }));
-                                setPending((prev) => prev ? prev : null);
-                                void refetchMessages();
-                            }
-                        };
-
-                        sseRef.current = streamJobStatus(
-                            id,
-                            onEvent,
-                            () => {
-                                // If SSE errors (backend down, auth, etc.), stop it quietly and let the user retry.
-                                sseRef.current?.unsubscribe();
-                                sseRef.current = null;
-                                sseJobIdRef.current = null;
-                            },
-                        );
-                    };
-
-                    // SSE-first: start immediately per jobId. Socket events are kept for non-stream
-                    // lifecycle (e.g. `newMessage`), but deltas should come from SSE.
-                    startSse(jobId);
+                    if (!activeConversationId) { return; }
+                    if (res?.userMessage?.id) {
+                        recordPersistedUserMessageId(activeConversationId, res.userMessage.id);
+                    }
+                    if (res?.jobId) {
+                        startConversationJob(activeConversationId, res.jobId);
+                    }
                 },
                 onError: (err) => {
                     toast.error("Failed to send", { description: (err as Error).message });
-                    setPending(null);
+                    if (activeConversationId) {
+                        useChatStreamingStore.getState().clear(activeConversationId);
+                    }
                     setMessageInput(text);
                 },
             },
@@ -515,6 +346,14 @@ export function AiChatPanel({
         () => conversationList.find((c) => c.id === activeConversationId) ?? null,
         [conversationList, activeConversationId],
     );
+
+    // Stash the active conversation's title in the runtime so the "reply ready" toast can
+    // reference it by name when the user has navigated away from chat.
+    React.useEffect(() => {
+        if (activeConversationId) {
+            recordConversationTitle(activeConversationId, activeConversation?.title);
+        }
+    }, [activeConversationId, activeConversation?.title]);
 
     const emptyStatePrompts = React.useMemo(() => {
         if (isProject) {
@@ -594,7 +433,7 @@ export function AiChatPanel({
                         }
                         return null;
                     })()}
-                    {(messages?.length ?? 0) === 0 && !streaming.buffer && !messagesLoading ? (
+                    {(messages?.length ?? 0) === 0 && !streamingBuffer && !messagesLoading ? (
                         <div className="flex h-full items-center justify-center p-6">
                             <div className="w-full max-w-xl rounded-2xl bg-card shadow-sm ring-1 ring-border/40 p-6">
                                 <div className="flex items-start gap-4">
@@ -659,10 +498,10 @@ export function AiChatPanel({
                             meta="sending…"
                         />
                     ) : null}
-                    {streaming.buffer ? (
+                    {streamingBuffer ? (
                         <AssistantRow
                             compact={compact}
-                            markdown={streaming.buffer}
+                            markdown={streamingBuffer}
                             meta="streaming…"
                             showBadge
                             enableCopy={false}
