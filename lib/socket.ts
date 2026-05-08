@@ -60,6 +60,10 @@ async function connectSocketAsync(): Promise<Socket> {
 
         const next = io(getSocketUrl(), {
             auth: token ? { token } : {},
+            // Must match the backend gateway's `path` (chat.gateway.ts / app.gateway.ts).
+            // The NestJS global prefix /api/v1 doesn't apply to WS gateways, so we set the
+            // socket.io path manually to keep WS behind the same proxy/CDN routing as HTTP.
+            path: "/api/v1/socket.io",
             // Allow polling fallback for environments where WS is blocked/proxied.
             // (If you remove this entirely, socket.io will negotiate transports anyway.)
             transports: ["websocket", "polling"],
@@ -117,7 +121,7 @@ export const connectSocket = (): Socket => {
     void connectSocketAsync();
     // Return a placeholder if no socket yet; callers should rely on event listeners.
     if (!socket) {
-        socket = io(getSocketUrl(), { autoConnect: false });
+        socket = io(getSocketUrl(), { autoConnect: false, path: "/api/v1/socket.io" });
     }
     return socket;
 };
