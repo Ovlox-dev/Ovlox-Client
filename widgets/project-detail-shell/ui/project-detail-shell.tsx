@@ -95,6 +95,7 @@ export function ProjectDetailShell({ children }: { children: ReactNode }) {
         <div className="space-y-4">
             <div className="border-b border-border bg-background">
                 <div className="flex items-start justify-between gap-4">
+                    <p className="px-2 py-1 rounded-2xl bg-gray-400 border">Project</p>
                     <PageTitle
                         title={project?.name ?? "Project"}
                         description={project?.description || "Main interface for founders to monitor startup activity"}
