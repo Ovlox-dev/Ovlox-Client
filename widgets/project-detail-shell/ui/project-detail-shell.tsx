@@ -99,6 +99,31 @@ export function ProjectDetailShell({ children }: { children: ReactNode }) {
         }
     }, [projectId, project?.slug, pathname, router]);
 
+    /**
+     * Cross-org guard: if the user landed on `/orgA/projects/<projectFromOrgB>`
+     * (stale bookmark, hand-edited URL, or org-switch that didn't clear the
+     * project segment), redirect to the project's *real* org so members /
+     * alerts / tasks endpoints stop 404'ing and 403'ing.
+     *
+     * The `useGetProject` endpoint isn't org-scoped (the controller doesn't
+     * pass orgId to the service), so it returns the project regardless of
+     * which org slug is in the URL. We detect the mismatch here against
+     * `project.organization.slug` and `project.organizationId`.
+     */
+    useEffect(() => {
+        if (!project?.organization?.slug || !organizationId) return;
+        const projectOrgSlug = project.organization.slug;
+        const projectOrgId = project.organizationId;
+        // URL identifier may be a slug (post-migration) or a UUID (legacy).
+        // Either form is valid as long as it resolves to the project's org.
+        if (organizationId === projectOrgSlug) return;
+        if (organizationId === projectOrgId) return;
+        const target = pathname.replace(`/${organizationId}`, `/${projectOrgSlug}`);
+        if (target !== pathname) {
+            router.replace(target);
+        }
+    }, [project?.organization?.slug, project?.organizationId, organizationId, pathname, router]);
+
     /** Setup wizard is a full-screen onboarding flow — render it without the project shell chrome. */
     if (pathname.startsWith(`${base}/setup`)) {
         return <>{children}</>;

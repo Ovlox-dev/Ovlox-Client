@@ -1,5 +1,5 @@
 import { apiAbsoluteUrl } from "@/shared/api/client";
-import { getAccessToken } from "@/shared/lib/auth/token-service";
+import { getAccessToken, refreshAccessToken } from "@/shared/lib/auth/token-service";
 
 /**
  * Generic Server-Sent Events helper. The backend exposes three SSE streams (project readiness,
@@ -42,22 +42,50 @@ export function createEventSource<T = unknown>(
         }
     };
 
+    /**
+     * Open the SSE fetch with the current bearer. If the token has expired
+     * the backend returns 401; we try ONE refresh + retry before giving up.
+     *
+     * Why this exists: axios consumers (`apiClient`) get auto-refresh via the
+     * 401 response interceptor in `shared/api/client.ts`. The fetch-based SSE
+     * path bypasses axios entirely (it has to — we need streaming bodies),
+     * so it has to do its own refresh. Without this, an SSE connection
+     * opened ~15 minutes after sign-in silently fails when the access token
+     * lapses, and chat streams die with no explanation in the UI.
+     */
+    const fetchWithAuth = async (token: string | null) => {
+        const headers: Record<string, string> = {
+            Accept: "text/event-stream",
+        };
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
+        }
+        return fetch(url, {
+            method: "GET",
+            credentials: "include",
+            headers,
+            signal: abortController.signal,
+        });
+    };
+
     const start = async () => {
         try {
-            const accessToken = getAccessToken();
-            const headers: Record<string, string> = {
-                Accept: "text/event-stream",
-            };
-            if (accessToken) {
-                headers.Authorization = `Bearer ${accessToken}`;
-            }
+            let accessToken = getAccessToken();
+            let res = await fetchWithAuth(accessToken);
 
-            const res = await fetch(url, {
-                method: "GET",
-                credentials: "include",
-                headers,
-                signal: abortController.signal,
-            });
+            // 401 → token expired (or never sent). Refresh once and retry.
+            // We don't loop on repeated 401s — if the refresh itself fails
+            // or the second attempt also 401s, the user is genuinely signed
+            // out and the SSE has no business continuing.
+            if (res.status === 401) {
+                const refreshed = await refreshAccessToken();
+                if (!refreshed) {
+                    handlers.onError?.(new Event("error"));
+                    return;
+                }
+                accessToken = refreshed;
+                res = await fetchWithAuth(accessToken);
+            }
 
             if (!res.ok || !res.body) {
                 handlers.onError?.(new Event("error"));
