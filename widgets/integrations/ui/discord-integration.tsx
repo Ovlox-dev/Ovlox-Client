@@ -20,8 +20,6 @@ import {
 } from "@/widgets/integrations/model/integration-utils"
 import { IntegrationCardShell } from "@/widgets/integrations/ui/integration-card-shell"
 
-const ACCENT = "#55C6F0"
-
 export function DiscordIntegration({
   organizationId,
   basePath,
@@ -39,6 +37,7 @@ export function DiscordIntegration({
 }) {
   const router = useRouter()
   const [connectingAppId, setConnectingAppId] = useState<string | null>(null)
+  const [pendingAdd, setPendingAdd] = useState(false)
 
   const { connected, processing } = computeConnectionFlags(integration)
   const oauthConnected = computeOauthConnected(integration)
@@ -46,37 +45,34 @@ export function DiscordIntegration({
   const integrationId = integration?.integrationId ?? ""
   const connectInProgress = connectingAppId === "discord"
 
-  const primaryClassName = "font-semibold text-black hover:opacity-90"
-  const primaryStyle = { backgroundColor: ACCENT }
-
   // Discord should allow "Manage" immediately after OAuth connects (even while processing).
   const showManage = oauthConnected || connected
+  const showConnectedOnConnect = oauthConnected || connected || processing
 
   const handleAddToSetup = async () => {
+    setPendingAdd(true)
     try {
-      if (!organizationId) { return }
-
+      if (!organizationId) return
       await addIntegrations(organizationId, { provider: ExternalProvider.DISCORD, label: "Discord" })
       onAddedToSetup("discord")
       refetchIntegrations()
     } catch (error: unknown) {
       toast.error(formatAuthErrorMessage(error))
+    } finally {
+      setPendingAdd(false)
     }
   }
 
   const handleConnect = async () => {
-    if (!organizationId) { return }
+    if (!organizationId) return
     if (!integrationId) {
       toast.error("Discord integration is not ready yet. Please wait a moment and try again.")
       return
     }
-
     try {
       setConnectingAppId("discord")
       const res = await getDiscordOAuthUrl(organizationId, integrationId)
-      if (res?.url) {
-        window.location.href = res.url
-      }
+      if (res?.url) window.location.href = res.url
     } catch (error: unknown) {
       toast.error(formatAuthErrorMessage(error))
     } finally {
@@ -84,13 +80,10 @@ export function DiscordIntegration({
     }
   }
 
-  const showConnectedOnConnect = oauthConnected || connected || processing
-
   const actions = showManage ? (
     <Button
       type="button"
-      variant="ghost"
-      className="border-[0.5px] border-accent  text-accent hover:bg-accent hover:text-white"
+      variant="outline"
       onClick={() => router.push(`${basePath}/discord?integrationId=${encodeURIComponent(integrationId)}`)}
     >
       Manage
@@ -98,17 +91,15 @@ export function DiscordIntegration({
   ) : !inSetup ? (
     <Button
       type="button"
-      variant="secondary"
-      className="bg-zinc-800 font-medium text-white hover:bg-zinc-700"
+      variant="outline"
       onClick={() => void handleAddToSetup()}
+      disabled={pendingAdd}
     >
-      Add
+      {pendingAdd ? "Adding..." : "Add"}
     </Button>
   ) : (
     <Button
       type="button"
-      className={primaryClassName}
-      style={primaryStyle}
       onClick={() => void handleConnect()}
       disabled={showConnectedOnConnect || connectInProgress || !integrationId}
     >
@@ -127,4 +118,3 @@ export function DiscordIntegration({
     />
   )
 }
-

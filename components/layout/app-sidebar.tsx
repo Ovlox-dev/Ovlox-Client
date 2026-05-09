@@ -2,12 +2,13 @@
 
 import Image from 'next/image'
 import { useParams } from "next/navigation"
-import { LayoutDashboard, Users, GitBranch, Plug, Inbox, Settings } from "lucide-react"
+import { LayoutDashboard, Users, GitBranch, Plug, Settings } from "lucide-react"
 
 import OvloxLogo from '@/assets/ovlox.svg'
+import OvloxSquare from '@/assets/ovlox_square.png'
 
 import { Separator } from "@/components/ui/separator"
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem, } from "@/components/ui/sidebar"
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import { NavMain } from "@/components/layout/nav-main"
 import { NavUser } from "@/components/layout/nav-user"
 import { ProjectSwitcher } from "@/widgets/projects/ui/project-switcher"
@@ -37,6 +38,8 @@ export function AppSidebar() {
   const organizationId = (params?.organizationId as string) ?? ""
   const sessionUser = useAuthStore((s) => s.auth.user)
   const { can, isLoading: isPermissionLoading } = usePermission(organizationId || null)
+  const { state: sidebarState } = useSidebar()
+  const isCollapsed = sidebarState === "collapsed"
 
   type NavSubItem = { title: string; url?: string; requiredPermission?: PermissionName }
   type NavItem = {
@@ -59,19 +62,22 @@ export function AppSidebar() {
       title: "Integrations",
       icon: Plug,
       url: `/${organizationId}/integrations`,
+      isActive: true,
       requiredPermission: PermissionName.MANAGE_INTEGRATIONS,
+      items: [
+        { title: "All", url: `/${organizationId}/integrations` },
+        { title: "GitHub", url: `/${organizationId}/integrations/github` },
+        { title: "Slack", url: `/${organizationId}/integrations/slack` },
+        { title: "Jira", url: `/${organizationId}/integrations/jira` },
+        { title: "Linear", url: `/${organizationId}/integrations/linear` },
+        { title: "Discord", url: `/${organizationId}/integrations/discord` },
+      ],
     },
     {
       title: "Members",
       icon: Users,
       url: `/${organizationId}/members`,
       requiredPermission: PermissionName.INVITE_MEMBERS,
-    },
-    {
-      title: "Writebacks",
-      icon: Inbox,
-      url: `/${organizationId}/writebacks`,
-      requiredPermission: PermissionName.APPROVE_WRITEBACKS,
     },
     {
       title: "Settings",
@@ -123,27 +129,36 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="h-16 bg-background border-b border-sidebar-border">
+      <SidebarHeader className="h-16 bg-(--bg-2) border-b border-(--line-2) px-3">
         <SidebarMenu>
-          <SidebarMenuItem className='flex items-center justify-center'>
+          {/*
+            Collapsed state: swap the wordmark for the square mark so it stays
+            inside the icon-rail width. Expanded state: left-align the wordmark
+            with the rest of the sidebar's content padding.
+          */}
+          <SidebarMenuItem
+            className={isCollapsed ? "flex items-center justify-center" : "flex items-center justify-start"}
+          >
             <Image
-              src={OvloxLogo}
-              alt="Ovlox Logo"
-              height={100}
-              width={100}
+              src={isCollapsed ? OvloxSquare : OvloxLogo}
+              alt="Ovlox"
+              height={isCollapsed ? 32 : 100}
+              width={isCollapsed ? 32 : 100}
+              className={isCollapsed ? "size-8 object-contain" : "h-8 w-auto object-contain object-left"}
+              priority
             />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <OrganizationSwitcher organizationId={organizationId} />
-      <SidebarContent className="overflow-hidden bg-background gap-0">
+      <SidebarContent className="bg-(--bg-2) gap-0 overflow-y-auto overflow-x-hidden scrollbar-hide overscroll-contain">
         {/* Nav Main Dashboard, Organizations, Projects */}
         <NavMain items={baseNavItems} />
-        <Separator className='bg-sidebar-border' />
+        <Separator className='bg-(--line-2)' />
         {/* All Projects */}
         <ProjectSwitcher organizationId={organizationId} />
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border bg-background">
+      <SidebarFooter className="border-t border-(--line-2) bg-(--bg-2)">
         {/* Sidebar Footer User Name, Email, Avatar */}
         <NavUser user={user} />
       </SidebarFooter>

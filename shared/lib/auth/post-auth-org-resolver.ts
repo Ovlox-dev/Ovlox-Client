@@ -13,6 +13,13 @@ function canUseLocalStorage(): boolean {
     return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
+/**
+ * Stores the URL-safe identifier for the user's currently-active organization.
+ * Historically this stored a UUID; after the slug migration we store the slug
+ * so it can be dropped straight into URL builders. The backend slug-resolver
+ * middleware accepts either form, so old persisted UUIDs keep working until
+ * the next post-auth refresh overwrites them with a slug.
+ */
 export function setActiveOrgId(activeOrgId: string | null | undefined): void {
     if (!canUseLocalStorage()) { return; }
 
@@ -29,8 +36,13 @@ export function getActiveOrgId(): string | null {
     return window.localStorage.getItem(ACTIVE_ORG_ID_STORAGE_KEY);
 }
 
-export function buildDashboardOrgRoute(orgId: string): string {
-    return `/${encodeURIComponent(orgId)}/dashboard`;
+/**
+ * `orgIdentifier` is whatever the user has — slug (preferred, post-migration)
+ * or UUID (legacy bookmarks). Both work because the backend resolves slugs
+ * server-side. We `encodeURIComponent` to be safe against unusual slug chars.
+ */
+export function buildDashboardOrgRoute(orgIdentifier: string): string {
+    return `/${encodeURIComponent(orgIdentifier)}/dashboard`;
 }
 
 export async function resolvePostAuthOrgRedirect(): Promise<ResolvePostAuthOrgRedirectResult> {
@@ -46,15 +58,19 @@ export async function resolvePostAuthOrgRedirect(): Promise<ResolvePostAuthOrgRe
             };
         }
 
-        const ids = orgs.map((o) => o.id);
+        // Prefer slug (URL-safe) over id. Match the persisted value against
+        // either id OR slug so legacy UUIDs in localStorage still resolve.
         const stored = getActiveOrgId();
-        const chosen =
-            stored && ids.includes(stored) ? stored : orgs[0].id;
-        setActiveOrgId(chosen);
+        const matched = stored
+            ? orgs.find((o) => o.id === stored || o.slug === stored)
+            : undefined;
+        const chosen = matched ?? orgs[0];
+        const chosenIdentifier = chosen.slug || chosen.id;
+        setActiveOrgId(chosenIdentifier);
 
         return {
-            redirectTo: buildDashboardOrgRoute(chosen),
-            activeOrgId: chosen,
+            redirectTo: buildDashboardOrgRoute(chosenIdentifier),
+            activeOrgId: chosenIdentifier,
         };
     } catch {
         setActiveOrgId(null);

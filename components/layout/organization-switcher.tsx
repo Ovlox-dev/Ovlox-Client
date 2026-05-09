@@ -46,8 +46,10 @@ export function OrganizationSwitcher({ organizationId }: OrganizationSwitcherPro
     retry: 2,
   });
 
+  // `organizationId` from the URL may be a slug (post-migration) or a UUID
+  // (legacy bookmarks) — match against either.
   const activeOrg =
-    data.find((o) => o.id === organizationId) ??
+    data.find((o) => o.slug === organizationId || o.id === organizationId) ??
     (data.length === 1 ? data[0] : undefined);
 
   const displayName = isLoading
@@ -56,9 +58,10 @@ export function OrganizationSwitcher({ organizationId }: OrganizationSwitcherPro
   const displaySubtitle = activeOrg?.slug ?? "";
 
   const handleSelectOrg = useCallback(
-    (id: string) => {
-      setActiveOrgId(id);
-      router.push(buildDashboardOrgRoute(id));
+    (org: IOrganization) => {
+      const identifier = org.slug || org.id;
+      setActiveOrgId(identifier);
+      router.push(buildDashboardOrgRoute(identifier));
     },
     [router]
   );
@@ -85,36 +88,36 @@ export function OrganizationSwitcher({ organizationId }: OrganizationSwitcherPro
   }
 
   return (
-    <SidebarMenu className="p-2 bg-background">
+    <SidebarMenu className="p-2 bg-(--bg-2)">
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg" className="bg-card">
-              <Avatar className="h-8 w-8 rounded-lg">
+            <SidebarMenuButton size="lg" className="bg-(--bg-3) border border-(--line-2) hover:border-(--line) data-[state=open]:border-(--line)">
+              <Avatar className="h-8 w-8 rounded-md border border-(--line-2)">
                 {activeOrg ? (
-                  <AvatarFallback className="text-xs font-medium">
+                  <AvatarFallback className="text-xs font-semibold bg-(--bg-2) text-(--accent-lime)">
                     {getInitials(activeOrg.name)}
                   </AvatarFallback>
                 ) : (
-                  <AvatarFallback className="text-xs font-medium">—</AvatarFallback>
+                  <AvatarFallback className="text-xs font-medium bg-(--bg-2) text-(--fg-3)">—</AvatarFallback>
                 )}
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="font-medium text-[#E5E7EB] truncate">{displayName}</span>
+                <span className="font-medium text-(--fg) truncate">{displayName}</span>
                 {displaySubtitle ? (
-                  <span className="text-xs text-muted truncate">{displaySubtitle}</span>
+                  <span className="text-xs text-(--fg-3) truncate font-mono">{displaySubtitle}</span>
                 ) : null}
               </div>
-              <ChevronsUpDown className="ml-auto size-4" />
+              <ChevronsUpDown className="ml-auto size-4 text-(--fg-3)" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) border-sidebar-border min-w-56 rounded-lg"
+            className="w-(--radix-dropdown-menu-trigger-width) bg-(--bg-2) border border-(--line) min-w-56 rounded-lg"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
           >
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
+            <DropdownMenuLabel className="text-[10px] text-(--fg-3) font-mono uppercase tracking-wider">
               Organizations
             </DropdownMenuLabel>
             {data.length === 0 && !isLoading ? (
@@ -122,12 +125,12 @@ export function OrganizationSwitcher({ organizationId }: OrganizationSwitcherPro
             ) : (
               <div className="space-y-1">
                 {data.map((org) => {
-                  const isCurrent = org.id === organizationId;
+                  const isCurrent = org.slug === organizationId || org.id === organizationId;
                   return (
                     <DropdownMenuItem
                       key={org.id}
                       className="flex cursor-pointer items-center gap-2"
-                      onSelect={() => handleSelectOrg(org.id)}
+                      onSelect={() => handleSelectOrg(org)}
                     >
                       <AvatarForOrg org={org} size="sm" />
                       <div className="flex-1 min-w-0">
@@ -142,10 +145,10 @@ export function OrganizationSwitcher({ organizationId }: OrganizationSwitcherPro
                 })}
               </div>
             )}
-            <DropdownMenuSeparator className="bg-sidebar-border" />
+            <DropdownMenuSeparator className="bg-(--line-2)" />
             <Link href="/new-organization">
-              <DropdownMenuItem className="flex cursor-pointer items-center justify-center border bg-white font-medium text-background hover:border-white hover:bg-transparent hover:text-white">
-                <Plus strokeWidth={2.5} className="hover:text-white" />
+              <DropdownMenuItem className="flex cursor-pointer items-center justify-center gap-2 border border-(--accent-lime) bg-(--accent-lime) font-semibold text-[#07070a] hover:bg-(--accent-lime)/90 focus:bg-(--accent-lime)/90 mt-1">
+                <Plus strokeWidth={2.5} />
                 Add Organization
               </DropdownMenuItem>
             </Link>

@@ -20,6 +20,7 @@ type RawMember = {
 
 type RawOrg = {
     id: string;
+    slug?: string;
     ownerId?: string;
     members?: RawMember[];
 };
@@ -47,7 +48,10 @@ export function useCurrentMember(orgId: string | null | undefined): {
 
     const member = useMemo<CurrentMember | null>(() => {
         if (!orgId || !userId || !data?.data) { return null; }
-        const org = (data.data as unknown as RawOrg[]).find((o) => o.id === orgId);
+        // `orgId` may be a slug (post-migration) or a UUID (legacy). Match either.
+        const org = (data.data as unknown as RawOrg[]).find(
+            (o) => o.id === orgId || o.slug === orgId,
+        );
         if (!org) { return null; }
         const isOwner = org.ownerId === userId;
         const memberRow = (org.members ?? []).find((m) => m.userId === userId);

@@ -17,13 +17,14 @@ import {
     CustomModalBody,
     CustomModalFooter,
 } from "@/components/ui/custom-modal";
-import { useOrgById, useDeleteOrg } from "@/shared/queries/org.queries";
+import { useOrgByIdentifier, useDeleteOrg } from "@/shared/queries/org.queries";
 import { useOrgStore } from "@/shared/lib/organization/org-store";
 
 export function OrgDangerZone() {
     const router = useRouter();
     const { organizationId } = useParams<{ organizationId: string }>();
-    const { data } = useOrgById(organizationId);
+    // URL may be slug or UUID — useOrgByIdentifier handles both.
+    const { data } = useOrgByIdentifier(organizationId);
     const org = data?.organization;
     const deleteMutation = useDeleteOrg();
     const clearCurrentOrg = useOrgStore((s) => s.clearCurrentOrg);

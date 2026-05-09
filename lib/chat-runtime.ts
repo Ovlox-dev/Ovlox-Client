@@ -7,7 +7,6 @@ import {
     acquireChatSocket,
     joinConversation as socketJoinConversation,
     leaveConversation as socketLeaveConversation,
-    onChatChunk,
     onMessageProcessing,
     onNewMessage,
     releaseChatSocket,
@@ -199,7 +198,11 @@ type ConversationRuntime = {
 const conversations = new Map<string, ConversationRuntime>();
 
 let listenersInstalled = false;
-let offChunk: (() => void) | null = null;
+// SSE is the canonical token-streaming path. We used to also subscribe to
+// the socket's `chatChunk` event and dedup by jobId — that path has been
+// removed entirely. Sockets stay around for non-streaming concerns
+// (final-message persistence broadcast + processing-failed signals) where
+// multi-panel fanout is still useful.
 let offNew: (() => void) | null = null;
 let offProcessing: (() => void) | null = null;
 
@@ -218,17 +221,6 @@ export function setOnAssistantMessageReady(
 function installListeners() {
     if (listenersInstalled) { return; }
     listenersInstalled = true;
-
-    offChunk = onChatChunk((evt) => {
-        const rt = conversations.get(evt.conversationId);
-        if (!rt) { return; }
-        // SSE-first: if SSE is actively streaming this job, skip the socket chunk
-        // so we don't double-append deltas.
-        if (evt.jobId && rt.sseJobId === evt.jobId) { return; }
-        const store = useChatStreamingStore.getState();
-        store.appendChunk(evt.conversationId, evt.delta);
-        if (evt.jobId) { store.setJobId(evt.conversationId, evt.jobId); }
-    });
 
     offNew = onNewMessage((evt) => {
         const rt = conversations.get(evt.conversationId);
@@ -302,8 +294,8 @@ function installListeners() {
 function uninstallListenersIfIdle() {
     if (conversations.size > 0) { return; }
     if (!listenersInstalled) { return; }
-    offChunk?.(); offNew?.(); offProcessing?.();
-    offChunk = null; offNew = null; offProcessing = null;
+    offNew?.(); offProcessing?.();
+    offNew = null; offProcessing = null;
     listenersInstalled = false;
 }
 

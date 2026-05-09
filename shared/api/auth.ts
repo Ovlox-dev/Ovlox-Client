@@ -9,6 +9,16 @@ export async function signIn(payload: SignInRequest): Promise<AuthResponse> {
     return normalizeAuthPayload(response.data);
 }
 
+/**
+ * Hand a Firebase ID token to the backend; the backend verifies it via the
+ * Admin SDK and returns *our* access/refresh token pair plus the user.
+ * Firebase tokens are not stored client-side past this single call.
+ */
+export async function signInGoogle(idToken: string): Promise<AuthResponse> {
+    const response = await apiClient.post("/auth/google", { idToken });
+    return normalizeAuthPayload(response.data);
+}
+
 /** Sign-up succeeds without establishing a client session; tokens in the response body are ignored. */
 export async function signUp(payload: SignUpRequest): Promise<void> {
     await apiClient.post("/auth/sign-up", payload);

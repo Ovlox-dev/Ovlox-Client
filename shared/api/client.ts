@@ -17,6 +17,19 @@ const browserApiBaseUrl = "/api/v1";
 
 export const apiBaseUrl = typeof window === "undefined" ? absoluteApiBaseUrl : browserApiBaseUrl;
 
+/**
+ * Absolute backend URL for streaming endpoints (SSE) and any other path that
+ * must bypass Next.js's `rewrites()` proxy. Vercel and most CDNs buffer
+ * non-streaming responses by default, which silently breaks SSE — chunks
+ * never reach the browser. Sockets already bypass via [lib/socket.ts] for
+ * the same reason.
+ *
+ * Auth: streaming endpoints can't rely on HttpOnly cookies (cross-origin without
+ * SameSite=None+Secure won't attach), so callers MUST pass the bearer token
+ * explicitly via Authorization header.
+ */
+export const apiAbsoluteUrl = absoluteApiBaseUrl;
+
 export const apiClient = axios.create({
     baseURL: apiBaseUrl,
     withCredentials: true,

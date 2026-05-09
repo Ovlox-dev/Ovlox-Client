@@ -1,4 +1,4 @@
-import { apiClient , apiBaseUrl} from "@/shared/api/client";
+import { apiClient, apiAbsoluteUrl } from "@/shared/api/client";
 import {
     CreateConversationRequest,
     ListConversationsResponse,
@@ -81,7 +81,10 @@ export const retryJob = async (jobId: string): Promise<{ status: string; jobId: 
 
 // Stream job status via SSE (for real-time updates without WebSocket)
 export const streamJobStatus = (jobId: string, onUpdate: (data: unknown) => void, onError?: (error: Error) => void) => {
-    const eventSource = new EventSource(`${apiBaseUrl}/chat/jobs/${jobId}/stream`, {
+    // Bypass Next.js rewrites — Vercel/CDN buffering breaks SSE through the proxy.
+    // The canonical streaming consumer is `lib/sse.ts streamJobStatus`; this module
+    // is currently unused but kept for parity if a native-EventSource caller appears.
+    const eventSource = new EventSource(`${apiAbsoluteUrl}/chat/jobs/${jobId}/stream`, {
         withCredentials: true,
     });
 

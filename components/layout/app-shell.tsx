@@ -1,25 +1,20 @@
 "use client"
 
 import * as React from "react"
-import { useParams } from "next/navigation"
+import { usePathname, useRouter, useParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { SidebarInset, SidebarProvider, SidebarTrigger, } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
-import { ModeToggle } from "@/components/mode-toggle"
+import { ChatSidebar } from "@/components/layout/chat-sidebar"
 import { DashboardBreadcrumb } from "../dashboard-breadcrumb"
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer"
 import { MessageSquare } from "lucide-react"
-import { AiChatPanel, type AiChatScope } from "@/widgets/ai-chat-panel"
 import { useOrgStore } from "@/shared/lib/organization/org-store"
-import { userOrgById } from "@/entities/organization/api/org"
+import { userOrgById, userOrgBySlug } from "@/entities/organization/api/org"
 import { setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
+import { useChatSidebarStore } from "@/shared/lib/chat-sidebar/chat-sidebar.store"
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 import { ChatRuntimeBridge } from "@/components/layout/chat-runtime-bridge"
 
 export interface AppShellProps {
@@ -32,38 +27,106 @@ export function AppShell({
   className,
 }: AppShellProps) {
   return (
-    <SidebarProvider defaultOpen={true}>
+    /*
+      Layout overflow guard — the page-level horizontal scrollbar was coming
+      from `SidebarInset` being a `flex-1 w-full` child without `min-w-0`.
+      In flex layouts children default to `min-width: auto` (= content width),
+      so when our project pages contained wide cards / charts, the inset grew
+      to fit them and pushed past `100vw - sidebar`.
+
+      Both fixes are needed:
+      - `overflow-x-hidden` on the SidebarProvider wrapper clips the page
+        regardless of what any child does (defensive backstop).
+      - `min-w-0` on SidebarInset lets it shrink with the available space,
+        so children re-flow instead of overflowing.
+    */
+    /*
+      Why `h-svh overflow-hidden` on the SidebarProvider wrapper:
+      shadcn defaults to `min-h-svh` which lets the wrapper GROW with content.
+      That makes the BODY the scroll container, so when the user scrolls a
+      tall page, every flex sibling (including the chat sidebar) scrolls
+      with it.
+
+      Locking the wrapper at exactly viewport height moves the scroll
+      container down to the inner page <div> (which has `overflow-y-auto`
+      and `min-h-0` below). Now the page content scrolls inside its column
+      and the chat sidebar stays put.
+    */
+    <SidebarProvider defaultOpen={true} className="h-svh overflow-hidden">
       <OrgRouteSync />
       <ChatRuntimeBridge />
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="bg-[var(--bg)] min-w-0">
         <header
           className={cn(
-            "flex h-16 items-center gap-2 border-b border-border bg-background px-4",
-            "sticky top-0 z-10"
+            "flex h-16 items-center gap-3 border-b border-[var(--line-2)] bg-[var(--bg)] px-4",
+            "shrink-0"
           )}
         >
-          <SidebarTrigger aria-label="Toggle sidebar left" />
-          <div className="flex items-center justify-between flex-1">
+          <SidebarTrigger
+            aria-label="Toggle sidebar"
+            className="text-[var(--fg-2)] hover:text-[var(--fg)] hover:bg-[var(--bg-3)]"
+          />
+          <div className="flex items-center justify-between flex-1 min-w-0">
             <DashboardBreadcrumb />
             <div className="flex items-center gap-2">
-              <AiChatDrawer />
-
-              <ModeToggle />
+              <ChatSidebarTrigger />
             </div>
           </div>
         </header>
-        <main
+        {/*
+          `min-h-0` is the critical bit — without it, a flex-1 child in a
+          flex-col parent inherits `min-height: auto` (= content height), so
+          `overflow-y-auto` never actually clips. With it, the div takes the
+          remaining column space and scrolls internally.
+        */}
+        <div
           className={cn(
-            "flex-1 overflow-auto p-4 md:p-6",
+            "flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-6 bg-[var(--bg)]",
             "max-w-(--content-max-width,100rem) w-full mx-auto",
             className
           )}
         >
           {children}
-        </main>
+        </div>
       </SidebarInset>
+      {/*
+        Right-edge chat sidebar — flex sibling of `SidebarInset`, so it shares
+        the row with the page content. When it expands, `SidebarInset` shrinks
+        (it's `flex-1 min-w-0`); when it collapses, the page reclaims the
+        width. No overlay, no modal, no popover.
+      */}
+      <ChatSidebar />
     </SidebarProvider>
+  )
+}
+
+/**
+ * Header trigger that toggles the chat sidebar's expanded/collapsed state.
+ * Mirrors the visual style of the left-side `<SidebarTrigger>` so the two
+ * controls feel like a pair.
+ */
+function ChatSidebarTrigger() {
+  const open = useChatSidebarStore((s) => s.open);
+  const toggle = useChatSidebarStore((s) => s.toggle);
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={open ? "Collapse AI chat" : "Open AI chat"}
+      aria-pressed={open}
+      className={cn(
+        "inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-md",
+        "border border-[var(--line)] bg-[var(--bg-2)] text-[var(--fg-2)]",
+        "text-xs font-medium",
+        "transition-all duration-200",
+        "hover:border-[var(--accent-lime)] hover:text-[var(--accent-lime)] hover:bg-[var(--bg-3)]",
+        open && "border-[var(--accent-lime)] text-[var(--accent-lime)] bg-[var(--bg-3)]",
+      )}
+    >
+      <MessageSquare className="size-3.5" />
+      <span className="hidden sm:inline">AI Chat</span>
+    </button>
   )
 }
 
@@ -80,83 +143,63 @@ export function AppShell({
  */
 function OrgRouteSync() {
   const params = useParams<{ organizationId?: string }>();
-  const urlOrgId = params?.organizationId;
+  const pathname = usePathname();
+  const router = useRouter();
+  const urlOrgIdentifier = params?.organizationId;
   const currentOrg = useOrgStore((s) => s.currentOrg);
   const setCurrentOrg = useOrgStore((s) => s.setCurrentOrg);
 
+  /**
+   * Swap the URL bar's first path segment for the org's slug. Called after we
+   * know the canonical slug — flips legacy `/UUID/...` URLs to `/slug/...` so
+   * the address bar stays clean.
+   */
+  const replaceOrgInPath = React.useCallback(
+    (currentIdentifier: string, slug: string) => {
+      if (!pathname || !pathname.startsWith(`/${currentIdentifier}`)) return;
+      const tail = pathname.slice(`/${currentIdentifier}`.length);
+      router.replace(`/${slug}${tail}`);
+    },
+    [pathname, router],
+  );
+
   React.useEffect(() => {
-    if (!urlOrgId) return;
-    if (currentOrg?.id === urlOrgId) return;
+    if (!urlOrgIdentifier) return;
+
+    const isUuid = UUID_REGEX.test(urlOrgIdentifier);
+
+    // URL identifier matches the store: redirect UUID URLs to slug URLs once
+    // we know the slug, but otherwise no work to do.
+    if (currentOrg?.slug === urlOrgIdentifier) return;
+    if (currentOrg?.id === urlOrgIdentifier) {
+      if (isUuid && currentOrg.slug) {
+        replaceOrgInPath(urlOrgIdentifier, currentOrg.slug);
+      }
+      return;
+    }
 
     let cancelled = false;
-    userOrgById(urlOrgId)
+    const fetcher = isUuid
+      ? userOrgById(urlOrgIdentifier)
+      : userOrgBySlug(urlOrgIdentifier);
+
+    fetcher
       .then(({ organization }) => {
         if (cancelled) return;
         setCurrentOrg(organization);
-        setActiveOrgId(organization.id);
+        setActiveOrgId(organization.slug || organization.id);
+        if (isUuid && organization.slug) {
+          replaceOrgInPath(urlOrgIdentifier, organization.slug);
+        }
       })
       .catch(() => {
-        // Org not accessible (membership revoked, deleted, wrong URL). Clear the
-        // stale store so downstream components don't keep firing with the bad id.
         if (cancelled) return;
         setCurrentOrg(null);
       });
 
     return () => { cancelled = true; };
-  }, [urlOrgId, currentOrg?.id, setCurrentOrg]);
+  }, [urlOrgIdentifier, currentOrg?.id, currentOrg?.slug, setCurrentOrg, replaceOrgInPath]);
 
   return null;
 }
 
-/**
- * Renders the right-side AI chat drawer. Scope is derived from the current route:
- * if the user is viewing a project sub-route (`/[orgId]/projects/[projectId]/...`),
- * the chat is bound to that project; otherwise it's bound to the org.
- */
-function AiChatDrawer() {
-  const params = useParams<{ organizationId?: string; projectId?: string }>();
-  const organizationId = params?.organizationId ?? "";
-  const projectId = params?.projectId ?? "";
-
-  const scope: AiChatScope | null = projectId
-    ? { kind: "project", projectId }
-    : organizationId
-      ? { kind: "org", organizationId }
-      : null;
-
-  return (
-    <Drawer direction="right">
-      <DrawerTrigger asChild>
-        <button
-          type="button"
-          aria-label="Open AI chat"
-          className="bg-accent-contrast border border-border p-1.5 rounded-md text-muted hover:bg-muted transition-colors"
-        >
-          <MessageSquare className="size-4 text-muted" />
-        </button>
-      </DrawerTrigger>
-      <DrawerContent className="w-full! sm:w-105! sm:max-w-105!">
-        <DrawerHeader className="border-b border-border">
-          <DrawerTitle className="flex items-center gap-2 text-sm">
-            <MessageSquare className="size-4" />
-            {scope?.kind === "project" ? "Project AI Chat" : "Org AI Chat"}
-          </DrawerTitle>
-        </DrawerHeader>
-        <div className="flex-1 overflow-hidden p-3">
-          {scope ? (
-            <AiChatPanel
-              scope={scope}
-              compact
-              showConversationList={false}
-              height="h-full"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground p-6">
-              Open an organization or project to start a chat.
-            </div>
-          )}
-        </div>
-      </DrawerContent>
-    </Drawer>
-  );
-}

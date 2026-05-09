@@ -1,231 +1,291 @@
 "use client"
 
-import * as React from "react";
-import { useSearchParams } from "next/navigation"
-import { ChevronDown, Hash, RefreshCcw } from "lucide-react";
-import { useGetChannels, useGetDiscordUserGuilds, useSyncChannels } from "@/shared/queries/discord.queries"
-import { Button } from "@/components/ui/button";
-import { getBotInstallUrlForGuild } from "@/shared/api/integration-discord";
-import { toast } from "sonner";
-import { formatAuthErrorMessage } from "@/features/auth";
-import { Card, CardContent } from "@/components/ui/card";
-import { PageTitle } from "@/components/page-title";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import * as React from "react"
+import { useRouter, useParams, useSearchParams, usePathname } from "next/navigation"
+import { SiDiscord } from "react-icons/si"
+import { ChevronDown, Hash, RefreshCcw, Server } from "lucide-react"
+import { toast } from "sonner"
 
+import {
+    useGetChannels,
+    useGetDiscordUserGuilds,
+    useSyncChannels,
+} from "@/shared/queries/discord.queries"
+import {
+    getBotInstallUrlForGuild,
+    getDiscordOAuthUrl,
+} from "@/shared/api/integration-discord"
+import { ExternalProvider } from "@/types/enum"
+import { formatAuthErrorMessage } from "@/features/auth"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+
+import { ProviderHeader } from "@/widgets/integrations/ui/provider-header"
+import { ProviderInstances } from "@/widgets/integrations/ui/provider-instances"
+import { IntegrationActions } from "@/widgets/integrations/ui/integration-actions"
 
 export default function DiscordIntegrationPage() {
-    const searchParams = useSearchParams();
+    const router = useRouter()
+    const pathname = usePathname()
+    const params = useParams<{ organizationId: string }>()
+    const searchParams = useSearchParams()
+    const organizationId = params?.organizationId ?? ""
     const integrationId = searchParams?.get("integrationId") ?? ""
-    const { data, isLoading, error } = useGetDiscordUserGuilds(integrationId)
+
+    const setIntegrationId = React.useCallback(
+        (id: string) => {
+            const next = new URLSearchParams(searchParams?.toString() ?? "")
+            next.set("integrationId", id)
+            router.replace(`${pathname}?${next.toString()}`, { scroll: false })
+        },
+        [router, pathname, searchParams]
+    )
+
+    const { data: guilds, isLoading, error } = useGetDiscordUserGuilds(integrationId)
     const syncGuildsMutation = useSyncChannels()
-    const [expandedGuildId, setExpandedGuildId] = React.useState<string | null>(null);
-    const [syncingGuildId, setSyncingGuildId] = React.useState<string | null>(null);
+    const [expandedGuildId, setExpandedGuildId] = React.useState<string | null>(null)
+    const [syncingGuildId, setSyncingGuildId] = React.useState<string | null>(null)
 
     const handleBotInstall = async (guildId: string) => {
         try {
             const res = await getBotInstallUrlForGuild(integrationId, guildId)
-            if (res?.url) {
-                window.open(res.url, "_blank", "noopener,noreferrer");
-            }
-        }
-        catch (error) {
-            toast.error(formatAuthErrorMessage(error));
+            if (res?.url)
+                window.open(res.url, "_blank", "noopener,noreferrer")
+        } catch (err) {
+            toast.error(formatAuthErrorMessage(err))
         }
     }
 
-    const handleSyncGuildChannels = React.useCallback((guildId: string) => {
-        setSyncingGuildId(guildId);
-        syncGuildsMutation.mutate(
-            { integrationId, guildId },
-            {
-                onSuccess: () => {
-                    toast.success("Synced channels");
-                    setSyncingGuildId(null);
-                },
-                onError: (error) => {
-                    toast.error(formatAuthErrorMessage(error));
-                    setSyncingGuildId(null);
-                },
-            }
-        );
-    }, [integrationId, syncGuildsMutation]);
+    const handleSyncGuildChannels = React.useCallback(
+        (guildId: string) => {
+            setSyncingGuildId(guildId)
+            syncGuildsMutation.mutate(
+                { integrationId, guildId },
+                {
+                    onSuccess: () => {
+                        toast.success("Synced channels")
+                        setSyncingGuildId(null)
+                    },
+                    onError: (err) => {
+                        toast.error(formatAuthErrorMessage(err))
+                        setSyncingGuildId(null)
+                    },
+                }
+            )
+        },
+        [integrationId, syncGuildsMutation]
+    )
 
     return (
         <div className="space-y-6">
-            <PageTitle
-                title="Discord Integration"
-                description="Connect Discord and manage channels."
+            <ProviderHeader
+                icon={SiDiscord}
+                title="Discord"
+                description="Manage servers and channel access."
+                actions={
+                    <IntegrationActions
+                        provider="Discord"
+                        organizationId={organizationId}
+                        integrationId={integrationId}
+                        getReinstallUrl={getDiscordOAuthUrl}
+                    />
+                }
             />
 
-            <Card className="rounded-2xl border-border bg-card">
-                <CardContent className="space-y-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <ProviderInstances
+                organizationId={organizationId}
+                provider={ExternalProvider.DISCORD}
+                providerName="Discord"
+                icon={SiDiscord}
+                selectedIntegrationId={integrationId}
+                onSelect={setIntegrationId}
+            />
+
+            {integrationId ? (
+                <section className="rounded-[14px] border border-(--line) bg-(--bg-2)">
+                    <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-(--line-2)">
                         <div>
-                            <div className="text-base font-semibold">Servers</div>
-                            <p className="text-sm text-muted-foreground">
-                                Sync your servers, then expand a server to view its channels.
+                            <div className="text-sm font-semibold text-(--fg)">Servers</div>
+                            <p className="text-xs text-(--fg-3) font-mono mt-0.5">
+                                Expand a server to view and sync its channels
                             </p>
                         </div>
                     </div>
 
-                    <Separator />
-
-                    {error ? (
-                        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-                            {formatAuthErrorMessage(error)}
-                        </div>
-                    ) : null}
-
-                    {isLoading ? (
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                            {Array.from({ length: 6 }).map((_, i) => (
-                                <Card key={i} className="border-border/60">
-                                    <CardContent className="space-y-3 p-4">
-                                        <Skeleton className="h-4 w-40" />
-                                        <Skeleton className="h-3 w-56" />
-                                        <Skeleton className="h-9 w-full" />
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    ) : data?.length ? (
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                            {data.map((guild) => (
-                                <GuildCard
-                                    key={guild.id}
-                                    integrationId={integrationId}
-                                    guild={guild}
-                                    expanded={expandedGuildId === guild.id}
-                                    onToggleExpanded={() =>
-                                        setExpandedGuildId((prev) => (prev === guild.id ? null : guild.id))
-                                    }
-                                    onInstallBot={() => handleBotInstall(guild.id)}
-                                    onSyncChannels={() => handleSyncGuildChannels(guild.id)}
-                                    syncingChannels={syncingGuildId === guild.id}
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-sm text-muted-foreground">
-                            No Discord servers found.
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
+                    <div className="p-5">
+                        {error ? (
+                            <div className="rounded-[10px] border border-[rgba(255,91,110,0.3)] bg-[rgba(255,91,110,0.06)] p-4">
+                                <p className="text-sm text-(--danger)">{formatAuthErrorMessage(error)}</p>
+                            </div>
+                        ) : isLoading ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                    <Skeleton
+                                        key={i}
+                                        className="h-32 bg-(--bg-3) rounded-[12px]"
+                                    />
+                                ))}
+                            </div>
+                        ) : !guilds?.length ? (
+                            <div className="text-center py-10">
+                                <p className="text-(--fg) font-medium">No Discord servers</p>
+                                <p className="text-sm text-(--fg-3) mt-1 max-w-sm mx-auto">
+                                    Connect Discord and grant access to your servers.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                {guilds.map((guild) => (
+                                    <GuildCard
+                                        key={guild.id}
+                                        integrationId={integrationId}
+                                        guild={guild}
+                                        expanded={expandedGuildId === guild.id}
+                                        onToggleExpanded={() =>
+                                            setExpandedGuildId((prev) =>
+                                                prev === guild.id ? null : guild.id
+                                            )
+                                        }
+                                        onInstallBot={() => handleBotInstall(guild.id)}
+                                        onSyncChannels={() => handleSyncGuildChannels(guild.id)}
+                                        syncingChannels={syncingGuildId === guild.id}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </section>
+            ) : null}
         </div>
     )
 }
 
 function GuildCard(props: {
-    integrationId: string;
-    guild: { id: string; name: string; botInstalled: boolean };
-    expanded: boolean;
-    onToggleExpanded: () => void;
-    onInstallBot: () => void;
-    onSyncChannels: () => void;
-    syncingChannels: boolean;
+    integrationId: string
+    guild: { id: string; name: string; botInstalled: boolean }
+    expanded: boolean
+    onToggleExpanded: () => void
+    onInstallBot: () => void
+    onSyncChannels: () => void
+    syncingChannels: boolean
 }) {
     const { data: channels, isLoading } = useGetChannels(
         props.integrationId,
         props.expanded ? props.guild.id : undefined
-    );
+    )
 
     return (
-        <Card>
-            <CardContent className="">
-                <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate font-medium">{props.guild.name}</p>
-                            {props.guild.botInstalled ? (
-                                <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/10">
-                                    Bot installed
-                                </Badge>
-                            ) : (
-                                <Badge variant="secondary">Bot not installed</Badge>
+        <article className="rounded-[12px] border border-(--line-2) bg-(--bg-3) p-4 transition-colors hover:border-(--accent-lime)/30">
+            <div className="flex items-start gap-3 min-w-0">
+                <div className="size-9 shrink-0 grid place-items-center rounded-[10px] border border-(--line-2) bg-(--bg-2) text-(--fg-2)">
+                    <Server className="size-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-(--fg) truncate flex-1">
+                            {props.guild.name}
+                        </p>
+                        <span
+                            className={cn(
+                                "shrink-0 inline-flex rounded-full px-2 py-0.5",
+                                "font-mono uppercase tracking-wider text-[10px] font-semibold",
+                                props.guild.botInstalled
+                                    ? "border border-[rgba(124,246,111,0.3)] bg-[rgba(124,246,111,0.12)] text-(--accent-2)"
+                                    : "border border-(--line-2) bg-(--bg-2) text-(--fg-3)"
                             )}
-                        </div>
-                        <p className="truncate text-xs text-muted-foreground">ID: {props.guild.id}</p>
+                        >
+                            {props.guild.botInstalled ? "Bot installed" : "No bot"}
+                        </span>
+                    </div>
+                    <p className="text-xs text-(--fg-3) font-mono mt-0.5 truncate">
+                        {props.guild.id}
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={props.onToggleExpanded}
+                    aria-label={props.expanded ? "Collapse channels" : "Expand channels"}
+                    className="shrink-0"
+                >
+                    <ChevronDown
+                        className={cn(
+                            "size-4 transition-transform",
+                            props.expanded ? "rotate-180" : ""
+                        )}
+                    />
+                </Button>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+                {props.guild.botInstalled ? (
+                    <>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={props.onSyncChannels}
+                            disabled={props.syncingChannels}
+                        >
+                            <RefreshCcw
+                                className={cn(
+                                    "size-3.5",
+                                    props.syncingChannels ? "animate-spin" : ""
+                                )}
+                            />
+                            {props.syncingChannels ? "Syncing…" : "Sync channels"}
+                        </Button>
+                    </>
+                ) : (
+                    <Button type="button" size="sm" onClick={props.onInstallBot}>
+                        Install bot
+                    </Button>
+                )}
+            </div>
+
+            {props.expanded ? (
+                <div className="mt-3 rounded-[10px] border border-(--line-2) bg-(--bg-2) p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                        <p className="font-mono text-[10px] uppercase tracking-wider text-(--fg-3)">
+                            Channels
+                        </p>
+                        <span className="font-mono text-[10px] uppercase tracking-wider text-(--fg-2)">
+                            {channels?.length ?? 0}
+                        </span>
                     </div>
 
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={props.onToggleExpanded}
-                        aria-label={props.expanded ? "Collapse channels" : "Expand channels"}
-                    >
-                        <ChevronDown className={cn("size-4 transition-transform", props.expanded ? "rotate-180" : "")} />
-                    </Button>
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {props.guild.botInstalled ? (
-                        <>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                className="gap-2"
-                                onClick={props.onSyncChannels}
-                                disabled={props.syncingChannels}
-                            >
-                                <RefreshCcw className={cn("size-4", props.syncingChannels ? "animate-spin" : "")} />
-                                {props.syncingChannels ? "Syncing..." : "Sync channels"}
-                            </Button>
-                            <Button type="button" onClick={props.onToggleExpanded}>
-                                {props.expanded ? "Hide channels" : "View channels"}
-                            </Button>
-                        </>
+                    {isLoading ? (
+                        <div className="space-y-2">
+                            <Skeleton className="h-7 w-full bg-(--bg-3)" />
+                            <Skeleton className="h-7 w-full bg-(--bg-3)" />
+                            <Skeleton className="h-7 w-full bg-(--bg-3)" />
+                        </div>
+                    ) : !channels?.length ? (
+                        <p className="text-xs text-(--fg-3) py-2">
+                            No channels found. Try syncing channels.
+                        </p>
                     ) : (
-                        <Button type="button" onClick={props.onInstallBot}>
-                            Install bot
-                        </Button>
+                        <div className="max-h-56 space-y-1 overflow-auto pr-1">
+                            {channels.map((c) => (
+                                <div
+                                    key={c.id}
+                                    className="flex items-center justify-between rounded-[6px] border border-(--line-2) bg-(--bg-3) px-2.5 py-1.5"
+                                >
+                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                        <Hash className="size-3 shrink-0 text-(--fg-3)" />
+                                        <p className="text-xs text-(--fg) truncate">{c.name}</p>
+                                    </div>
+                                    <p className="text-[10px] font-mono text-(--fg-3) shrink-0 ml-2">
+                                        {c.id.slice(-6)}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </div>
-
-                {props.expanded ? (
-                    <div className="mt-4 rounded-lg border bg-muted/20 p-3">
-                        <div className="mb-2 flex items-center justify-between">
-                            <p className="text-sm font-medium">Channels</p>
-                            <Badge variant="secondary">{channels?.length ?? 0}</Badge>
-                        </div>
-
-                        {isLoading ? (
-                            <div className="space-y-2">
-                                <Skeleton className="h-8 w-full" />
-                                <Skeleton className="h-8 w-full" />
-                                <Skeleton className="h-8 w-full" />
-                            </div>
-                        ) : !channels?.length ? (
-                            <div className="text-sm text-muted-foreground">
-                                No channels found. Try syncing channels.
-                            </div>
-                        ) : (
-                            <div className="max-h-64 space-y-2 overflow-auto pr-1">
-                                {channels.map((c) => (
-                                    <div
-                                        key={c.id}
-                                        className="flex items-center justify-between rounded-md border bg-background px-3 py-2"
-                                    >
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-medium">{c.name}</p>
-                                            <p className="truncate text-xs text-muted-foreground">{c.id}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-muted-foreground">
-                                            <Hash className="size-4" />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                ) : null}
-            </CardContent>
-        </Card>
-    );
+            ) : null}
+        </article>
+    )
 }
-

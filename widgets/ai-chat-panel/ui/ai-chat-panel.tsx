@@ -25,6 +25,10 @@ import {
     startConversationJob,
     useChatStreamingStore,
 } from "@/lib/chat-runtime";
+import {
+    buildScopeKey,
+    useChatSidebarStore,
+} from "@/shared/lib/chat-sidebar/chat-sidebar.store";
 
 export type AiChatScope =
     | { kind: "project"; projectId: string }
@@ -67,14 +71,6 @@ function formatTime(d: Date): string {
     return d.toLocaleDateString();
 }
 
-function resizeChatComposerTextarea(el: HTMLTextAreaElement | null) {
-    if (!el) { return; }
-    const maxPx = 160; // `max-h-40` (10rem) in pixels
-    el.style.height = "auto";
-    const next = Math.min(el.scrollHeight, maxPx);
-    el.style.height = `${next}px`;
-    el.style.overflowY = el.scrollHeight > maxPx ? "auto" : "hidden";
-}
 
 /**
  * Renders the RAG chat UI. Project scope creates RAG_CHAT conversations bound to a project;
@@ -110,7 +106,29 @@ export function AiChatPanel({
     const projectId = isProject ? scope.projectId : undefined;
     const organizationId = !isProject ? scope.organizationId : undefined;
 
-    const [activeConversationId, setActiveConversationId] = React.useState<string | null>(null);
+    /**
+     * `activeConversationId` lives in `useChatSidebarStore` keyed by scope so
+     * external surfaces (the ChatSidebar header's conversation dropdown) can
+     * drive selection without prop-drilling, and a user's last-active chat
+     * survives navigation away and back.
+     *
+     * The setter wrapper packages the per-scope shape so callers inside this
+     * component can keep writing `setActiveConversationId(id)` as if it were
+     * still `useState`.
+     */
+    const scopeKey = React.useMemo(() => buildScopeKey(scope), [scope]);
+    const activeConversationId = useChatSidebarStore((s) =>
+        scopeKey ? s.activeConversationByScope[scopeKey] ?? null : null,
+    );
+    const setActiveConversationInStore = useChatSidebarStore((s) => s.setActiveConversation);
+    const setActiveConversationId = React.useCallback(
+        (next: string | null | ((prev: string | null) => string | null)) => {
+            if (!scopeKey) return;
+            const nextValue = typeof next === "function" ? next(activeConversationId) : next;
+            setActiveConversationInStore(scopeKey, nextValue);
+        },
+        [scopeKey, activeConversationId, setActiveConversationInStore],
+    );
     const [messageInput, setMessageInput] = React.useState("");
     const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
     const [showJumpToLatest, setShowJumpToLatest] = React.useState(false);
@@ -150,7 +168,20 @@ export function AiChatPanel({
         [isProject, projectId, organizationId],
     );
 
-    /** Auto-select the first conversation, or auto-create a default one. */
+    /**
+     * Auto-select the first conversation, or auto-create a default one.
+     *
+     * Storm-proofed: the previous version included `creatingConversation` in
+     * its deps. When the create-mutation failed (e.g. server returned 400 for
+     * an unresolved projectId), `creatingConversation` flipped true → false,
+     * which re-fired this effect, which re-fired the mutation. ~30 requests/sec.
+     *
+     * Now we (a) don't depend on `creatingConversation`, (b) latch a per-scope
+     * "tried once" ref so a single failure stops the loop until the user does
+     * something (changes scope or remounts the panel), and (c) record the
+     * failure so subsequent renders short-circuit cheaply.
+     */
+    const autoCreateAttemptRef = React.useRef<{ scope: string; failed: boolean } | null>(null);
     React.useEffect(() => {
         if (!isProject && !organizationId) { return; }
         if (isProject && !projectId) { return; }
@@ -160,18 +191,37 @@ export function AiChatPanel({
             setActiveConversationId(conversations[0].id);
             return;
         }
+
+        const scopeKey = isProject ? `project:${projectId}` : `org:${organizationId}`;
+        const prev = autoCreateAttemptRef.current;
+        // Reset the latch when scope changes — switching projects/orgs is the
+        // legitimate signal to retry.
+        const latch = (!prev || prev.scope !== scopeKey)
+            ? { scope: scopeKey, failed: false }
+            : prev;
+        autoCreateAttemptRef.current = latch;
+        // Already attempted for this scope (success would have flipped activeConversationId
+        // and short-circuited above; failure latches `failed = true`).
+        if (latch.failed) { return; }
         if (creatingConversation) { return; }
+
+        autoCreateAttemptRef.current = { scope: scopeKey, failed: true };
         createConversation(newConversationPayload(isProject ? "Project chat" : "Org chat"), {
             onSuccess: (created) => {
+                autoCreateAttemptRef.current = { scope: scopeKey, failed: false };
                 setActiveConversationId(created.id);
                 refetchConversations();
             },
-            onError: (err) => toast.error("Failed to create chat", { description: (err as Error).message }),
+            onError: (err) => {
+                // Keep the latch flipped so we don't loop. User can scroll the
+                // sidebar / refresh / change scope to retry.
+                toast.error("Failed to create chat", { description: (err as Error).message });
+            },
         });
     }, [
         activeConversationId,
         conversations,
-        creatingConversation,
+        // creatingConversation intentionally omitted — see ref-latch comment above.
         createConversation,
         isProject,
         projectId,
@@ -775,10 +825,6 @@ function ChatComposer({
     const innerTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
     const resolvedTextareaRef = textareaRef ?? innerTextareaRef;
 
-    React.useEffect(() => {
-        resizeChatComposerTextarea(resolvedTextareaRef.current);
-    }, [value, resolvedTextareaRef]);
-
     const showHelper = !compact && !sending && !value.trim();
 
     return (
@@ -789,7 +835,6 @@ function ChatComposer({
                     placeholder={placeholder}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
-                    onInput={() => resizeChatComposerTextarea(resolvedTextareaRef.current)}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
@@ -798,11 +843,28 @@ function ChatComposer({
                     }}
                     disabled={disabled}
                     rows={1}
+                    /*
+                     * `field-sizing: content` is the modern, native auto-grow
+                     * for form controls — Chrome 123+, Safari 17.4+, Firefox
+                     * 135+. The browser sizes the textarea to fit its content
+                     * exactly, so `rows={1}` plus an empty value renders as
+                     * one line tall (no min-height chunk, no JS layout
+                     * thrash).
+                     *
+                     * `max-h-40` caps the growth so a runaway paste still
+                     * leaves room for the messages above; once the cap is hit
+                     * the textarea scrolls internally via the scroll classes.
+                     *
+                     * The previous JS-based `style.height = scrollHeight`
+                     * approach kept fighting flex layout and reading wrong
+                     * values on first paint (the "big-then-shrinks" bug).
+                     */
+                    style={{ fieldSizing: "content" } as React.CSSProperties}
                     className={cn(
-                        "w-full resize-none bg-transparent outline-none",
-                        "min-h-12 max-h-40 overflow-y-auto custom-scrollbar",
+                        "w-full resize-none bg-transparent outline-none block",
+                        "max-h-40 overflow-y-auto custom-scrollbar",
                         compact ? "text-xs" : "text-sm",
-                        "pr-12",
+                        "pr-12 leading-6",
                     )}
                 />
 

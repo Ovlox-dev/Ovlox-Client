@@ -50,9 +50,9 @@ export default function Organizations() {
     });
 
     const handleSelectOrg = useCallback(
-        (id: string) => {
-            setActiveOrgId(id);
-            router.push(buildDashboardOrgRoute(id));
+        (identifier: string) => {
+            setActiveOrgId(identifier);
+            router.push(buildDashboardOrgRoute(identifier));
         },
         [router]
     );
@@ -108,7 +108,7 @@ export default function Organizations() {
                             <article
                                 key={org.id}
                                 className="group relative border border-border rounded-lg p-6 bg-card shadow-sm hover:shadow-lg hover:border-primary/50 transition-all duration-200 cursor-pointer overflow-hidden"
-                                onClick={() => handleSelectOrg(org.id)}
+                                onClick={() => handleSelectOrg(org.slug || org.id)}
                             >
                                 <div className="absolute inset-0 bg-linear-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
 

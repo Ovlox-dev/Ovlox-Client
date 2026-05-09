@@ -62,6 +62,29 @@ export const useOrgBySlug = (slug: string) =>
         enabled: !!slug,
     });
 
+const ORG_UUID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Fetch an organization regardless of whether the caller passes a UUID or a
+ * slug. Routes the request to the right backend endpoint internally.
+ *
+ * Why this exists: after the slug-URL migration, `useParams().organizationId`
+ * is normally a slug, but legacy bookmarks still carry UUIDs. The
+ * `/orgs/user/byId/:id` endpoint isn't covered by the slug-resolver middleware
+ * (which only rewrites segments after `/orgs/<x>` or `/projects/<x>`), so
+ * passing a slug to `useOrgById` returns nothing and the page hangs on its
+ * loading state.
+ */
+export const useOrgByIdentifier = (identifier: string) => {
+    const isUuid = !!identifier && ORG_UUID_REGEX.test(identifier);
+    return useQuery({
+        queryKey: isUuid ? orgKeys.detail(identifier) : orgKeys.bySlug(identifier),
+        queryFn: () => (isUuid ? userOrgById(identifier) : userOrgBySlug(identifier)),
+        enabled: !!identifier,
+    });
+};
+
 export const useCreateOrg = () => {
     const queryClient = useQueryClient();
 
