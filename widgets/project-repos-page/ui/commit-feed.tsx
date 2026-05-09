@@ -84,7 +84,7 @@ export function CommitFeed({
     if (isLoading) {
         return (
             <div className="flex justify-center py-12">
-                <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                <Loader2 className="size-6 animate-spin text-(--fg-2)" />
             </div>
         );
     }
@@ -94,7 +94,7 @@ export function CommitFeed({
             <Card className="p-12 text-center">
                 <GitCommit className="size-10 mx-auto mb-3 text-destructive opacity-70" />
                 <h3 className="text-base font-semibold mb-1">Couldn&apos;t load commits</h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-(--fg-2)">
                     Try refreshing, or check that ingestion has completed.
                 </p>
             </Card>
@@ -104,9 +104,9 @@ export function CommitFeed({
     if (commits.length === 0) {
         return (
             <Card className="p-10 text-center">
-                <GitCommit className="size-9 mx-auto mb-3 text-muted-foreground opacity-50" />
+                <GitCommit className="size-9 mx-auto mb-3 text-(--fg-2) opacity-50" />
                 <h3 className="text-sm font-semibold mb-1">{emptyTitle}</h3>
-                <p className="text-xs text-muted-foreground">{emptyDescription}</p>
+                <p className="text-xs text-(--fg-2)">{emptyDescription}</p>
             </Card>
         );
     }
@@ -114,7 +114,7 @@ export function CommitFeed({
     return (
         <div className="space-y-3">
             {typeof total === "number" && total > 0 ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-(--fg-2)">
                     Showing {commits.length} of {total} commit{total === 1 ? "" : "s"}
                 </p>
             ) : null}
@@ -179,17 +179,17 @@ function CommitRow({
                                 target="_blank"
                                 rel="noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-0.5 shrink-0"
+                                className="text-xs text-(--fg-2) hover:text-primary inline-flex items-center gap-0.5 shrink-0"
                             >
                                 {sha || "view"}
                                 <ExternalLink className="size-3" />
                             </a>
                         ) : sha ? (
-                            <span className="text-[11px] font-mono text-muted-foreground shrink-0">{sha}</span>
+                            <span className="text-[11px] font-mono text-(--fg-2) shrink-0">{sha}</span>
                         ) : null}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground mb-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-(--fg-2) mb-2">
                         {commit.authorName ? (
                             <span className="flex items-center gap-1">
                                 <User className="size-3" />
@@ -224,7 +224,7 @@ function CommitRow({
                     {/* Stats: prefer per-commit aggregate (project-wide feed) but fall back to
                         per-file changeType + +/- when in file-detail context. */}
                     {(commit.additions || commit.deletions || commit.fileChangesCount) ? (
-                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2">
+                        <div className="flex items-center gap-2 text-[11px] text-(--fg-2) mb-2">
                             {commit.fileChangesCount ? (
                                 <span className="flex items-center gap-1">
                                     <FileCode className="size-3" />

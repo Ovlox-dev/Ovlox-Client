@@ -37,7 +37,9 @@ export function useOrganizationAccess(organizationId: string | undefined): boole
         const response = await userOrgs();
         if (cancelled) { return; }
         const orgs = response.data ?? [];
-        if (orgs.some((o) => o.id === id)) {
+        // URL identifier may be a slug (post-migration) OR a UUID (legacy
+        // bookmarks / localStorage). Both forms grant access.
+        if (orgs.some((o) => o.id === id || o.slug === id)) {
           if (!cancelled) {
             setVerifiedOrgId(id);
           }

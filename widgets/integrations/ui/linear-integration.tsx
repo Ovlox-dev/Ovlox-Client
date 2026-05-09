@@ -17,8 +17,6 @@ import { Button } from "@/components/ui/button"
 import { computeConnectionFlags } from "@/widgets/integrations/model/integration-utils"
 import { IntegrationCardShell } from "@/widgets/integrations/ui/integration-card-shell"
 
-const ACCENT = "#55C6F0"
-
 export function LinearIntegration({
   organizationId,
   basePath,
@@ -41,16 +39,12 @@ export function LinearIntegration({
   const integrationId = integration?.integrationId ?? ""
   const pending = pendingAppId === "linear"
 
-  const primaryClassName = "font-semibold text-black hover:opacity-90"
-  const primaryStyle = { backgroundColor: ACCENT }
-
   const showManage = connected
 
   const handleAddToSetup = async () => {
     setPendingAppId("linear")
     try {
-      if (!organizationId) { return }
-
+      if (!organizationId) return
       await addIntegrations(organizationId, { provider: ExternalProvider.LINEAR, label: "Linear" })
       onAddedToSetup("linear")
       refetchIntegrations()
@@ -62,15 +56,12 @@ export function LinearIntegration({
   }
 
   const handleInstall = async () => {
-    if (!organizationId) { return }
-    if (!integrationId) { return }
-
+    if (!organizationId) return
+    if (!integrationId) return
     try {
       setPendingAppId("linear")
       const res = await getLinearInstallUrl(organizationId, integrationId)
-      if (res?.url) {
-        window.location.href = res.url
-      }
+      if (res?.url) window.location.href = res.url
     } finally {
       setPendingAppId(null)
     }
@@ -79,8 +70,7 @@ export function LinearIntegration({
   const actions = showManage ? (
     <Button
       type="button"
-      variant="ghost"
-      className="border-[0.5px] border-accent  text-accent hover:bg-accent hover:text-white"
+      variant="outline"
       onClick={() => router.push(`${basePath}/linear?integrationId=${encodeURIComponent(integrationId)}`)}
     >
       Manage
@@ -88,17 +78,15 @@ export function LinearIntegration({
   ) : !inSetup ? (
     <Button
       type="button"
-      variant="secondary"
-      className="bg-zinc-800 font-medium text-white hover:bg-zinc-700"
+      variant="outline"
       onClick={() => void handleAddToSetup()}
+      disabled={pending}
     >
-      Add
+      {pending ? "Adding..." : "Add"}
     </Button>
   ) : (
     <Button
       type="button"
-      className={primaryClassName}
-      style={primaryStyle}
       onClick={() => void handleInstall()}
       disabled={pending || processing || !integrationId}
     >
@@ -117,4 +105,3 @@ export function LinearIntegration({
     />
   )
 }
-

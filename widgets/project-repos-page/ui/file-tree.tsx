@@ -110,7 +110,7 @@ function riskBadgeClass(score: number): string {
     if (score >= 80) return "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30";
     if (score >= 60) return "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30";
     if (score >= 40) return "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30";
-    return "bg-muted/50 text-muted-foreground border-transparent";
+    return "bg-muted/50 text-(--fg-2) border-transparent";
 }
 
 interface FileTreeProps {
@@ -126,11 +126,11 @@ export function FileTree({ files, activeFileId, onSelect, query }: FileTreeProps
     const filtered = React.useMemo(() => filterTree(root, query.trim()) ?? root, [root, query]);
 
     if (files.length === 0) {
-        return <p className="text-xs text-muted-foreground p-3">No files indexed yet.</p>;
+        return <p className="text-xs text-(--fg-2) p-3">No files indexed yet.</p>;
     }
 
     if (filtered.fileCountTree === 0) {
-        return <p className="text-xs text-muted-foreground p-3">No files match &quot;{query}&quot;.</p>;
+        return <p className="text-xs text-(--fg-2) p-3">No files match &quot;{query}&quot;.</p>;
     }
 
     return (
@@ -193,13 +193,13 @@ function DirRow({
             >
                 <ChevronRight
                     className={cn(
-                        "size-3 text-muted-foreground transition-transform shrink-0",
+                        "size-3 text-(--fg-2) transition-transform shrink-0",
                         isOpen && "rotate-90",
                     )}
                 />
                 <FolderIcon className="size-3.5 text-blue-500/80 shrink-0" />
                 <span className="truncate">{node.name}</span>
-                <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
+                <span className="ml-auto text-[10px] text-(--fg-2) shrink-0">
                     {node.fileCountTree}
                 </span>
                 {node.maxRiskInTree >= 40 ? (
@@ -267,14 +267,14 @@ function FileRow({
             onClick={() => onSelect(file.id)}
             className={cn(
                 "w-full flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors text-left",
-                isActive ? "bg-accent-contrast text-text" : "hover:bg-muted/60 text-muted-foreground",
+                isActive ? "bg-accent-contrast text-text" : "hover:bg-muted/60 text-(--fg-2)",
             )}
             style={{ paddingLeft: 16 + depth * 12 }}
         >
             <FileCode className="size-3 shrink-0" />
             <span className="truncate">{file.path}</span>
             {file.language ? (
-                <span className="ml-auto text-[9px] uppercase text-muted-foreground/70 shrink-0">
+                <span className="ml-auto text-[9px] uppercase text-(--fg-2)/70 shrink-0">
                     {file.language}
                 </span>
             ) : null}

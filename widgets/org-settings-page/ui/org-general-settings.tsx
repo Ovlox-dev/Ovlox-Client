@@ -9,11 +9,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useOrgById, useUpdateOrg } from "@/shared/queries/org.queries";
+import { useOrgByIdentifier, useUpdateOrg } from "@/shared/queries/org.queries";
 
 export function OrgGeneralSettings() {
     const { organizationId } = useParams<{ organizationId: string }>();
-    const { data, isLoading } = useOrgById(organizationId);
+    // URL identifier may be a slug (post-migration) or a UUID (legacy
+    // bookmarks). useOrgByIdentifier picks the right backend endpoint.
+    const { data, isLoading } = useOrgByIdentifier(organizationId);
     const org = data?.organization;
     const updateMutation = useUpdateOrg(organizationId);
 

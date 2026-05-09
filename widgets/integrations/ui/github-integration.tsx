@@ -17,8 +17,6 @@ import { Button } from "@/components/ui/button"
 import { computeConnectionFlags, computeOauthConnected } from "@/widgets/integrations/model/integration-utils"
 import { IntegrationCardShell } from "@/widgets/integrations/ui/integration-card-shell"
 
-const ACCENT = "#55C6F0"
-
 export function GitHubIntegration({
   organizationId,
   basePath,
@@ -45,16 +43,13 @@ export function GitHubIntegration({
   const pending = pendingAppId === "github"
   const connectInProgress = connectingAppId === "github"
 
-  const primaryClassName = "font-semibold text-black hover:opacity-90"
-  const primaryStyle = { backgroundColor: ACCENT }
-
   const showManage = connected
+  const showConnectedOnConnect = oauthConnected || connected || processing
 
   const handleAddToSetup = async () => {
     setPendingAppId("github")
     try {
-      if (!organizationId) { return }
-
+      if (!organizationId) return
       await addIntegrations(organizationId, { provider: ExternalProvider.GITHUB, label: "Personal Account" })
       onAddedToSetup("github")
       refetchIntegrations()
@@ -66,14 +61,11 @@ export function GitHubIntegration({
   }
 
   const handleConnect = async () => {
-    if (!organizationId) { return }
-
+    if (!organizationId) return
     try {
       setConnectingAppId("github")
       const res = await getGithubOAuthUrl(organizationId)
-      if (res?.url) {
-        window.location.href = res.url
-      }
+      if (res?.url) window.location.href = res.url
     } catch (error: unknown) {
       toast.error(formatAuthErrorMessage(error))
     } finally {
@@ -82,26 +74,20 @@ export function GitHubIntegration({
   }
 
   const handleInstall = async () => {
-    if (!organizationId) { return }
-
+    if (!organizationId) return
     try {
       setPendingAppId("github")
       const res = await getGithubInstallUrl(organizationId)
-      if (res?.url) {
-        window.location.href = res.url
-      }
+      if (res?.url) window.location.href = res.url
     } finally {
       setPendingAppId(null)
     }
   }
 
-  const showConnectedOnConnect = oauthConnected || connected || processing
-
   const actions = showManage ? (
     <Button
       type="button"
-      variant="ghost"
-      className="border-[0.5px] border-accent  text-accent hover:bg-accent hover:text-white"
+      variant="outline"
       onClick={() => router.push(`${basePath}/github?integrationId=${encodeURIComponent(integrationId)}`)}
     >
       Manage
@@ -109,18 +95,17 @@ export function GitHubIntegration({
   ) : !inSetup ? (
     <Button
       type="button"
-      variant="secondary"
-      className="bg-zinc-800 font-medium text-white hover:bg-zinc-700"
+      variant="outline"
       onClick={() => void handleAddToSetup()}
+      disabled={pending}
     >
-      Add
+      {pending ? "Adding..." : "Add"}
     </Button>
   ) : (
     <>
       <Button
         type="button"
-        className={primaryClassName}
-        style={primaryStyle}
+        variant="outline"
         onClick={() => void handleConnect()}
         disabled={showConnectedOnConnect || connectInProgress || !integrationId}
       >
@@ -128,8 +113,6 @@ export function GitHubIntegration({
       </Button>
       <Button
         type="button"
-        className={primaryClassName}
-        style={primaryStyle}
         onClick={() => void handleInstall()}
         disabled={pending || !integrationId || !oauthConnected}
       >
@@ -149,4 +132,3 @@ export function GitHubIntegration({
     />
   )
 }
-

@@ -127,9 +127,9 @@ const CATEGORY_STYLES: Record<string, CategoryStyle> = {
 const FALLBACK_STYLE: CategoryStyle = {
     label: "Event",
     icon: Bug,
-    badgeClass: "bg-muted text-muted-foreground border-muted",
+    badgeClass: "bg-muted text-(--fg-2) border-muted",
     iconBgClass: "bg-muted",
-    iconColorClass: "text-muted-foreground",
+    iconColorClass: "text-(--fg-2)",
 };
 
 function rangePresetToSince(preset: RangePreset): string | undefined {
@@ -235,7 +235,7 @@ export function ProjectTimelinePage() {
                         <Calendar className="size-6" />
                         Project Timeline
                     </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-(--fg-2) mt-1">
                         How the codebase evolved — when, what, and who. Decisions, milestones, features, incidents, and code changes in one feed.
                     </p>
                 </div>
@@ -268,7 +268,7 @@ export function ProjectTimelinePage() {
                             onClick={() => toggleCategory(cat)}
                             className={cn(
                                 "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                                active ? style.badgeClass : "border-border text-muted-foreground hover:bg-muted",
+                                active ? style.badgeClass : "border-border text-(--fg-2) hover:bg-muted",
                             )}
                         >
                             <Icon className="size-3.5" />
@@ -288,22 +288,22 @@ export function ProjectTimelinePage() {
 
             {isLoading ? (
                 <div className="flex justify-center py-16">
-                    <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                    <Loader2 className="size-6 animate-spin text-(--fg-2)" />
                 </div>
             ) : isError ? (
                 <Card className="p-12 text-center">
                     <AlertCircle className="size-10 mx-auto mb-3 text-destructive opacity-70" />
                     <h3 className="text-lg font-semibold mb-1">Couldn&apos;t load the timeline</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
+                    <p className="text-sm text-(--fg-2) mb-4">
                         Something went wrong fetching project events. Try again, or come back once your integrations finish ingesting.
                     </p>
                     <Button variant="outline" onClick={() => refetch()}>Retry</Button>
                 </Card>
             ) : grouped.length === 0 ? (
                 <Card className="p-12 text-center">
-                    <Calendar className="size-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+                    <Calendar className="size-10 mx-auto mb-3 text-(--fg-2) opacity-50" />
                     <h3 className="text-lg font-semibold mb-1">No events in this range</h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-(--fg-2)">
                         Try expanding the range, enabling more categories, or wait for ingestion to populate the timeline.
                     </p>
                 </Card>
@@ -312,9 +312,9 @@ export function ProjectTimelinePage() {
                     {grouped.map((group) => (
                         <div key={group.key}>
                             <div className="sticky top-0 z-1 -mx-4 px-4 py-2 bg-background/95 backdrop-blur border-b border-border mb-3">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-(--fg-2)">
                                     {group.label}
-                                    <span className="ml-2 font-normal text-muted-foreground/70">
+                                    <span className="ml-2 font-normal text-(--fg-2)/70">
                                         — {group.entries.length} event{group.entries.length === 1 ? "" : "s"}
                                     </span>
                                 </p>
@@ -361,7 +361,7 @@ function TimelineRow({ entry }: { entry: TimelineEntry }) {
                                 {entry.severity}
                             </Badge>
                         ) : null}
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-[11px] text-(--fg-2)">
                             {formatTimestamp(entry.occurredAt)}
                         </span>
                     </div>
@@ -370,7 +370,7 @@ function TimelineRow({ entry }: { entry: TimelineEntry }) {
                     {entry.title || "(untitled event)"}
                 </h3>
                 {entry.summary ? (
-                    <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-3">
+                    <p className="text-xs text-(--fg-2) whitespace-pre-wrap line-clamp-3">
                         {entry.summary}
                     </p>
                 ) : null}

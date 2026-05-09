@@ -47,6 +47,10 @@ export const useCreateConversation = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: createConversation,
+        // Don't retry. A failed conversation creation is a logic error
+        // (bad project/org id, missing membership) — silent retries amplify it
+        // into a request storm via the panel's auto-create useEffect.
+        retry: false,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [...chatKeys.all, "conversations"] });
         },

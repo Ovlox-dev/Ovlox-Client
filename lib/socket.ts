@@ -209,16 +209,10 @@ export const onMessageRead = (callback: (data: MessageReadEvent) => void) =>
     subscribe<MessageReadEvent>("messageRead", callback);
 
 /**
- * Token-by-token streaming for the assistant's final answer. Emitted from
- * llm.processor → executeReactLoop's streamSink (one event per token delta).
+ * NOTE: token-streaming has migrated entirely to SSE (`lib/sse.ts streamJobStatus`).
+ * The backend may still emit a `chatChunk` socket event — there is intentionally no
+ * listener wired up here so the frontend treats SSE as the single source of truth
+ * for token deltas. Production SSE buffering issues that previously made sockets
+ * the de-facto streaming channel are addressed by routing SSE direct to the API
+ * origin via `apiAbsoluteUrl` (bypasses Next.js rewrites).
  */
-export type ChatChunkEvent = {
-    conversationId: string;
-    userMessageId?: string;
-    jobId?: string;
-    seq: number;
-    delta: string;
-};
-
-export const onChatChunk = (callback: (data: ChatChunkEvent) => void) =>
-    subscribe<ChatChunkEvent>("chatChunk", callback);

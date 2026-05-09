@@ -99,7 +99,7 @@ export function ProjectTasksPage() {
                     <h1 className="text-2xl md:text-3xl font-bold mb-1 flex items-center gap-2">
                         <CheckSquare2 className="size-6" /> Tasks
                     </h1>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-(--fg-2) text-sm">
                         Manual + auto-detected tasks for this project.
                     </p>
                 </div>
@@ -108,7 +108,7 @@ export function ProjectTasksPage() {
 
             <div className="flex flex-wrap items-center gap-2">
                 <div className="relative flex-1 min-w-50 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-(--fg-2)" />
                     <Input
                         placeholder="Search tasks…"
                         value={keyword}
@@ -130,11 +130,11 @@ export function ProjectTasksPage() {
             </div>
 
             {isLoading ? (
-                <div className="flex justify-center py-12"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
+                <div className="flex justify-center py-12"><Loader2 className="size-6 animate-spin text-(--fg-2)" /></div>
             ) : tasks.length === 0 ? (
                 <Card className="p-12 text-center">
-                    <CheckSquare2 className="size-10 mx-auto mb-3 text-muted-foreground opacity-50" />
-                    <p className="text-sm text-muted-foreground">
+                    <CheckSquare2 className="size-10 mx-auto mb-3 text-(--fg-2) opacity-50" />
+                    <p className="text-sm text-(--fg-2)">
                         No tasks yet. Create one or wait for auto-detection from ingested events.
                     </p>
                 </Card>
@@ -249,7 +249,7 @@ function TaskRow({ task, organizationId, projectId }: { task: Task; organization
                 <div>
                     <p className="font-semibold text-sm text-text truncate">{task.title}</p>
                     {task.description ? (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-(--fg-2)">
                             {task.description}
                         </p>
                     ) : null}
@@ -277,7 +277,7 @@ function TaskRow({ task, organizationId, projectId }: { task: Task; organization
             <div className="flex flex-wrap items-center justify-between gap-1.5">
                 {assignees.length > 0 ? (
                     <div className="flex items-center gap-1.5">
-                        <p className="text-xs text-muted-foreground">Assigned to</p>
+                        <p className="text-xs text-(--fg-2)">Assigned to</p>
                         <p className="text-xs text-text truncate">
                             {assignees.map((a) => a.name).filter(Boolean).join(", ")}
                         </p>
@@ -286,11 +286,11 @@ function TaskRow({ task, organizationId, projectId }: { task: Task; organization
                 <div className="flex items-center gap-2">
                     {dueText ? (
                         <div className="flex items-center gap-1.5">
-                            <p className="text-xs text-muted-foreground">Due</p>
+                            <p className="text-xs text-(--fg-2)">Due</p>
                             <p className="text-xs text-text">{dueText}</p>
                         </div>
                     ) : (
-                        <p className="text-xs text-muted-foreground">No due date</p>
+                        <p className="text-xs text-(--fg-2)">No due date</p>
                     )}
 
                     <Popover open={dueOpen} onOpenChange={setDueOpen}>
@@ -307,7 +307,7 @@ function TaskRow({ task, organizationId, projectId }: { task: Task; organization
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-64 p-2" align="end">
-                            <p className="text-xs font-semibold text-muted-foreground px-1 mb-2">Due date</p>
+                            <p className="text-xs font-semibold text-(--fg-2) px-1 mb-2">Due date</p>
                             <Input
                                 type="date"
                                 value={dueDraft}
@@ -461,11 +461,11 @@ function AssigneePopover({ task, organizationId, projectId }: { task: Task; orga
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-64 p-2" align="end">
-                <p className="text-xs font-semibold text-muted-foreground px-2 mb-1">Assign to</p>
+                <p className="text-xs font-semibold text-(--fg-2) px-2 mb-1">Assign to</p>
                 {loading ? (
                     <div className="flex justify-center py-3"><Loader2 className="size-4 animate-spin" /></div>
                 ) : members.length === 0 ? (
-                    <p className="text-xs text-muted-foreground p-2">No members</p>
+                    <p className="text-xs text-(--fg-2) p-2">No members</p>
                 ) : (
                     <div className="max-h-60 overflow-y-auto space-y-1">
                         {members.map((m) => {
@@ -485,7 +485,7 @@ function AssigneePopover({ task, organizationId, projectId }: { task: Task; orga
                                     }
                                     className={cn(
                                         "w-full text-left px-2 py-1.5 rounded text-sm flex items-center justify-between hover:bg-muted transition-colors",
-                                        isAssigned ? "text-text" : "text-muted-foreground",
+                                        isAssigned ? "text-text" : "text-(--fg-2)",
                                     )}
                                 >
                                     <span className="truncate">{name}</span>

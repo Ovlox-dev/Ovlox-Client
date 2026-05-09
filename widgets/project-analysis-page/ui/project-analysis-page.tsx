@@ -6,14 +6,11 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
     Sparkles,
-    X,
-    MessageCircle,
     TrendingUp,
     AlertCircle,
     CheckCircle2,
     Clock,
     FileText,
-    Minimize2,
     Loader2,
 } from "lucide-react";
 import { SiGithub, SiJira, SiSlack, SiDiscord, SiLinear, SiNotion, SiFigma } from "react-icons/si";
@@ -25,7 +22,6 @@ import { getGithubOverview } from "@/entities/github";
 import type { GitHubOverview } from "@/types/api-types";
 import { useListProjectIntegrations } from "@/entities/project";
 import { ExternalProvider } from "@/types/enum";
-import { AiChatPanel } from "@/widgets/ai-chat-panel";
 
 type DataSource = {
     id: string;
@@ -54,8 +50,6 @@ export function ProjectAnalysisPage() {
     const organizationId = params.organizationId;
     const projectId = params.projectId;
     const [selectedSource, setSelectedSource] = React.useState<string>("all");
-    const [chatOpen, setChatOpen] = React.useState(false);
-    const [chatMinimized, setChatMinimized] = React.useState(false);
 
     const { data: linkedIntegrations, isLoading: integrationsLoading } = useListProjectIntegrations(organizationId, projectId);
 
@@ -117,14 +111,10 @@ export function ProjectAnalysisPage() {
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h1 className="text-2xl font-bold">Data Source Analysis</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-(--fg-2) mt-1">
                         AI-generated summaries and insights from your connected sources
                     </p>
                 </div>
-                <Button onClick={() => { setChatOpen(true); setChatMinimized(false); }} className="gap-2">
-                    <Sparkles className="size-4" />
-                    Ask AI Assistant
-                </Button>
             </div>
 
             {integrationsLoading ? (
@@ -192,50 +182,6 @@ export function ProjectAnalysisPage() {
                 </>
             )}
 
-            {chatOpen ? (
-                <div className={`fixed ${chatMinimized ? "bottom-4 right-4" : "bottom-4 right-4 w-96"} z-50 transition-all`}>
-                    {chatMinimized ? (
-                        <Button
-                            onClick={() => setChatMinimized(false)}
-                            size="lg"
-                            className="rounded-full size-14 shadow-lg"
-                        >
-                            <MessageCircle className="size-6" />
-                        </Button>
-                    ) : (
-                        <Card className="flex flex-col h-125 shadow-2xl overflow-hidden">
-                            <div className="flex items-center justify-between p-3 border-b">
-                                <div className="flex items-center gap-2">
-                                    <div className="size-7 rounded-lg bg-linear-to-br from-primary to-purple-600 flex items-center justify-center">
-                                        <Sparkles className="size-3.5 text-primary-foreground" />
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold text-xs">AI Assistant</p>
-                                        <p className="text-[10px] text-muted-foreground">Project context</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setChatMinimized(true)}>
-                                        <Minimize2 className="size-3.5" />
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setChatOpen(false)}>
-                                        <X className="size-3.5" />
-                                    </Button>
-                                </div>
-                            </div>
-                            <div className="flex-1 overflow-hidden">
-                                <AiChatPanel
-                                    scope={{ kind: "project", projectId }}
-                                    compact
-                                    showConversationList={false}
-                                    height="h-full"
-                                    className="rounded-none border-0"
-                                />
-                            </div>
-                        </Card>
-                    )}
-                </div>
-            ) : null}
         </div>
     );
 }

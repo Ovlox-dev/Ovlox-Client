@@ -81,7 +81,7 @@ export function ProjectCommitsPage() {
                         <GitCommit className="size-6" />
                         Commits
                     </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-(--fg-2) mt-1">
                         Every commit ingested into this project, with AI-generated summaries.
                     </p>
                 </div>
@@ -120,7 +120,7 @@ export function ProjectCommitsPage() {
                         }}
                     >
                         <div className="relative flex-1">
-                            <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-(--fg-2)" />
                             <Input
                                 value={authorInput}
                                 onChange={(e) => setAuthorInput(e.target.value)}
@@ -134,7 +134,7 @@ export function ProjectCommitsPage() {
                                         setAuthorInput("");
                                         setAuthorQuery("");
                                     }}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-(--fg-2) hover:text-foreground"
                                     aria-label="Clear author filter"
                                 >
                                     <X className="size-3.5" />

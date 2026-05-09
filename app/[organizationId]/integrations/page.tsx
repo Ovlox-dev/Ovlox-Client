@@ -185,28 +185,71 @@ export default function IntegrationsPage() {
   return (
     <div className="space-y-8">
       <PageTitle
-        title="Setup Integrations"
+        title="Integrations"
         description="Connect your tools to sync activity, projects, and team updates."
       />
 
-      {integrationsLoading ? <p className="text-sm text-[#888888]">Loading integrations...</p> : null}
-      {!integrationsLoading && integrationsError ? (
-        <p className="text-sm text-destructive">
-          {integrationsError instanceof Error ? integrationsError.message : "Failed to load integrations"}
-        </p>
+      {integrationsLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-[14px] border border-(--line) bg-(--bg-2) p-5 space-y-4 animate-pulse"
+            >
+              <div className="flex items-start justify-between">
+                <div className="size-12 rounded-[10px] bg-(--bg-3)" />
+                <div className="h-5 w-24 rounded-full bg-(--bg-3)" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 w-32 rounded bg-(--bg-3)" />
+                <div className="h-3 w-full rounded bg-(--bg-3)" />
+              </div>
+              <div className="pt-4 border-t border-(--line-2) flex justify-end">
+                <div className="h-9 w-24 rounded-md bg-(--bg-3)" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {setupTools.map((app) => (
-          <div key={app.id} className="block h-full">
-            {renderCard(app)}
-          </div>
-        ))}
-      </div>
+      {!integrationsLoading && integrationsError ? (
+        <div className="rounded-[14px] border border-[rgba(255,91,110,0.3)] bg-[rgba(255,91,110,0.06)] p-5">
+          <p className="text-sm text-(--danger) font-medium">
+            {integrationsError instanceof Error ? integrationsError.message : "Failed to load integrations"}
+          </p>
+        </div>
+      ) : null}
 
-      {availableTools.length > 0 ? (
+      {!integrationsLoading && setupTools.length > 0 ? (
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold tracking-tight text-white">Available Integrations</h2>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold tracking-tight text-(--fg)">
+              Setup
+            </h2>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-(--fg-3)">
+              {setupTools.length} {setupTools.length === 1 ? "tool" : "tools"} added
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {setupTools.map((app) => (
+              <div key={app.id} className="block h-full">
+                {renderCard(app)}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {!integrationsLoading && availableTools.length > 0 ? (
+        <section className="space-y-4">
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold tracking-tight text-(--fg)">
+              Available
+            </h2>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-(--fg-3)">
+              {availableTools.length} ready to add
+            </span>
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {availableTools.map((app) => (
               <div key={app.id} className="block h-full">

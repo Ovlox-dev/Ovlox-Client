@@ -6,8 +6,11 @@ import {
     ChevronsUpDown,
     CreditCard,
     LogOut,
+    Shield,
     Sparkles,
 } from "lucide-react"
+import Link from "next/link"
+import { UserRole } from "@/types/enum"
 
 import {
     Avatar,
@@ -45,6 +48,8 @@ export function NavUser({
     const router = useRouter();
     const { isMobile } = useSidebar();
     const { logout, isLoading } = useAuthStore((s) => s.auth);
+    const sessionUser = useAuthStore((s) => s.auth.user);
+    const isAdmin = sessionUser?.role === UserRole.ADMIN;
 
     const handleLogout = async () => {
         try {
@@ -72,17 +77,17 @@ export function NavUser({
                     <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
                             size="lg"
-                            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                            className="data-[state=open]:bg-(--bg-3) data-[state=open]:text-(--fg) hover:bg-(--bg-3)"
                         >
                             <Avatar className="h-8 w-8 rounded-lg">
                                 <AvatarImage src={user.avatar} alt={user.name} />
-                                <AvatarFallback className="rounded-lg">{fallbackLabel}</AvatarFallback>
+                                <AvatarFallback className="rounded-lg bg-(--bg-3) text-(--fg) text-xs font-medium">{fallbackLabel}</AvatarFallback>
                             </Avatar>
                             <div className="grid flex-1 text-left text-sm leading-tight">
-                                <span className="truncate font-medium">{user.name}</span>
-                                <span className="truncate text-xs">{user.email}</span>
+                                <span className="truncate font-medium text-(--fg)">{user.name}</span>
+                                <span className="truncate text-xs text-(--fg-3)">{user.email}</span>
                             </div>
-                            <ChevronsUpDown className="ml-auto size-4" />
+                            <ChevronsUpDown className="ml-auto size-4 text-(--fg-3)" />
                         </SidebarMenuButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
@@ -105,17 +110,20 @@ export function NavUser({
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
-                            <DropdownMenuItem>
-                                <Sparkles />
-                                Upgrade to Pro
+                            <DropdownMenuItem asChild>
+                                <Link href="/account">
+                                    <BadgeCheck />
+                                    Account
+                                </Link>
                             </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                            <DropdownMenuItem>
-                                <BadgeCheck />
-                                Account
-                            </DropdownMenuItem>
+                            {isAdmin ? (
+                                <DropdownMenuItem asChild>
+                                    <Link href="/admin">
+                                        <Shield className="text-(--accent-lime)" />
+                                        Admin panel
+                                    </Link>
+                                </DropdownMenuItem>
+                            ) : null}
                             <DropdownMenuItem>
                                 <CreditCard />
                                 Billing
@@ -123,6 +131,10 @@ export function NavUser({
                             <DropdownMenuItem>
                                 <Bell />
                                 Notifications
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                                <Sparkles />
+                                Upgrade to Pro
                             </DropdownMenuItem>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />

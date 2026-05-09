@@ -10,5 +10,7 @@ export * from "./api/recovery.api";
 export * from "./queries/recovery.queries";
 export * from "./api/repositories.api";
 export * from "./queries/repositories.queries";
+export * from "./api/ingestion-status.api";
+export * from "./queries/ingestion-status.queries";
 
 export type { IProject } from "@/types/prisma-generated";

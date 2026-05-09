@@ -26,6 +26,7 @@ import { RoleBadge } from "@/shared/ui/role-badge"
 import { listProjectMembers } from "@/entities/project/api/projects"
 import { getProjectTimeline } from "@/entities/project/api/timeline.api"
 import { ProjectOverviewCards } from "./project-overview-cards"
+import { IngestionStatusPanel } from "@/widgets/ingestion-status-panel"
 
 type TimeRange = "1d" | "7d" | "15d"
 
@@ -102,19 +103,19 @@ function activityTooltip({
             <div className="font-medium">{label}</div>
             <div className="mt-1 space-y-0.5">
                 <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted">commits</span>
+                    <span className="text-(--fg-3)">commits</span>
                     <span className="font-medium">{commits}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted">pr</span>
+                    <span className="text-(--fg-3)">pr</span>
                     <span className="font-medium">{prs}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted">task completed</span>
+                    <span className="text-(--fg-3)">task completed</span>
                     <span className="font-medium">{tasksCompleted}</span>
                 </div>
                 <div className="pt-1 mt-1 border-t border-border flex items-center justify-between gap-4">
-                    <span className="text-muted">total</span>
+                    <span className="text-(--fg-3)">total</span>
                     <span className="font-semibold">{total}</span>
                 </div>
             </div>
@@ -370,7 +371,10 @@ export function ProjectDetailsPage() {
             })
             .slice(0, 6)
             .map((c) => ({
-                name: c.name || c.email || "Unknown",
+                // Backend now COALESCEs name from Identity.displayName / rawProfile.
+                // "Anonymous" is the soft fallback for events from a provider account
+                // that hasn't sent us any profile data yet (rare).
+                name: c.name || c.email || "Anonymous",
                 avatarSeed: c.name || c.email || c.key,
                 commits: c.commits,
                 key: c.key,
@@ -414,7 +418,7 @@ export function ProjectDetailsPage() {
             const commits = c.commits ?? 0
             const prs = c.pullRequests ?? 0
             if (commits === 0 && prs === 0) { continue }
-            const who = c.name || c.email || "Unknown"
+            const who = c.name || c.email || "Anonymous"
             const parts = [
                 commits > 0 ? `${commits} commits` : null,
                 prs > 0 ? `${prs} pr` : null,
@@ -493,23 +497,30 @@ export function ProjectDetailsPage() {
     }, [activityFilter, teamActivity])
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 min-w-0">
             {/* Snapshot cards: open risks, recent features, milestones, last sync —
                 each links to the relevant detail page. */}
             <ProjectOverviewCards organizationId={organizationId} projectId={projectId} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="grid grid-cols-2 gap-4">
+            {/* Live ingestion-transparency panel — currently-running jobs,
+                RawEvent counts by source, per-resource last-sync timestamps. */}
+            <IngestionStatusPanel organizationId={organizationId} projectId={projectId} />
+
+            {/* `min-w-0` on each grid cell lets recharts ResponsiveContainer
+                shrink with the available column width instead of holding its
+                natural SVG width and pushing the page into a horizontal scroll. */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-w-0">
+                <div className="grid grid-cols-2 gap-4 min-w-0">
                     {/* Integrations */}
-                    <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
+                    <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4 min-w-0 overflow-hidden">
                         <div className="flex items-start justify-between gap-3 mb-4">
                             <div className="space-y-1">
-                                <p className="text-xs text-muted uppercase tracking-wide">Integrations</p>
+                                <p className="text-xs text-(--fg-3) uppercase tracking-wide">Integrations</p>
                                 <h3 className="text-sm font-semibold text-text">Connected tools</h3>
                             </div>
                             <Link href={`/${organizationId}/projects/${projectId}/setup?integrations`}>
                                 <Button
-                                    className="text-xs bg-accent-contrast border-border text-accent hover:bg-accent"
+                                    className="text-xs bg-(--bg-3) border border-(--line-2) text-(--accent-lime) hover:bg-(--bg-2) hover:border-(--accent-lime)"
                                     variant="ghost"
                                 >
                                     ADD INTEGRATION
@@ -518,7 +529,7 @@ export function ProjectDetailsPage() {
                         </div>
                         <div className="space-y-3">
                             {connectedIntegrations.length === 0 ? (
-                                <p className="text-sm text-muted">No integrations connected yet.</p>
+                                <p className="text-sm text-(--fg-3)">No integrations connected yet.</p>
                             ) : connectedIntegrations.map((tool) => {
                                 const Icon = PROVIDER_ICON[tool.key] ?? Plug
                                 return (
@@ -529,29 +540,29 @@ export function ProjectDetailsPage() {
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-sm font-medium text-text truncate">{providerLabel(tool.key)}</p>
-                                                <p className="text-xs text-muted">Status: {tool.status === "connected" ? "connected" : "not connected"}</p>
+                                                <p className="text-xs text-(--fg-3)">Status: {tool.status === "connected" ? "connected" : "not connected"}</p>
                                             </div>
                                         </div>
                                     </div>
                                 )
                             })}
                         </div>
-                        <div className="mt-4 flex items-center gap-2 text-xs text-muted">
+                        <div className="mt-4 flex items-center gap-2 text-xs text-(--fg-3)">
                             <Settings2 className="size-3.5" />
                             Integration insights update periodically.
                         </div>
                     </Card>
 
                     {/* Members */}
-                    <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
+                    <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4 min-w-0 overflow-hidden">
                         <div className="flex items-start justify-between gap-3 mb-4">
                             <div className="space-y-1">
-                                <p className="text-xs text-muted uppercase tracking-wide">Members</p>
+                                <p className="text-xs text-(--fg-3) uppercase tracking-wide">Members</p>
                                 <h3 className="text-sm font-semibold text-text">Members of this project</h3>
                             </div>
                             <Link href={`/${organizationId}/projects/${projectId}/setup?members`}>
                                 <Button
-                                    className="text-xs bg-accent-contrast border-border text-accent hover:bg-accent"
+                                    className="text-xs bg-(--bg-3) border border-(--line-2) text-(--accent-lime) hover:bg-(--bg-2) hover:border-(--accent-lime)"
                                     variant="ghost"
                                 >
                                     ADD MEMBER
@@ -560,9 +571,9 @@ export function ProjectDetailsPage() {
                         </div>
                         <div className="space-y-3">
                             {membersLoading ? (
-                                <p className="text-sm text-muted">Loading members…</p>
+                                <p className="text-sm text-(--fg-3)">Loading members…</p>
                             ) : members.length === 0 ? (
-                                <p className="text-sm text-muted">No members yet.</p>
+                                <p className="text-sm text-(--fg-3)">No members yet.</p>
                             ) : members.map((member) => {
                                 return (
                                     <div key={member.id} className="flex items-center justify-between gap-3">
@@ -575,7 +586,7 @@ export function ProjectDetailsPage() {
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-sm font-medium text-text truncate">{member.name}</p>
-                                                <RoleBadge className="text-xs text-muted" role={member.role} />
+                                                <RoleBadge className="text-xs text-(--fg-3)" role={member.role} />
                                             </div>
                                         </div>
                                     </div>
@@ -585,13 +596,13 @@ export function ProjectDetailsPage() {
                     </Card>
 
                     {/* Top Contributors */}
-                    <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
+                    <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4 min-w-0 overflow-hidden">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs text-muted uppercase tracking-wide">Top Contributors</p>
+                                <p className="text-xs text-(--fg-3) uppercase tracking-wide">Top Contributors</p>
                                 <h3 className="mt-1 text-sm font-semibold text-text">Recent impact</h3>
                             </div>
-                            <Button variant="ghost" size="xs" className="text-accent hover:bg-accent/10">
+                            <Button variant="ghost" size="xs" className="text-(--accent-lime) hover:bg-(--bg-3)">
                                 View all
                             </Button>
                         </div>
@@ -606,7 +617,7 @@ export function ProjectDetailsPage() {
                                     </Avatar>
                                     <div className="text-center">
                                         <p className="text-xs font-medium text-text leading-tight">{c.name}</p>
-                                        <p className="text-[11px] text-muted">{c.commits} commits</p>
+                                        <p className="text-[11px] text-(--fg-3)">{c.commits} commits</p>
                                     </div>
                                 </div>
                             ))}
@@ -614,13 +625,13 @@ export function ProjectDetailsPage() {
                     </Card>
 
                     {/* Task Status */}
-                    <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
+                    <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4 min-w-0 overflow-hidden">
                         <div className="flex items-start justify-between gap-3 mb-4">
                             <div className="space-y-1">
-                                <p className="text-xs text-muted uppercase tracking-wide">Task Status</p>
+                                <p className="text-xs text-(--fg-3) uppercase tracking-wide">Task Status</p>
                                 <h3 className="text-sm font-semibold text-text">Overview</h3>
                             </div>
-                            <Badge variant="outline" className="border-border text-muted bg-accent-contrast">
+                            <Badge variant="outline" className="border-border text-(--fg-3) bg-accent-contrast">
                                 Last sync 2h
                             </Badge>
                         </div>
@@ -650,13 +661,13 @@ export function ProjectDetailsPage() {
                                 </ResponsiveContainer>
                                 <div className="absolute inset-0 flex items-center justify-center flex-col">
                                     <div className="text-3xl font-semibold text-text leading-none">{taskTotal}</div>
-                                    <div className="text-[11px] text-muted mt-1">tasks</div>
+                                    <div className="text-[11px] text-(--fg-3) mt-1">tasks</div>
                                 </div>
                             </div>
 
                             <div className="space-y-3">
                                 {taskSegments.length === 0 ? (
-                                    <p className="text-sm text-muted">No tasks yet.</p>
+                                    <p className="text-sm text-(--fg-3)">No tasks yet.</p>
                                 ) : (
                                     taskSegments.map((seg) => (
                                         <div key={seg.name} className="flex items-center justify-between gap-3">
@@ -675,10 +686,10 @@ export function ProjectDetailsPage() {
 
                 {/* Activity Trend */}
                 <div className="grid grid-cols-1 gap-4">
-                    <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
+                    <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4 min-w-0 overflow-hidden">
                         <div className="flex items-start justify-between gap-3 mb-4">
                             <div className="space-y-1">
-                                <p className="text-xs text-muted uppercase tracking-wide">Activity Trend</p>
+                                <p className="text-xs text-(--fg-3) uppercase tracking-wide">Activity Trend</p>
                                 <h3 className="text-sm font-semibold text-text">Commits & work</h3>
                             </div>
                             <div className="flex items-center gap-2">
@@ -695,8 +706,8 @@ export function ProjectDetailsPage() {
                                         size="xs"
                                         className={
                                             range === b.key
-                                                ? "bg-accent text-card hover:bg-[#4fb8e8]"
-                                                : "bg-accent-contrast border-border text-muted"
+                                                ? "bg-(--accent-lime) text-(--bg) hover:bg-(--accent-lime)/90 border border-(--accent-lime)"
+                                                : "bg-(--bg-3) border border-(--line-2) text-(--fg-2) hover:text-(--fg) hover:border-(--line)"
                                         }
                                         onClick={() => setRange(b.key)}
                                     >
@@ -709,18 +720,18 @@ export function ProjectDetailsPage() {
                         <div className="w-full h-full">
                             {activityLoading ? (
                                 <div className="h-40 flex items-center justify-center">
-                                    <p className="text-sm text-muted">Loading activity…</p>
+                                    <p className="text-sm text-(--fg-3)">Loading activity…</p>
                                 </div>
                             ) : activityError ? (
                                 <div className="h-40 flex flex-col items-center justify-center text-center gap-1">
                                     <p className="text-sm text-text">Activity unavailable</p>
-                                    <p className="text-xs text-muted">
+                                    <p className="text-xs text-(--fg-3)">
                                         {activityError}
                                     </p>
                                 </div>
                             ) : activitySeries.length === 0 ? (
                                 <div className="h-40 flex items-center justify-center">
-                                    <p className="text-sm text-muted">No activity yet.</p>
+                                    <p className="text-sm text-(--fg-3)">No activity yet.</p>
                                 </div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
@@ -769,10 +780,10 @@ export function ProjectDetailsPage() {
             </div>
 
             {/* Team Activity */}
-            <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4">
+            <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4 min-w-0 overflow-hidden">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     <div className="space-y-1">
-                        <p className="text-xs text-muted uppercase tracking-wide">Team Activity</p>
+                        <p className="text-xs text-(--fg-3) uppercase tracking-wide">Team Activity</p>
                         <h3 className="text-sm font-semibold text-text">Latest updates from your team</h3>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -789,8 +800,8 @@ export function ProjectDetailsPage() {
                                 size="xs"
                                 className={
                                     activityRange === b.key
-                                        ? "bg-accent-contrast border-border text-text"
-                                        : "bg-accent-contrast/40 border-border text-muted hover:bg-accent-contrast"
+                                        ? "bg-(--accent-lime) text-(--bg) hover:bg-(--accent-lime)/90 border border-(--accent-lime)"
+                                        : "bg-(--bg-3) border border-(--line-2) text-(--fg-2) hover:text-(--fg) hover:border-(--line)"
                                 }
                                 onClick={() => setActivityRange(b.key)}
                             >
@@ -810,8 +821,8 @@ export function ProjectDetailsPage() {
                                 size="xs"
                                 className={
                                     activityFilter === tab.key
-                                        ? "bg-accent-contrast border-border text-text"
-                                        : "bg-accent-contrast/40 border-border text-muted hover:bg-accent-contrast"
+                                        ? "bg-(--accent-lime) text-(--bg) hover:bg-(--accent-lime)/90 border border-(--accent-lime)"
+                                        : "bg-(--bg-3) border border-(--line-2) text-(--fg-2) hover:text-(--fg) hover:border-(--line)"
                                 }
                                 onClick={() => setActivityFilter(tab.key)}
                             >
@@ -823,7 +834,7 @@ export function ProjectDetailsPage() {
 
                 <div className="mt-4 space-y-3">
                     {filteredTeamActivity.length === 0 ? (
-                        <p className="text-sm text-muted">No activity yet.</p>
+                        <p className="text-sm text-(--fg-3)">No activity yet.</p>
                     ) : filteredTeamActivity.map((a) => {
                         const Icon =
                             a.kind === "task"
@@ -843,14 +854,14 @@ export function ProjectDetailsPage() {
                                             {a.actor} {a.verb} <span className="text-accent">{a.target}</span>
                                         </p>
                                         {a.source ? (
-                                            <p className="text-xs text-muted mt-0.5">
+                                            <p className="text-xs text-(--fg-3) mt-0.5">
                                                 Source: {providerLabel(a.source)}
                                             </p>
                                         ) : null}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="text-xs text-muted whitespace-nowrap">{a.time}</div>
+                                    <div className="text-xs text-(--fg-3) whitespace-nowrap">{a.time}</div>
                                 </div>
                             </div>
                         )

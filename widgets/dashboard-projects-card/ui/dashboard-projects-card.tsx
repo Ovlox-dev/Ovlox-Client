@@ -137,7 +137,7 @@ export function DashboardProjectsCard() {
                 className="flex items-center justify-between gap-1"
               >
                 <Link
-                  href={`/${organizationId}/projects/${project.id}`}
+                  href={`/${organizationId}/projects/${project.slug || project.id}`}
                   className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-accent-contrast/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <FolderOpen className="size-8 shrink-0 text-muted" />

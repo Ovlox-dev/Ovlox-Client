@@ -27,6 +27,7 @@ export interface IUser {
     dateOfBirth: string | null;
     isVerified: boolean;
     isOnline: boolean;
+    isDisabled?: boolean;
     gender: Gender | null;
     role: UserRole;
     lastLogin: string | null;

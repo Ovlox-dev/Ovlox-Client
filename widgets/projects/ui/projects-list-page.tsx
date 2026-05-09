@@ -154,17 +154,18 @@ export function ProjectsListPage() {
                     <>
                         {projects?.data.map((project) => {
                             const status = statusConfig[project.status as unknown as ProjectStatus]
+                            const projectIdentifier = project.slug || project.id
                             // const projectProgress = getProjectProgress(p)
                             return (
                                 <article
                                     key={project.id}
                                     role="link"
                                     tabIndex={0}
-                                    onClick={() => router.push(`/${organizationId}/projects/${project.id}`)}
+                                    onClick={() => router.push(`/${organizationId}/projects/${projectIdentifier}`)}
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter" || e.key === " ") {
                                             e.preventDefault()
-                                            router.push(`/${organizationId}/projects/${project.id}`)
+                                            router.push(`/${organizationId}/projects/${projectIdentifier}`)
                                         }
                                     }}
                                     className="border-[0.5px] border-border rounded-2xl p-4 bg-card flex flex-col space-y-4 cursor-pointer transition-colors hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -213,7 +214,7 @@ export function ProjectsListPage() {
 
                                         <h3 className="text-text font-semibold text-xl">
                                             <Link
-                                                href={`/${organizationId}/projects/${project.id}`}
+                                                href={`/${organizationId}/projects/${projectIdentifier}`}
                                                 onClick={(e) => e.stopPropagation()}
                                                 className="hover:underline"
                                             >

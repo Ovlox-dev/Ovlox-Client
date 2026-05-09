@@ -1,112 +1,206 @@
 "use client"
 
-import { useState } from "react"
-import { useSearchParams } from "next/navigation"
-
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { getGithubRepositories, syncGithubRepositories } from "@/entities/github"
+import * as React from "react"
+import { useRouter, useParams, useSearchParams, usePathname } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
-import { PageTitle } from "@/components/page-title"
+import { IoLogoGithub } from "react-icons/io5"
+import { GitBranch, ExternalLink, Loader2 } from "lucide-react"
+
+import {
+    getGithubRepositories,
+    syncGithubRepositories,
+    getGithubInstallUrl,
+} from "@/entities/github"
+import { ExternalProvider } from "@/types/enum"
+import { Skeleton } from "@/components/ui/skeleton"
+
+import { ProviderHeader } from "@/widgets/integrations/ui/provider-header"
+import { ProviderInstances } from "@/widgets/integrations/ui/provider-instances"
+import { IntegrationActions } from "@/widgets/integrations/ui/integration-actions"
 
 export default function GitHubIntegrationPage() {
-  const searchParams = useSearchParams();
-  const integrationId = searchParams?.get("integrationId") ?? ""
+    const router = useRouter()
+    const pathname = usePathname()
+    const params = useParams<{ organizationId: string }>()
+    const searchParams = useSearchParams()
+    const organizationId = params?.organizationId ?? ""
+    const integrationId = searchParams?.get("integrationId") ?? ""
 
-  const [syncing, setSyncing] = useState(false)
+    const setIntegrationId = React.useCallback(
+        (id: string) => {
+            const next = new URLSearchParams(searchParams?.toString() ?? "")
+            next.set("integrationId", id)
+            router.replace(`${pathname}?${next.toString()}`, { scroll: false })
+        },
+        [router, pathname, searchParams]
+    )
 
-  const {
-    data: repositoriesData,
-    isLoading: repositoriesLoading,
-    error: repositoriesError,
-    refetch: refetchRepositories,
-  } = useQuery({
-    queryKey: ["getGithubRepositories", integrationId],
-    queryFn: async () => {
-      const res = await getGithubRepositories(integrationId ?? "")
-      return res ?? null
-    },
-    enabled: !!integrationId,
-  })
+    const [syncing, setSyncing] = React.useState(false)
 
-  const handleSync = async () => {
-    if (!integrationId) { return; }
-    try {
-      setSyncing(true)
-      // Manual sync — explicit user action, force a full re-walk to pick up history that
-      // may have changed (renamed branches, force-pushes, repo permissions added, etc.).
-      await syncGithubRepositories(integrationId, undefined, { force: true })
-      await refetchRepositories()
-    } finally {
-      setSyncing(false)
-    }
-  }
+    const {
+        data: reposData,
+        isLoading: reposLoading,
+        error: reposError,
+        refetch: refetchRepos,
+    } = useQuery({
+        queryKey: ["getGithubRepositories", integrationId],
+        queryFn: () => getGithubRepositories(integrationId),
+        enabled: !!integrationId,
+    })
 
-  const repos = repositoriesData?.data ?? []
+    const handleSync = React.useCallback(async () => {
+        if (!integrationId) return
+        try {
+            setSyncing(true)
+            await syncGithubRepositories(integrationId, undefined, { force: true })
+            await refetchRepos()
+        } finally {
+            setSyncing(false)
+        }
+    }, [integrationId, refetchRepos])
 
-  return (
-    <div className=" space-y-6">
-      <PageTitle
-        title="GitHub Integration"
-        description="Connect GitHub and manage repositories."
-      />
+    const repos = reposData?.data ?? []
 
-      <Card className="rounded-2xl border-border bg-card">
-        <CardContent className="p-6 space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="font-semibold">Repositories</div>
-              <p className="text-sm text-muted-foreground">Repositories available to this integration.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => void handleSync()} disabled={syncing}>
-                {syncing ? "Syncing..." : "Sync repositories"}
-              </Button>
-            </div>
-          </div>
+    return (
+        <div className="space-y-6">
+            <ProviderHeader
+                icon={IoLogoGithub}
+                title="GitHub"
+                description="Manage repositories synced into Ovlox."
+                actions={
+                    <IntegrationActions
+                        provider="GitHub"
+                        organizationId={organizationId}
+                        integrationId={integrationId}
+                        getReinstallUrl={async (orgId) => getGithubInstallUrl(orgId)}
+                        onSync={handleSync}
+                        isSyncing={syncing}
+                    />
+                }
+            />
 
-          <Separator />
+            <ProviderInstances
+                organizationId={organizationId}
+                provider={ExternalProvider.GITHUB}
+                providerName="GitHub"
+                icon={IoLogoGithub}
+                selectedIntegrationId={integrationId}
+                onSelect={setIntegrationId}
+            />
 
-          {repositoriesLoading ? (
-            <p className="text-sm text-muted-foreground">Loading repositories...</p>
-          ) : repos.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No repositories found.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              {repos.map((r) => (
-                <Card key={String(r.id)} className="border-border/60">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="font-medium truncate">{r.name}</div>
-                        {r.url ? (
-                          <a
-                            href={r.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-sm text-muted-foreground hover:underline break-all"
-                          >
-                            {r.url}
-                          </a>
-                        ) : null}
-                      </div>
+            {integrationId ? (
+                <section className="rounded-[14px] border border-(--line) bg-(--bg-2)">
+                    <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-(--line-2)">
+                        <div>
+                            <div className="text-sm font-semibold text-(--fg)">
+                                Repositories
+                            </div>
+                            <p className="text-xs text-(--fg-3) font-mono mt-0.5">
+                                {repos.length} {repos.length === 1 ? "repo" : "repos"} indexed
+                            </p>
+                        </div>
                     </div>
 
-                    <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
-                      <span>Updated: {r.updated_at ? new Date(r.updated_at).toLocaleString() : "—"}</span>
-                      <span>Pushed: {r.pushed_at ? new Date(r.pushed_at).toLocaleString() : "—"}</span>
+                    <div className="p-5">
+                        {reposError ? (
+                            <ErrorBlock message={reposError.message} />
+                        ) : reposLoading ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                    <RepoSkeleton key={i} />
+                                ))}
+                            </div>
+                        ) : repos.length === 0 ? (
+                            <EmptyBlock
+                                title="No repositories"
+                                body="Click Sync to pull repositories from GitHub, or grant the GitHub App access to repos."
+                            />
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {repos.map((r) => (
+                                    <article
+                                        key={String(r.id)}
+                                        className="rounded-[12px] border border-(--line-2) bg-(--bg-3) p-4 transition-colors hover:border-(--accent-lime)/30"
+                                    >
+                                        <div className="flex items-start gap-3 min-w-0">
+                                            <div className="size-8 shrink-0 grid place-items-center rounded-[8px] border border-(--line-2) bg-(--bg-2) text-(--fg-2)">
+                                                <GitBranch className="size-4" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-(--fg) truncate">
+                                                    {r.name}
+                                                </p>
+                                                {r.url ? (
+                                                    <a
+                                                        href={r.url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="mt-0.5 text-xs text-(--fg-3) hover:text-(--accent-lime) truncate font-mono inline-flex items-center gap-1"
+                                                    >
+                                                        <span className="truncate">{r.url}</span>
+                                                        <ExternalLink className="size-3 shrink-0" />
+                                                    </a>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                        <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-mono uppercase tracking-wider text-(--fg-3)">
+                                            <div>
+                                                <div>Updated</div>
+                                                <div className="text-(--fg-2) normal-case tracking-normal mt-0.5">
+                                                    {r.updated_at
+                                                        ? new Date(r.updated_at).toLocaleDateString()
+                                                        : "—"}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div>Pushed</div>
+                                                <div className="text-(--fg-2) normal-case tracking-normal mt-0.5">
+                                                    {r.pushed_at
+                                                        ? new Date(r.pushed_at).toLocaleDateString()
+                                                        : "—"}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {repositoriesError ? <p className="text-sm text-destructive">{repositoriesError.message}</p> : null}
-        </CardContent>
-      </Card>
-    </div>
-  )
+                </section>
+            ) : null}
+        </div>
+    )
 }
 
+function RepoSkeleton() {
+    return (
+        <div className="rounded-[12px] border border-(--line-2) bg-(--bg-3) p-4 space-y-3">
+            <div className="flex gap-3">
+                <Skeleton className="size-8 rounded-[8px] bg-(--bg-2)" />
+                <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-32 bg-(--bg-2)" />
+                    <Skeleton className="h-3 w-44 bg-(--bg-2)" />
+                </div>
+            </div>
+            <Skeleton className="h-6 bg-(--bg-2)" />
+        </div>
+    )
+}
+
+function EmptyBlock({ title, body }: { title: string; body: string }) {
+    return (
+        <div className="text-center py-10">
+            <p className="text-(--fg) font-medium">{title}</p>
+            <p className="text-sm text-(--fg-3) mt-1 max-w-sm mx-auto">{body}</p>
+        </div>
+    )
+}
+
+function ErrorBlock({ message }: { message: string }) {
+    return (
+        <div className="rounded-[12px] border border-[rgba(255,91,110,0.3)] bg-[rgba(255,91,110,0.06)] p-4 inline-flex items-center gap-2">
+            <Loader2 className="size-4 text-(--danger) hidden" />
+            <p className="text-sm text-(--danger)">{message}</p>
+        </div>
+    )
+}
