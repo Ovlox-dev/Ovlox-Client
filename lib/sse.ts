@@ -1,4 +1,4 @@
-import { apiBaseUrl } from "@/shared/api/client";
+import { apiAbsoluteUrl } from "@/shared/api/client";
 import { getAccessToken } from "@/shared/lib/auth/token-service";
 
 /**
@@ -145,7 +145,7 @@ export function streamProjectReadiness(
     onSnapshot: (snap: ReadinessSnapshot) => void,
     onError?: (error: Event) => void,
 ): SseSubscription {
-    const url = `${apiBaseUrl}/orgs/${orgId}/projects/${projectId}/readiness/stream`;
+    const url = `${apiAbsoluteUrl}/orgs/${orgId}/projects/${projectId}/readiness/stream`;
     return createEventSource<ReadinessSnapshot>(url, { onMessage: onSnapshot, onError });
 }
 
@@ -163,7 +163,7 @@ export function streamJobStatus(
     onEvent: (event: JobStatusEvent) => void,
     onError?: (error: Event) => void,
 ): SseSubscription {
-    const url = `${apiBaseUrl}/chat/jobs/${jobId}/stream`;
+    const url = `${apiAbsoluteUrl}/chat/jobs/${jobId}/stream`;
     return createEventSource<JobStatusEvent>(url, { onMessage: onEvent, onError });
 }
 
@@ -176,6 +176,6 @@ export function streamIntegrationStatus(
     onSnapshot: (snap: unknown) => void,
     onError?: (error: Event) => void,
 ): SseSubscription {
-    const url = `${apiBaseUrl}/orgs/integrations/status/${orgSlug}`;
+    const url = `${apiAbsoluteUrl}/orgs/integrations/status/${orgSlug}`;
     return createEventSource(url, { onMessage: onSnapshot, onError });
 }

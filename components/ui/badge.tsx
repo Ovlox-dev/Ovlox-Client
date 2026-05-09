@@ -10,13 +10,21 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
+          "border-transparent bg-(--accent-lime) text-[#07070a] font-semibold [a&]:hover:bg-(--accent-lime)/90",
         secondary:
-          "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
+          "border border-(--line-2) bg-(--bg-3) text-(--fg-2) [a&]:hover:bg-(--bg-2)",
         destructive:
-          "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "border border-[rgba(255,91,110,0.3)] bg-[rgba(255,91,110,0.14)] text-(--danger) [a&]:hover:bg-[rgba(255,91,110,0.2)]",
         outline:
-          "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+          "border border-(--line) text-(--fg-2) [a&]:hover:bg-(--bg-3) [a&]:hover:text-(--fg)",
+        success:
+          "border border-[rgba(124,246,111,0.3)] bg-[rgba(124,246,111,0.14)] text-(--accent-2) font-mono uppercase tracking-wider text-[10px]",
+        warn:
+          "border border-[rgba(255,138,61,0.3)] bg-[rgba(255,138,61,0.14)] text-(--warn) font-mono uppercase tracking-wider text-[10px]",
+        info:
+          "border border-[rgba(111,182,255,0.3)] bg-[rgba(111,182,255,0.14)] text-(--info) font-mono uppercase tracking-wider text-[10px]",
+        mono:
+          "border border-(--line-2) bg-(--bg-3) text-(--fg-3) font-mono uppercase tracking-wider text-[10px]",
       },
     },
     defaultVariants: {

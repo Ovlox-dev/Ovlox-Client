@@ -1,80 +1,151 @@
 "use client"
-import { useState } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { useMutation, useQuery } from '@tanstack/react-query'
 
-import { PageTitle } from '@/components/page-title'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { listLinearTeams, syncLinearTeams } from '@/shared/api/integration-linear'
-import { toast } from 'sonner'
+import * as React from "react"
+import { useRouter, useParams, useSearchParams, usePathname } from "next/navigation"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { SiLinear } from "react-icons/si"
+import { Users } from "lucide-react"
+import { toast } from "sonner"
 
-const Linear = () => {
-  const searchParams = useSearchParams()
-  const integrationId = searchParams?.get("integrationId") ?? ""
-  const [syncing, setSyncing] = useState(false)
+import {
+    listLinearTeams,
+    syncLinearTeams,
+    getLinearInstallUrl,
+} from "@/shared/api/integration-linear"
+import { ExternalProvider } from "@/types/enum"
+import { Skeleton } from "@/components/ui/skeleton"
 
-  const { data: teams, isLoading: teamsLoading, error: teamsError, refetch: refetchTeams } = useQuery({
-    queryKey: ["linear-teams", integrationId],
-    queryFn: () => listLinearTeams(integrationId),
-  })
+import { ProviderHeader } from "@/widgets/integrations/ui/provider-header"
+import { ProviderInstances } from "@/widgets/integrations/ui/provider-instances"
+import { IntegrationActions } from "@/widgets/integrations/ui/integration-actions"
 
-  const syncTeamsMutation = useMutation({
-    mutationFn: () => syncLinearTeams(integrationId),
-    onSuccess: () => {
-      refetchTeams()
-      toast.success("Synced Linear teams")
-      setSyncing(false)
-    },
-    onError: (error) => {
-      toast.error(`Failed to sync Linear teams: ${error instanceof Error ? error.message : "Unknown error"}`)
-      setSyncing(false)
-    },
-  })
+export default function LinearIntegrationPage() {
+    const router = useRouter()
+    const pathname = usePathname()
+    const params = useParams<{ organizationId: string }>()
+    const searchParams = useSearchParams()
+    const organizationId = params?.organizationId ?? ""
+    const integrationId = searchParams?.get("integrationId") ?? ""
 
+    const setIntegrationId = React.useCallback(
+        (id: string) => {
+            const next = new URLSearchParams(searchParams?.toString() ?? "")
+            next.set("integrationId", id)
+            router.replace(`${pathname}?${next.toString()}`, { scroll: false })
+        },
+        [router, pathname, searchParams]
+    )
 
+    const {
+        data: teams,
+        isLoading,
+        error,
+        refetch,
+    } = useQuery({
+        queryKey: ["linear-teams", integrationId],
+        queryFn: () => listLinearTeams(integrationId),
+        enabled: !!integrationId,
+    })
 
-  return (
-    <div className="space-y-4">
-      <PageTitle
-        title="Linear Integration"
-        description="Connect Linear and manage teams."
-      />
-      <Card className="rounded-2xl border-border bg-card">
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="font-semibold">Teams</div>
-              <p className="text-sm text-muted-foreground">Teams available to this integration.</p>
-            </div>
-            <Button onClick={() => syncTeamsMutation.mutate()} disabled={syncing}>
-              {syncing ? "Syncing..." : "Sync Teams"}
-            </Button>
-          </div>
-          <Separator />
-          {teamsLoading && <div>Loading...</div>}
-          {teamsError && <div>Error: {teamsError.message}</div>}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            {teams?.map((team) => (
-              <Card key={team.id} className="border-border/60">
-                <CardContent className="space-y-2 w-full">
-                  <div className="min-w-0">
-                    <div className="space-y-1 flex items-center justify-between gap-2">
-                      <div className="text-lg font-medium truncate">{team.name}</div>
+    const syncMutation = useMutation({
+        mutationFn: () => syncLinearTeams(integrationId),
+        onSuccess: () => {
+            refetch()
+            toast.success("Synced Linear teams")
+        },
+        onError: (err) => {
+            toast.error(
+                `Failed to sync Linear teams: ${err instanceof Error ? err.message : "Unknown error"}`
+            )
+        },
+    })
+
+    return (
+        <div className="space-y-6">
+            <ProviderHeader
+                icon={SiLinear}
+                title="Linear"
+                description="Manage teams and sync issues."
+                actions={
+                    <IntegrationActions
+                        provider="Linear"
+                        organizationId={organizationId}
+                        integrationId={integrationId}
+                        getReinstallUrl={getLinearInstallUrl}
+                        onSync={() => syncMutation.mutate()}
+                        isSyncing={syncMutation.isPending}
+                    />
+                }
+            />
+
+            <ProviderInstances
+                organizationId={organizationId}
+                provider={ExternalProvider.LINEAR}
+                providerName="Linear"
+                icon={SiLinear}
+                selectedIntegrationId={integrationId}
+                onSelect={setIntegrationId}
+            />
+
+            {integrationId ? (
+                <section className="rounded-[14px] border border-(--line) bg-(--bg-2)">
+                    <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-(--line-2)">
+                        <div>
+                            <div className="text-sm font-semibold text-(--fg)">Teams</div>
+                            <p className="text-xs text-(--fg-3) font-mono mt-0.5">
+                                {teams?.length ?? 0} {(teams?.length ?? 0) === 1 ? "team" : "teams"} synced
+                            </p>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm text-muted-foreground">Key: {team.key}</p>
+
+                    <div className="p-5">
+                        {error ? (
+                            <div className="rounded-[10px] border border-[rgba(255,91,110,0.3)] bg-[rgba(255,91,110,0.06)] p-4">
+                                <p className="text-sm text-(--danger)">{error.message}</p>
+                            </div>
+                        ) : isLoading ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                    <Skeleton
+                                        key={i}
+                                        className="h-20 bg-(--bg-3) rounded-[12px]"
+                                    />
+                                ))}
+                            </div>
+                        ) : !teams?.length ? (
+                            <div className="text-center py-10">
+                                <p className="text-(--fg) font-medium">No teams yet</p>
+                                <p className="text-sm text-(--fg-3) mt-1 max-w-sm mx-auto">
+                                    Click Sync to pull teams from Linear.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {teams.map((team) => (
+                                    <article
+                                        key={team.id}
+                                        className="rounded-[12px] border border-(--line-2) bg-(--bg-3) p-4 transition-colors hover:border-(--accent-lime)/30"
+                                    >
+                                        <div className="flex items-start gap-3 min-w-0">
+                                            <div className="size-9 shrink-0 grid place-items-center rounded-[10px] border border-(--line-2) bg-(--bg-2) text-(--fg-2)">
+                                                <Users className="size-4" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-(--fg) truncate">
+                                                    {team.name}
+                                                </p>
+                                                <p className="text-xs text-(--fg-3) font-mono mt-0.5 truncate">
+                                                    {team.key}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+                </section>
+            ) : null}
+        </div>
+    )
 }
-
-export default Linear

@@ -34,10 +34,15 @@ export function NewProjectForm() {
             },
             {
                 onSuccess: (payload) => {
-                    const body = payload as { id?: string; data?: { id?: string } }
-                    const projectId = body.data?.id ?? body.id
-                    if (!projectId) { return }
-                    router.replace(`/${organizationId}/projects/${projectId}/setup`)
+                    const body = payload as {
+                        id?: string;
+                        slug?: string;
+                        data?: { id?: string; slug?: string };
+                    }
+                    const projectIdentifier =
+                        body.data?.slug ?? body.slug ?? body.data?.id ?? body.id
+                    if (!projectIdentifier) { return }
+                    router.replace(`/${organizationId}/projects/${projectIdentifier}/setup`)
                 },
             }
         )

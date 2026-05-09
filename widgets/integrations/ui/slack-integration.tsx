@@ -17,8 +17,6 @@ import { Button } from "@/components/ui/button"
 import { computeConnectionFlags } from "@/widgets/integrations/model/integration-utils"
 import { IntegrationCardShell } from "@/widgets/integrations/ui/integration-card-shell"
 
-const ACCENT = "#55C6F0"
-
 export function SlackIntegration({
   organizationId,
   basePath,
@@ -41,16 +39,12 @@ export function SlackIntegration({
   const integrationId = integration?.integrationId ?? ""
   const pending = pendingAppId === "slack"
 
-  const primaryClassName = "font-semibold text-black hover:opacity-90"
-  const primaryStyle = { backgroundColor: ACCENT }
-
   const showManage = connected
 
   const handleAddToSetup = async () => {
     setPendingAppId("slack")
     try {
-      if (!organizationId) { return }
-
+      if (!organizationId) return
       await addIntegrations(organizationId, { provider: ExternalProvider.SLACK, label: "Slack" })
       onAddedToSetup("slack")
       refetchIntegrations()
@@ -62,15 +56,12 @@ export function SlackIntegration({
   }
 
   const handleInstall = async () => {
-    if (!organizationId) { return }
-    if (!integrationId) { return }
-
+    if (!organizationId) return
+    if (!integrationId) return
     try {
       setPendingAppId("slack")
       const res = await getSlackInstallUrl(organizationId, integrationId)
-      if (res?.url) {
-        window.location.href = res.url
-      }
+      if (res?.url) window.location.href = res.url
     } finally {
       setPendingAppId(null)
     }
@@ -79,8 +70,7 @@ export function SlackIntegration({
   const actions = showManage ? (
     <Button
       type="button"
-      variant="ghost"
-      className="border-[0.5px] border-accent  text-accent hover:bg-accent hover:text-white"
+      variant="outline"
       onClick={() => router.push(`${basePath}/slack?integrationId=${encodeURIComponent(integrationId)}`)}
     >
       Manage
@@ -88,17 +78,15 @@ export function SlackIntegration({
   ) : !inSetup ? (
     <Button
       type="button"
-      variant="secondary"
-      className="bg-zinc-800 font-medium text-white hover:bg-zinc-700"
+      variant="outline"
       onClick={() => void handleAddToSetup()}
+      disabled={pending}
     >
-      Add
+      {pending ? "Adding..." : "Add"}
     </Button>
   ) : (
     <Button
       type="button"
-      className={primaryClassName}
-      style={primaryStyle}
       onClick={() => void handleInstall()}
       disabled={pending || processing || !integrationId}
     >
@@ -117,4 +105,3 @@ export function SlackIntegration({
     />
   )
 }
-

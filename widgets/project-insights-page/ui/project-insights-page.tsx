@@ -42,17 +42,27 @@ import {
     useListProjectIntegrations,
 } from "@/entities/project";
 import { useListTasks } from "@/entities/task";
+import { ContributionHeatmap } from "@/widgets/contribution-heatmap";
 
 type TimeRange = "week" | "month" | "quarter";
 
+// v3 palette — keep aligned with the design tokens declared in globals.css.
+// Recharts needs concrete hex values, not CSS variables, so we mirror the
+// token values here.
 const STATUS_COLORS: Record<string, string> = {
-    DONE: "#10b981",
-    IN_PROGRESS: "#3b82f6",
-    TODO: "#8b5cf6",
-    REVIEW: "#f59e0b",
-    BLOCKED: "#ef4444",
-    CANCELLED: "#6b7280",
+    DONE: "#7cf66f",          // accent-2 (green)
+    IN_PROGRESS: "#4af3d9",   // accent-3 (teal)
+    TODO: "#a78bff",          // accent-4 (lavender)
+    REVIEW: "#ff8a3d",        // warn (orange)
+    BLOCKED: "#ff5b6e",       // danger (red)
+    CANCELLED: "#6b6b78",     // fg-3 (muted)
 };
+
+const CHART_LIME = "#c8ff3e";    // accent-lime
+const CHART_TEAL = "#4af3d9";    // accent-3
+const CHART_INFO = "#6fb6ff";    // info (blue)
+const CHART_GRID = "#26262e";    // line
+const CHART_AXIS = "#6b6b78";    // fg-3
 
 const STATUS_LABELS: Record<string, string> = {
     DONE: "Completed",
@@ -130,6 +140,16 @@ export function ProjectInsightsPage() {
         since: sinceIso,
     });
 
+    // Always fetch a 365-day window for the contribution heatmap, regardless
+    // of the selected `timeRange`. The heatmap is most useful at year-scale.
+    const heatmapSinceIso = React.useMemo(
+        () => new Date(nowMs - 365 * 24 * 60 * 60 * 1000).toISOString(),
+        [nowMs],
+    );
+    const { data: heatmapResponse } = useGetContributions(organizationId, projectId, {
+        since: heatmapSinceIso,
+    });
+
     const { data: linkedIntegrations } = useListProjectIntegrations(organizationId, projectId);
     const hasIntegrations = (linkedIntegrations?.length ?? 0) > 0;
 
@@ -166,7 +186,7 @@ export function ProjectInsightsPage() {
         const contributors = contribResponse?.contributors ?? [];
         return [...contributors]
             .map((c) => ({
-                name: c.name || c.email || "Unknown",
+                name: c.name || c.email || "Anonymous",
                 tasks: c.commits + c.pullRequests + c.messages + c.tasks + c.other,
                 completed: c.tasks,
             }))
@@ -214,14 +234,22 @@ export function ProjectInsightsPage() {
 
     const isLoading = tasksLoading || timelineLoading;
 
+    const tooltipStyle = {
+        backgroundColor: "#0f0f13",
+        border: "1px solid #26262e",
+        borderRadius: 8,
+        color: "#f4f4f6",
+        fontSize: 12,
+    } as const;
+
     return (
         <div className="mx-auto space-y-6">
             <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
                 <div>
-                    <h1 className="text-3xl font-bold mb-1 flex items-center gap-2">
-                        <BarChart3 className="size-7" /> Insights
+                    <h1 className="text-3xl font-bold mb-1 flex items-center gap-2 text-(--fg)">
+                        <BarChart3 className="size-7 text-(--accent-lime)" /> Insights
                     </h1>
-                    <p className="text-muted-foreground">Project analytics and performance metrics</p>
+                    <p className="text-(--fg-2)">Project analytics and performance metrics</p>
                 </div>
                 <Select value={timeRange} onValueChange={(value: TimeRange) => setTimeRange(value)}>
                     <SelectTrigger className="w-full sm:w-40">
@@ -237,12 +265,12 @@ export function ProjectInsightsPage() {
             </div>
 
             {isLoading && tasks.length === 0 && entries.length === 0 ? (
-                <div className="flex justify-center py-12"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
+                <div className="flex justify-center py-12"><Loader2 className="size-6 animate-spin text-(--fg-3)" /></div>
             ) : !hasIntegrations && tasks.length === 0 && entries.length === 0 ? (
-                <Card className="p-12 text-center">
-                    <Plug className="size-10 mx-auto mb-3 text-muted-foreground opacity-50" />
-                    <h3 className="text-lg font-semibold mb-1">No integrations linked</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
+                <Card className="p-12 text-center bg-(--bg-2) border-(--line-2)">
+                    <Plug className="size-10 mx-auto mb-3 text-(--fg-3) opacity-60" />
+                    <h3 className="text-lg font-semibold mb-1 text-(--fg)">No integrations linked</h3>
+                    <p className="text-sm text-(--fg-2) mb-4">
                         Insights are computed from ingested events and tasks. Connect at least one provider to start seeing data.
                     </p>
                     <Button asChild>
@@ -252,38 +280,49 @@ export function ProjectInsightsPage() {
             ) : (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <StatCard label="Completion Rate" value={`${stats.completionRate}%`} icon={TrendingUp} accent="text-green-600" hint={`${stats.completedTasks} of ${stats.totalTasks} tasks`} />
-                        <StatCard label="Team Velocity" value={`${stats.velocityPerDay}/day`} icon={Activity} accent="text-blue-600" hint="Tasks completed per day" />
-                        <StatCard label="Avg Completion Time" value={stats.avgDays} icon={Clock} accent="text-purple-600" hint="Mean task lifetime" />
-                        <StatCard label="Commits" value={`${stats.commits}`} icon={GitBranch} accent="text-orange-600" hint={`In selected range`} />
+                        <StatCard label="Completion Rate" value={`${stats.completionRate}%`} icon={TrendingUp} accent="text-(--accent-2)" hint={`${stats.completedTasks} of ${stats.totalTasks} tasks`} />
+                        <StatCard label="Team Velocity" value={`${stats.velocityPerDay}/day`} icon={Activity} accent="text-(--accent-3)" hint="Tasks completed per day" />
+                        <StatCard label="Avg Completion Time" value={stats.avgDays} icon={Clock} accent="text-(--accent-4)" hint="Mean task lifetime" />
+                        <StatCard label="Commits" value={`${stats.commits}`} icon={GitBranch} accent="text-(--accent-lime)" hint={`In selected range`} />
                     </div>
+
+                    {/* Year-scale contribution heatmap — total RawEvent activity per day. */}
+                    <Card className="p-6 bg-(--bg-2) border-(--line-2)">
+                        <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
+                            <h2 className="text-lg font-semibold text-(--fg)">Activity heatmap</h2>
+                            <span className="text-xs font-mono uppercase tracking-wider text-(--fg-3)">
+                                last 365 days · all sources
+                            </span>
+                        </div>
+                        <ContributionHeatmap data={heatmapResponse?.heatmap ?? []} days={365} />
+                    </Card>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                        {/* Github Contributors */}
-                        <Card className="p-6">
-                            <h2 className="text-lg font-semibold mb-4">Github Contributors</h2>
+                        {/* Top contributors */}
+                        <Card className="p-6 bg-(--bg-2) border-(--line-2)">
+                            <h2 className="text-lg font-semibold mb-4 text-(--fg)">Top contributors</h2>
                             {teamProductivityData.length === 0 ? (
-                                <p className="text-sm text-muted-foreground py-12 text-center">No contributor activity yet.</p>
+                                <p className="text-sm text-(--fg-3) py-12 text-center">No contributor activity yet.</p>
                             ) : (
                                 <ResponsiveContainer width="100%" height={300}>
                                     <BarChart data={teamProductivityData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" angle={-30} textAnchor="end" height={80} />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Legend />
-                                        <Bar dataKey="tasks" fill="#3b82f6" name="Total events" />
+                                        <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                                        <XAxis dataKey="name" angle={-30} textAnchor="end" height={80} stroke={CHART_AXIS} tick={{ fill: CHART_AXIS, fontSize: 11 }} />
+                                        <YAxis stroke={CHART_AXIS} tick={{ fill: CHART_AXIS, fontSize: 11 }} />
+                                        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(200,255,62,0.06)" }} />
+                                        <Legend wrapperStyle={{ color: CHART_AXIS, fontSize: 12 }} />
+                                        <Bar dataKey="tasks" fill={CHART_LIME} name="Total events" radius={[6, 6, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             )}
                         </Card>
 
                         {/* Task Status Distribution */}
-                        <Card className="p-6">
-                            <h2 className="text-lg font-semibold mb-4">Task Status Distribution</h2>
+                        <Card className="p-6 bg-(--bg-2) border-(--line-2)">
+                            <h2 className="text-lg font-semibold mb-4 text-(--fg)">Task status distribution</h2>
                             {statusDistribution.length === 0 ? (
-                                <p className="text-sm text-muted-foreground py-12 text-center">No tasks yet.</p>
+                                <p className="text-sm text-(--fg-3) py-12 text-center">No tasks yet.</p>
                             ) : (
                                 <ResponsiveContainer width="100%" height={300}>
                                     <PieChart>
@@ -294,34 +333,34 @@ export function ProjectInsightsPage() {
                                             labelLine={false}
                                             label={({ name, value }) => `${name} (${value})`}
                                             outerRadius={80}
-                                            fill="#8884d8"
+                                            fill={CHART_INFO}
                                             dataKey="value"
                                         >
                                             {statusDistribution.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
                                         </Pie>
-                                        <Tooltip />
+                                        <Tooltip contentStyle={tooltipStyle} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             )}
                         </Card>
                     </div>
 
-                    <Card className="p-6">
-                        <h2 className="text-lg font-semibold mb-4">Commit Activity</h2>
+                    <Card className="p-6 bg-(--bg-2) border-(--line-2)">
+                        <h2 className="text-lg font-semibold mb-4 text-(--fg)">Commit activity</h2>
                         {commitActivityData.every((d) => d.commits === 0) ? (
-                            <p className="text-sm text-muted-foreground py-12 text-center">
+                            <p className="text-sm text-(--fg-3) py-12 text-center">
                                 No commits ingested in this range. Connect GitHub on the Integrations tab to start tracking.
                             </p>
                         ) : (
                             <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={commitActivityData}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="date" />
-                                    <YAxis />
-                                    <Tooltip />
-                                    <Bar dataKey="commits" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                                    <XAxis dataKey="date" stroke={CHART_AXIS} tick={{ fill: CHART_AXIS, fontSize: 11 }} />
+                                    <YAxis stroke={CHART_AXIS} tick={{ fill: CHART_AXIS, fontSize: 11 }} />
+                                    <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(200,255,62,0.06)" }} />
+                                    <Bar dataKey="commits" fill={CHART_TEAL} radius={[8, 8, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         )}
@@ -346,13 +385,13 @@ function StatCard({
     hint?: string;
 }) {
     return (
-        <Card className="p-4">
+        <Card className="p-4 bg-(--bg-2) border-(--line-2)">
             <div className="flex items-start justify-between mb-2">
-                <p className="text-sm text-muted-foreground">{label}</p>
-                <Icon className={`size-4 ${accent ?? ""}`} />
+                <p className="text-xs uppercase font-mono tracking-wider text-(--fg-3)">{label}</p>
+                <Icon className={`size-4 ${accent ?? "text-(--fg-3)"}`} />
             </div>
-            <p className="text-3xl font-bold">{value}</p>
-            {hint ? <p className="text-xs text-muted-foreground mt-2">{hint}</p> : null}
+            <p className="text-3xl font-bold tabular-nums text-(--fg)">{value}</p>
+            {hint ? <p className="text-xs text-(--fg-3) mt-2">{hint}</p> : null}
         </Card>
     );
 }

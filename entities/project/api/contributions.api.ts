@@ -17,6 +17,8 @@ export interface ContributionMapResponse {
     projectId: string;
     totalEvents: number;
     contributors: Contributor[];
+    /** Daily bucket counts keyed by YYYY-MM-DD (UTC). Used by the Insights heatmap. */
+    heatmap?: Array<{ date: string; count: number }>;
 }
 
 export const getContributionMap = async (

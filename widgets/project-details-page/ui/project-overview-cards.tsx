@@ -139,7 +139,7 @@ export function ProjectOverviewCards({ organizationId, projectId }: OverviewCard
     );
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-w-0 *:min-w-0">
             <SnapshotCard
                 label="Open risks"
                 href={`/${organizationId}/projects/${projectId}/alerts`}

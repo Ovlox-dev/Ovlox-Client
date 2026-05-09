@@ -117,7 +117,7 @@ export function ProjectReposPage() {
                     <h1 className="text-2xl md:text-3xl font-bold mb-1 flex items-center gap-2">
                         <FolderGit2 className="size-6" /> Repositories
                     </h1>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-(--fg-2) text-sm">
                         Connected repos, file inventory, and risk analysis pulled from ingested commits.
                     </p>
                 </div>
@@ -141,9 +141,9 @@ export function ProjectReposPage() {
 
             {!hasGithub && reposList.length === 0 && !reposLoading ? (
                 <Card className="p-12 text-center">
-                    <Plug className="size-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+                    <Plug className="size-10 mx-auto mb-3 text-(--fg-2) opacity-50" />
                     <h3 className="text-lg font-semibold mb-1">No GitHub integration linked</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
+                    <p className="text-sm text-(--fg-2) mb-4">
                         Connect GitHub on the setup wizard to pull in repositories, files, and risk scores.
                     </p>
                     <Button asChild>
@@ -154,13 +154,13 @@ export function ProjectReposPage() {
                 <div className="grid gap-4 md:grid-cols-[300px_1fr_1.2fr]">
                     {/* Repository list — richer cards w/ file count + peak risk dot */}
                     <Card className="p-3 space-y-1 max-h-[75vh] overflow-y-auto">
-                        <p className="text-xs uppercase font-semibold text-muted-foreground px-2 py-1">
+                        <p className="text-xs uppercase font-semibold text-(--fg-2) px-2 py-1">
                             Repositories {reposList.length > 0 ? `(${reposList.length})` : ""}
                         </p>
                         {reposLoading ? (
                             <div className="flex justify-center py-6"><Loader2 className="size-4 animate-spin" /></div>
                         ) : reposList.length === 0 ? (
-                            <p className="text-xs text-muted-foreground p-2">No repos connected.</p>
+                            <p className="text-xs text-(--fg-2) p-2">No repos connected.</p>
                         ) : (
                             reposList.map((repo) => {
                                 const isActive = repo.id === activeRepoId;
@@ -170,7 +170,7 @@ export function ProjectReposPage() {
                                         onClick={() => { setActiveRepoId(repo.id); setActiveFileId(null); }}
                                         className={cn(
                                             "w-full text-left px-2.5 py-2 rounded-md text-sm transition-colors flex items-start gap-2.5",
-                                            isActive ? "bg-accent-contrast text-text" : "hover:bg-muted/60 text-muted-foreground",
+                                            isActive ? "bg-accent-contrast text-text" : "hover:bg-muted/60 text-(--fg-2)",
                                         )}
                                     >
                                         <FolderGit2 className={cn("size-4 shrink-0 mt-0.5", isActive ? "text-foreground" : "text-blue-500/80")} />
@@ -179,7 +179,7 @@ export function ProjectReposPage() {
                                                 {repo.name ?? repo.externalId ?? repo.id}
                                             </span>
                                             {repo.defaultBranch ? (
-                                                <span className="block text-[10px] text-muted-foreground/70 truncate font-mono">
+                                                <span className="block text-[10px] text-(--fg-2)/70 truncate font-mono">
                                                     {repo.defaultBranch}
                                                 </span>
                                             ) : null}
@@ -193,7 +193,7 @@ export function ProjectReposPage() {
                     {/* File tree — replaces the old flat list. Search across all paths. */}
                     <Card className="p-3 max-h-[75vh] overflow-hidden flex flex-col">
                         <div className="flex items-center justify-between mb-2 gap-2">
-                            <p className="text-xs uppercase font-semibold text-muted-foreground">
+                            <p className="text-xs uppercase font-semibold text-(--fg-2)">
                                 Files {activeRepoId ? `(${filesList.length})` : ""}
                             </p>
                             {peakRisk > 0 ? (
@@ -206,7 +206,7 @@ export function ProjectReposPage() {
                         {activeRepoId && filesList.length > 0 ? (
                             <div className="space-y-2 mb-2">
                                 <div className="relative">
-                                    <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                    <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-(--fg-2)" />
                                     <Input
                                         value={fileQuery}
                                         onChange={(e) => setFileQuery(e.target.value)}
@@ -217,7 +217,7 @@ export function ProjectReposPage() {
                                         <button
                                             type="button"
                                             onClick={() => setFileQuery("")}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-(--fg-2) hover:text-foreground"
                                             aria-label="Clear search"
                                         >
                                             <X className="size-3.5" />
@@ -228,7 +228,7 @@ export function ProjectReposPage() {
                                     <div className="flex flex-wrap gap-1">
                                         {languageStats.map(([lang, count]) => (
                                             <Badge key={lang} variant="outline" className="text-[10px] px-1.5 py-0 font-mono uppercase">
-                                                {lang} <span className="ml-1 text-muted-foreground">{count}</span>
+                                                {lang} <span className="ml-1 text-(--fg-2)">{count}</span>
                                             </Badge>
                                         ))}
                                     </div>
@@ -238,7 +238,7 @@ export function ProjectReposPage() {
 
                         <div className="flex-1 overflow-y-auto -mx-1 px-1">
                             {!activeRepoId ? (
-                                <p className="text-xs text-muted-foreground p-2">Select a repository.</p>
+                                <p className="text-xs text-(--fg-2) p-2">Select a repository.</p>
                             ) : filesLoading ? (
                                 <div className="flex justify-center py-6"><Loader2 className="size-4 animate-spin" /></div>
                             ) : (
@@ -259,7 +259,7 @@ export function ProjectReposPage() {
 
                     <Card className="p-4 max-h-[70vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-3 gap-2">
-                            <p className="text-xs uppercase font-semibold text-muted-foreground">File detail</p>
+                            <p className="text-xs uppercase font-semibold text-(--fg-2)">File detail</p>
                             {activeFileId ? (
                                 <div className="flex gap-1">
                                     <Button
@@ -282,11 +282,11 @@ export function ProjectReposPage() {
                             ) : null}
                         </div>
                         {!activeFileId ? (
-                            <p className="text-xs text-muted-foreground">Select a file to view details.</p>
+                            <p className="text-xs text-(--fg-2)">Select a file to view details.</p>
                         ) : fileLoading ? (
                             <div className="flex justify-center py-6"><Loader2 className="size-4 animate-spin" /></div>
                         ) : !fileDetail ? (
-                            <p className="text-xs text-muted-foreground">File not found.</p>
+                            <p className="text-xs text-(--fg-2)">File not found.</p>
                         ) : fileDetailTab === "info" ? (
                             <div className="space-y-3">
                                 <div>
@@ -309,7 +309,7 @@ export function ProjectReposPage() {
                                 ) : null}
                                 {fileDetail.riskFactors ? (
                                     <details className="text-xs">
-                                        <summary className="cursor-pointer text-muted-foreground">Risk factors</summary>
+                                        <summary className="cursor-pointer text-(--fg-2)">Risk factors</summary>
                                         <pre className="mt-2 bg-muted/50 rounded-md p-2 overflow-x-auto">
                                             {JSON.stringify(fileDetail.riskFactors, null, 2)}
                                         </pre>
@@ -348,12 +348,12 @@ export function ProjectReposPage() {
                             <AlertTriangle className="size-4 text-orange-500" />
                             High-risk files
                         </h2>
-                        <p className="text-xs text-muted-foreground">Risk score ≥ 40</p>
+                        <p className="text-xs text-(--fg-2)">Risk score ≥ 40</p>
                     </div>
                     {risksLoading ? (
                         <div className="flex justify-center py-6"><Loader2 className="size-4 animate-spin" /></div>
                     ) : risksList.length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-6 text-center">No risky files detected.</p>
+                        <p className="text-sm text-(--fg-2) py-6 text-center">No risky files detected.</p>
                     ) : (
                         <div className="space-y-1">
                             {risksList.map((f) => (
@@ -363,10 +363,10 @@ export function ProjectReposPage() {
                                     className="w-full text-left px-3 py-2 rounded-md hover:bg-muted transition-colors flex items-center justify-between gap-3"
                                 >
                                     <span className="flex items-center gap-2 min-w-0">
-                                        <FileCode className="size-3.5 shrink-0 text-muted-foreground" />
+                                        <FileCode className="size-3.5 shrink-0 text-(--fg-2)" />
                                         <span className="font-mono text-xs truncate">{f.path}</span>
                                         {f.repository?.name ? (
-                                            <span className="text-xs text-muted-foreground hidden sm:inline">
+                                            <span className="text-xs text-(--fg-2) hidden sm:inline">
                                                 ({f.repository.name})
                                             </span>
                                         ) : null}
