@@ -7,8 +7,8 @@ import {
     AreaChart,
     Bar,
     BarChart,
-    ResponsiveContainer,
 } from "recharts";
+import { MeasuredChart } from "@/components/measured-chart";
 import { Card } from "@/components/ui/card";
 import {
     Sparkles,
@@ -282,7 +282,7 @@ function SnapshotCard({
 
                 <div className="mt-auto h-12 -mx-1">
                     {hasActivity ? (
-                        <ResponsiveContainer width="100%" height="100%">
+                        <MeasuredChart height="100%">
                             {chartType === "area" ? (
                                 <AreaChart data={series} margin={{ top: 2, right: 2, bottom: 0, left: 2 }}>
                                     <defs>
@@ -305,7 +305,7 @@ function SnapshotCard({
                                     <Bar dataKey="v" fill={strokeColor} radius={[2, 2, 0, 0]} isAnimationActive={false} />
                                 </BarChart>
                             )}
-                        </ResponsiveContainer>
+                        </MeasuredChart>
                     ) : (
                         <div className="h-full flex items-end gap-px opacity-25">
                             {Array.from({ length: 14 }).map((_, i) => (
