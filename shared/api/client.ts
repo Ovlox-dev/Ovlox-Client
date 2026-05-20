@@ -5,6 +5,12 @@ type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 const absoluteApiBaseUrl = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/v1`;
 export const apiBaseUrl = absoluteApiBaseUrl;
+// `apiAbsoluteUrl` is the same value, exported under an explicit name for callers that
+// specifically need the full origin (SSE EventSource ctor, raw fetch to SSE endpoints).
+// Next.js rewrites would silently drop the `Authorization` / `Cookie` headers we need on
+// these streams, so we always hit the backend origin directly rather than going through
+// a same-origin rewrite. See lib/sse.ts and services/chat.service.ts for the call sites.
+export const apiAbsoluteUrl = absoluteApiBaseUrl;
 
 // console.log("apiBaseUrl", absoluteApiBaseUrl);
 
