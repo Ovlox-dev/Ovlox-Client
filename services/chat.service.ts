@@ -1,14 +1,15 @@
-import { apiClient } from "@/lib/api";
+import { apiClient, apiAbsoluteUrl } from "@/shared/api/client";
 import {
     CreateConversationRequest,
     ListConversationsResponse,
     SendMessageRequest,
     SendMessageResponse,
-    JobStatusResponse,
+    // JobStatusResponse,
     ChatMessageWithDetails,
     ConversationWithDetails,
 } from "@/types/api-types";
 import { IConversation } from "@/types/prisma-generated";
+import { toast } from "sonner";
 
 // Create a new conversation
 export const createConversation = async (data: CreateConversationRequest): Promise<IConversation> => {
@@ -65,10 +66,10 @@ export const sendMessage = async (
 };
 
 // Get job status
-export const getJobStatus = async (jobId: string): Promise<JobStatusResponse> => {
-    const response = await apiClient.get<JobStatusResponse>(`/chat/jobs/${jobId}/status`);
-    return response.data;
-};
+// export const getJobStatus = async (jobId: string): Promise<JobStatusResponse> => {
+//     const response = await apiClient.get<JobStatusResponse>(`/chat/jobs/${jobId}/status`);
+//     return response.data;
+// };
 
 // Retry a failed job
 export const retryJob = async (jobId: string): Promise<{ status: string; jobId: string; message: string }> => {
@@ -79,9 +80,11 @@ export const retryJob = async (jobId: string): Promise<{ status: string; jobId: 
 };
 
 // Stream job status via SSE (for real-time updates without WebSocket)
-export const streamJobStatus = (jobId: string, onUpdate: (data: any) => void, onError?: (error: Error) => void) => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-    const eventSource = new EventSource(`${apiUrl}/chat/jobs/${jobId}/stream`, {
+export const streamJobStatus = (jobId: string, onUpdate: (data: unknown) => void, onError?: (error: Error) => void) => {
+    // Bypass Next.js rewrites — Vercel/CDN buffering breaks SSE through the proxy.
+    // The canonical streaming consumer is `lib/sse.ts streamJobStatus`; this module
+    // is currently unused but kept for parity if a native-EventSource caller appears.
+    const eventSource = new EventSource(`${apiAbsoluteUrl}/chat/jobs/${jobId}/stream`, {
         withCredentials: true,
     });
 
@@ -94,12 +97,12 @@ export const streamJobStatus = (jobId: string, onUpdate: (data: any) => void, on
                 eventSource.close();
             }
         } catch (error) {
-            console.error("Failed to parse SSE data:", error);
+            toast.error("Failed to parse SSE data", { description: (error as Error).message });
         }
     };
 
     eventSource.onerror = (error) => {
-        console.error("SSE error:", error);
+        toast.error("SSE error", { description: (error as unknown as Error).message });
         eventSource.close();
         onError?.(new Error("Failed to stream job status"));
     };

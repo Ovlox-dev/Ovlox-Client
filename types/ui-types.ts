@@ -13,4 +13,4 @@ export interface CurrentUser {
         slug: string;
         predefinedRole: PredefinedOrgRole | null;
     }[];
-};
+}

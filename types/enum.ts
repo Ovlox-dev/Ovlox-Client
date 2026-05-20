@@ -41,8 +41,9 @@ export enum ExternalProvider {
     GITHUB = "GITHUB",
     SLACK = "SLACK",
     DISCORD = "DISCORD",
-    NOTION = "NOTION",
     JIRA = "JIRA",
+    LINEAR = "LINEAR",
+    NOTION = "NOTION",
     FIGMA = "FIGMA"
 }
 
@@ -56,13 +57,15 @@ export enum IntegrationAuthType {
 export enum IntegrationStatus {
     CONNECTED = "CONNECTED",
     PROCESSING = "PROCESSING",
-    NOT_CONNECTED = "NOT_CONNECTED"
+    NOT_CONNECTED = "NOT_CONNECTED",
+    ERROR = "ERROR"
 }
 
 export enum InviteStatus {
     PENDING = "PENDING",
     ACCEPTED = "ACCEPTED",
-    REJECTED = "REJECTED"
+    REJECTED = "REJECTED",
+    EXPIRED = "EXPIRED"
 }
 
 export enum ConversationType {
@@ -78,3 +81,525 @@ export enum ChatRole {
     ASSISTANT = "ASSISTANT",
     SYSTEM = "SYSTEM"
 }
+
+export enum ProjectStatus {
+    ACTIVE = "ACTIVE",
+    ARCHIVED = "ARCHIVED"
+}
+
+export enum PermissionName {
+    MANAGE_ORG = "MANAGE_ORG",
+    INVITE_MEMBERS = "INVITE_MEMBERS",
+    MANAGE_INTEGRATIONS = "MANAGE_INTEGRATIONS",
+    CREATE_PROJECTS = "CREATE_PROJECTS",
+    EDIT_PROJECTS = "EDIT_PROJECTS",
+    DELETE_PROJECTS = "DELETE_PROJECTS",
+    VIEW_PROJECTS = "VIEW_PROJECTS",
+    MANAGE_ROLES = "MANAGE_ROLES",
+    MAP_IDENTITIES = "MAP_IDENTITIES",
+    RUN_IMPORTS = "RUN_IMPORTS",
+    VIEW_REPORTS = "VIEW_REPORTS",
+    MANAGE_TASKS = "MANAGE_TASKS",
+    MANAGE_WEBHOOKS = "MANAGE_WEBHOOKS",
+    EXPORT_DATA = "EXPORT_DATA",
+    APPROVE_WRITEBACKS = "APPROVE_WRITEBACKS",
+}
+
+
+export enum RawEventType {
+    COMMIT = 'COMMIT',
+    PULL_REQUEST = "PULL_REQUEST",
+    ISSUE = "ISSUE",
+    MESSAGE = "MESSAGE",
+    TASK_UPDATE = "TASK_UPDATE",
+    DEPLOYMENT = "DEPLOYMENT",
+    INCIDENT = "INCIDENT",
+    ERROR = "ERROR",
+    OTHER = "OTHER",
+}
+
+
+export enum TaskStatus {
+    TODO = 'TODO',
+    IN_PROGRESS = 'IN_PROGRESS',
+    REVIEW = 'REVIEW',
+    DONE = 'DONE',
+    BLOCKED = 'BLOCKED',
+    CANCELLED = 'CANCELLED',
+}
+
+
+export enum SemanticIntent {
+    FIX_ISSUE = 'FIX_ISSUE',
+    FEATURE_IN_PROGRESS = 'FEATURE_IN_PROGRESS',
+    FEATURE_COMPLETE = 'FEATURE_COMPLETE',
+    BLOCKER = 'BLOCKER',
+    QUESTION = 'QUESTION',
+    DECISION = 'DECISION',
+    UPDATE = 'UPDATE',
+    REVIEW_REQUEST = 'REVIEW_REQUEST',
+    OTHER = 'OTHER',
+}
+
+
+export enum LlmOutputType {
+    SUMMARY = 'SUMMARY',
+    ANSWER = 'ANSWER',
+    DAILY_REPORT = 'DAILY_REPORT',
+    WEEKLY_REPORT = 'WEEKLY_REPORT',
+    RISK_ALERT = 'RISK_ALERT',
+    FEATURE_SCORE = 'FEATURE_SCORE',
+    SENTIMENT_INSIGHT = 'SENTIMENT_INSIGHT',
+    CODE_QUALITY = 'CODE_QUALITY',
+    SECURITY_ANALYSIS = 'SECURITY_ANALYSIS',
+    PROJECT_CONTEXT = 'PROJECT_CONTEXT',
+}
+
+
+export enum ReportType {
+    DAILY = 'DAILY',
+    WEEKLY = 'WEEKLY',
+    MONTHLY = 'MONTHLY',
+    CUSTOM = 'CUSTOM',
+}
+
+
+export enum CreditTransactionType {
+    PURCHASE = 'PURCHASE',
+    REFUND = 'REFUND',
+    USAGE = 'USAGE',
+    BONUS = 'BONUS',
+    ADJUSTMENT = 'ADJUSTMENT',
+    SUBSCRIPTION = 'SUBSCRIPTION',
+    EXPIRY = 'EXPIRY',
+    OVERAGE_USAGE = 'OVERAGE_USAGE',
+}
+
+
+export enum CreditTransactionStatus {
+    PENDING = 'PENDING',
+    COMPLETED = 'COMPLETED',
+    FAILED = 'FAILED',
+    REFUNDED = 'REFUNDED',
+    CANCELLED = 'CANCELLED',
+}
+
+
+export enum PaymentStatus {
+    PENDING = 'PENDING',
+    PROCESSING = 'PROCESSING',
+    SUCCEEDED = 'SUCCEEDED',
+    FAILED = 'FAILED',
+    REFUNDED = 'REFUNDED',
+    CANCELLED = 'CANCELLED',
+}
+
+
+export enum SubscriptionStatus {
+    ACTIVE = 'ACTIVE',
+    CANCELLED = 'CANCELLED',
+    PAST_DUE = 'PAST_DUE',
+    UNPAID = 'UNPAID',
+    TRIALING = 'TRIALING',
+}
+
+
+export enum LlmOperationType {
+    EVENT_SUMMARY = 'EVENT_SUMMARY',
+    CODE_QUALITY = 'CODE_QUALITY',
+    SECURITY_ANALYSIS = 'SECURITY_ANALYSIS',
+    SENTIMENT_ANALYSIS = 'SENTIMENT_ANALYSIS',
+    CHAT_ANSWER = 'CHAT_ANSWER',
+    FEATURE_DETECTION = 'FEATURE_DETECTION',
+    PROJECT_REPORT = 'PROJECT_REPORT',
+    EMBEDDING = 'EMBEDDING',
+    DEBUG_FIX = 'DEBUG_FIX',
+}
+
+
+export enum LlmUsageStatus {
+    PENDING = 'PENDING',
+    COMPLETED = 'COMPLETED',
+    FAILED = 'FAILED',
+    CANCELLED = 'CANCELLED',
+}
+
+export enum TaskSource {
+    MANUAL = 'MANUAL',
+    AUTO_DETECTED = 'AUTO_DETECTED',
+    IMPORTED = 'IMPORTED',
+}
+
+
+export enum TaskEventRelationship {
+    MENTIONED = 'MENTIONED',
+    PROGRESS = 'PROGRESS',
+    COMPLETED = 'COMPLETED',
+    BLOCKED = 'BLOCKED',
+    RELATED = 'RELATED',
+}
+
+
+export enum WritebackRiskLevel {
+    LOW = 'LOW',
+    MEDIUM = 'MEDIUM',
+    HIGH = 'HIGH',
+}
+
+export enum PermissionScope {
+    ORG = 'ORG',
+    PROJECT = 'PROJECT',
+}
+
+export enum ProjectVisibility {
+    PRIVATE = 'PRIVATE',
+    ORG = 'ORG',
+}
+
+
+export enum ProjectSyncStatus {
+    IDLE = 'IDLE',
+    RUNNING = 'RUNNING',
+    ERROR = 'ERROR',
+}
+
+
+export enum IngestionStatus {
+    PENDING = 'PENDING',
+    RUNNING = 'RUNNING',
+    COMPLETED = 'COMPLETED',
+    FAILED = 'FAILED',
+}
+
+
+export enum JobStatus {
+    PENDING = 'PENDING',
+    RUNNING = 'RUNNING',
+    COMPLETED = 'COMPLETED',
+    FAILED = 'FAILED',
+    RETRY = 'RETRY',
+}
+
+
+export enum InvoiceType {
+    SUBSCRIPTION = 'SUBSCRIPTION',
+    OVERAGE = 'OVERAGE',
+    MANUAL = 'MANUAL',
+}
+
+
+export const InvoiceStatus = {
+    DRAFT: 'DRAFT',
+    OPEN: 'OPEN',
+    PAID: 'PAID',
+    VOID: 'VOID',
+    UNCOLLECTIBLE: 'UNCOLLECTIBLE',
+} as const;
+
+
+export const FeatureStatus = {
+    PLANNED: 'PLANNED',
+    IN_PROGRESS: 'IN_PROGRESS',
+    BLOCKED: 'BLOCKED',
+    COMPLETED: 'COMPLETED',
+    CANCELLED: 'CANCELLED',
+} as const;
+
+
+export const KnowledgeRelation = {
+    IMPLEMENTS: 'IMPLEMENTS',
+    FIXES: 'FIXES',
+    CAUSED: 'CAUSED',
+    RELATED_TO: 'RELATED_TO',
+    DISCUSSED_IN: 'DISCUSSED_IN',
+    DEPENDS_ON: 'DEPENDS_ON',
+    BLOCKS: 'BLOCKS',
+} as const;
+
+
+export const KnowledgeNodeType = {
+    RAW_EVENT: 'RAW_EVENT',
+    TASK: 'TASK',
+    FEATURE: 'FEATURE',
+    INCIDENT: 'INCIDENT',
+    DEPLOYMENT: 'DEPLOYMENT',
+    MESSAGE: 'MESSAGE',
+} as const;
+
+
+export const IncidentSeverity = {
+    LOW: 'LOW',
+    MEDIUM: 'MEDIUM',
+    HIGH: 'HIGH',
+    CRITICAL: 'CRITICAL',
+} as const;
+
+
+export const RiskType = {
+    SECURITY: 'SECURITY',
+    CODE_QUALITY: 'CODE_QUALITY',
+    INCIDENT_RISK: 'INCIDENT_RISK',
+    DELIVERY_DELAY: 'DELIVERY_DELAY',
+} as const;
+
+
+export const RiskSeverity = {
+    LOW: 'LOW',
+    MEDIUM: 'MEDIUM',
+    HIGH: 'HIGH',
+    CRITICAL: 'CRITICAL',
+} as const;
+
+
+export const AiTone = {
+    FOUNDER_FRIENDLY: 'FOUNDER_FRIENDLY',
+    TECHNICAL: 'TECHNICAL',
+    CONCISE: 'CONCISE',
+} as const;
+
+
+export const PlanInterval = {
+    MONTH: 'MONTH',
+    YEAR: 'YEAR',
+} as const;
+
+
+export const CreditReferenceType = {
+    PAYMENT: 'PAYMENT',
+    LLM_USAGE: 'LLM_USAGE',
+    ADMIN: 'ADMIN',
+    SUBSCRIPTION: 'SUBSCRIPTION',
+    GRANT_EXPIRY: 'GRANT_EXPIRY',
+} as const;
+
+
+export const CreditGrantSource = {
+    SUBSCRIPTION: 'SUBSCRIPTION',
+    PURCHASE: 'PURCHASE',
+    BONUS: 'BONUS',
+    ADJUSTMENT: 'ADJUSTMENT',
+} as const;
+
+
+export const LlmReferenceType = {
+    RAW_EVENT: 'RAW_EVENT',
+    LLM_OUTPUT: 'LLM_OUTPUT',
+    CONVERSATION: 'CONVERSATION',
+    FEATURE_DETECTION: 'FEATURE_DETECTION',
+    AGENT_RUN: 'AGENT_RUN',
+} as const;
+
+
+export const LlmProvider = {
+    OPENAI: 'OPENAI',
+    ANTHROPIC: 'ANTHROPIC',
+    GOOGLE: 'GOOGLE',
+    MISTRAL: 'MISTRAL',
+    GROQ: 'GROQ',
+    COHERE: 'COHERE',
+} as const;
+
+
+export const AgentRunStatus = {
+    WAITING_FOR_TOOL: 'WAITING_FOR_TOOL',
+    SELECTING_ACTION: 'SELECTING_ACTION',
+    EXECUTING_ACTION: 'EXECUTING_ACTION',
+    WAITING_FOR_USER: 'WAITING_FOR_USER',
+    SELECTING_MODEL: 'SELECTING_MODEL',
+    SUMMARIZING_CONVERSATION: 'SUMMARIZING_CONVERSATION',
+    WEB_SEARCHING: 'WEB_SEARCHING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+} as const;
+
+
+export const AgentRunIntent = {
+    RAG_CHAT: 'RAG_CHAT',
+    EVENT_PROCESSING: 'EVENT_PROCESSING',
+    REPORT_GENERATION: 'REPORT_GENERATION',
+    WRITEBACK: 'WRITEBACK',
+    BOOTSTRAP_SYNC: 'BOOTSTRAP_SYNC',
+    SECURITY_SCAN: 'SECURITY_SCAN',
+} as const;
+
+
+export const AgentStepType = {
+    LLM_CALL: 'LLM_CALL',
+    TOOL_CALL: 'TOOL_CALL',
+    RETRIEVAL: 'RETRIEVAL',
+    WRITEBACK: 'WRITEBACK',
+    EMBEDDING: 'EMBEDDING',
+} as const;
+
+
+export const JobType = {
+    INGESTION: 'INGESTION',
+    LLM: 'LLM',
+    WRITEBACK: 'WRITEBACK',
+    REPORTS: 'REPORTS',
+    AGENT: 'AGENT',
+} as const;
+
+
+export const IngestionJobType = {
+    HISTORICAL_IMPORT: 'HISTORICAL_IMPORT',
+    BACKFILL_EMBEDDINGS: 'BACKFILL_EMBEDDINGS',
+    REPROCESS_EVENTS: 'REPROCESS_EVENTS',
+    BOOTSTRAP_SYNC: 'BOOTSTRAP_SYNC',
+} as const;
+
+
+export const NotificationChannel = {
+    EMAIL: 'EMAIL',
+    SLACK: 'SLACK',
+    DISCORD: 'DISCORD',
+    IN_APP: 'IN_APP',
+} as const;
+
+
+export const NotificationStatus = {
+    SENT: 'SENT',
+    FAILED: 'FAILED',
+    BOUNCED: 'BOUNCED',
+    PENDING: 'PENDING',
+} as const;
+
+
+export const NotificationType = {
+    DAILY_REPORT: 'DAILY_REPORT',
+    WEEKLY_REPORT: 'WEEKLY_REPORT',
+    BLOCKER_ALERT: 'BLOCKER_ALERT',
+    MENTION: 'MENTION',
+    TASK_ASSIGNED: 'TASK_ASSIGNED',
+    INVITE: 'INVITE',
+    BILLING_ALERT: 'BILLING_ALERT',
+    CREDIT_LOW: 'CREDIT_LOW',
+    CREDIT_EXHAUSTED: 'CREDIT_EXHAUSTED',
+} as const;
+
+
+export const TaskTeamMemberRole = {
+    LEAD: 'LEAD',
+    DEVELOPER: 'DEVELOPER',
+    QA: 'QA',
+    DESIGNER: 'DESIGNER',
+    PROJECT_MANAGER: 'PROJECT_MANAGER',
+    REVIEWER: 'REVIEWER',
+    OBSERVER: 'OBSERVER',
+} as const;
+
+
+export const AuditAction = {
+    CREATE_ORG: 'CREATE_ORG',
+    UPDATE_ORG: 'UPDATE_ORG',
+    DELETE_ORG: 'DELETE_ORG',
+    INVITE_MEMBER: 'INVITE_MEMBER',
+    REMOVE_MEMBER: 'REMOVE_MEMBER',
+    UPDATE_MEMBER_ROLE: 'UPDATE_MEMBER_ROLE',
+    CREATE_PROJECT: 'CREATE_PROJECT',
+    UPDATE_PROJECT: 'UPDATE_PROJECT',
+    DELETE_PROJECT: 'DELETE_PROJECT',
+    ARCHIVE_PROJECT: 'ARCHIVE_PROJECT',
+    CONNECT_INTEGRATION: 'CONNECT_INTEGRATION',
+    DISCONNECT_INTEGRATION: 'DISCONNECT_INTEGRATION',
+    WRITEBACK_PR_COMMENT: 'WRITEBACK_PR_COMMENT',
+    WRITEBACK_TASK_TRANSITION: 'WRITEBACK_TASK_TRANSITION',
+    WRITEBACK_SLACK_MESSAGE: 'WRITEBACK_SLACK_MESSAGE',
+    WRITEBACK_CREATE_TICKET: 'WRITEBACK_CREATE_TICKET',
+    WRITEBACK_APPROVED: 'WRITEBACK_APPROVED',
+    WRITEBACK_REJECTED: 'WRITEBACK_REJECTED',
+    UPDATE_CREDITS: 'UPDATE_CREDITS',
+    PURCHASE_CREDITS: 'PURCHASE_CREDITS',
+    APPLY_REFUND: 'APPLY_REFUND',
+    CHANGE_PLAN: 'CHANGE_PLAN',
+    USER_LOGIN: 'USER_LOGIN',
+    USER_LOGOUT: 'USER_LOGOUT',
+    PASSWORD_RESET: 'PASSWORD_RESET',
+    CREATE_ROLE: 'CREATE_ROLE',
+    UPDATE_ROLE: 'UPDATE_ROLE',
+    DELETE_ROLE: 'DELETE_ROLE',
+    CREATE_TASK: 'CREATE_TASK',
+    UPDATE_TASK: 'UPDATE_TASK',
+    DELETE_TASK: 'DELETE_TASK',
+    ASSIGN_TASK: 'ASSIGN_TASK',
+    MAP_IDENTITY: 'MAP_IDENTITY',
+    UNMAP_IDENTITY: 'UNMAP_IDENTITY',
+    REGISTER_WEBHOOK: 'REGISTER_WEBHOOK',
+    ROTATE_WEBHOOK_SECRET: 'ROTATE_WEBHOOK_SECRET',
+    DELETE_WEBHOOK: 'DELETE_WEBHOOK',
+} as const;
+
+
+export const WritebackActionType = {
+    PR_COMMENT: 'PR_COMMENT',
+    PR_REVIEW: 'PR_REVIEW',
+    CREATE_TICKET: 'CREATE_TICKET',
+    UPDATE_TICKET: 'UPDATE_TICKET',
+    SLACK_MESSAGE: 'SLACK_MESSAGE',
+    DISCORD_MESSAGE: 'DISCORD_MESSAGE',
+    CREATE_GITHUB_ISSUE: 'CREATE_GITHUB_ISSUE',
+    CLOSE_GITHUB_ISSUE: 'CLOSE_GITHUB_ISSUE',
+} as const;
+
+
+export const WritebackActionStatus = {
+    PENDING_APPROVAL: 'PENDING_APPROVAL',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+    EXECUTING: 'EXECUTING',
+    EXECUTED: 'EXECUTED',
+    FAILED: 'FAILED',
+    CANCELLED: 'CANCELLED',
+} as const;
+
+
+export const DeploymentEnvironment = {
+    DEVELOPMENT: 'DEVELOPMENT',
+    STAGING: 'STAGING',
+    PREVIEW: 'PREVIEW',
+    PRODUCTION: 'PRODUCTION',
+} as const;
+
+
+export const DeploymentStatus = {
+    PENDING: 'PENDING',
+    RUNNING: 'RUNNING',
+    SUCCESS: 'SUCCESS',
+    FAILED: 'FAILED',
+    CANCELLED: 'CANCELLED',
+    ROLLED_BACK: 'ROLLED_BACK',
+} as const;
+
+
+export const FeatureDependencyType = {
+    BLOCKS: 'BLOCKS',
+    REQUIRES: 'REQUIRES',
+    RELATED: 'RELATED',
+} as const;
+
+
+export const WebhookRegistrationStatus = {
+    ACTIVE: 'ACTIVE',
+    PAUSED: 'PAUSED',
+    FAILED: 'FAILED',
+    DELETED: 'DELETED',
+} as const;
+
+
+export const MessageType = {
+    MESSAGE: 'MESSAGE',
+    THREAD_REPLY: 'THREAD_REPLY',
+    CHANNEL_JOIN: 'CHANNEL_JOIN',
+    REACTION: 'REACTION',
+    FILE_SHARE: 'FILE_SHARE',
+    SYSTEM: 'SYSTEM',
+} as const;
+
+
+export const CommitChangeType = {
+    ADDED: 'ADDED',
+    MODIFIED: 'MODIFIED',
+    DELETED: 'DELETED',
+    RENAMED: 'RENAMED',
+    COPIED: 'COPIED',
+} as const;

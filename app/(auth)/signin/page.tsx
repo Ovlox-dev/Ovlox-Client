@@ -1,14 +1,21 @@
 import { Suspense } from "react"
-import { SigninForm } from "@/components/signin-form"
+import { SigninForm } from "@/features/auth";
+import { AuthShell } from "@/components/layout/auth-shell";
 
 export default function Signin() {
     return (
-        <div className="bg-muted flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
-            <div className="w-full max-w-sm md:max-w-4xl">
-                <Suspense fallback={<div>Loading...</div>}>
-                    <SigninForm />
-                </Suspense>
-            </div>
-        </div>
+        <AuthShell>
+            <Suspense fallback={<AuthLoading />}>
+                <SigninForm />
+            </Suspense>
+        </AuthShell>
     )
+}
+
+function AuthLoading() {
+    return (
+        <div className="flex min-h-screen items-center justify-center text-sm text-(--fg-3) font-mono">
+            Loading…
+        </div>
+    );
 }

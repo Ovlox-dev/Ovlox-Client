@@ -1,120 +1,231 @@
 import { io, Socket } from "socket.io-client";
-import Cookies from "js-cookie";
-import { ACCESS_TOKEN } from "./constants";
+import { getAccessToken, refreshAccessToken } from "@/shared/lib/auth/token-service";
 import {
-    ChatMessageWithDetails,
     WsNewMessageEvent,
     WsMessageProcessingEvent,
     WsTypingEvent,
     WsMessageReadEvent,
 } from "@/types/api-types";
+import { apiBaseUrl } from "@/shared/api/client";
+import { toast } from "sonner";
 
 const getSocketUrl = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-    // Extract base URL without /api/v1
-    const baseUrl = apiUrl.replace(/\/api\/v1$/, "");
-    return `${baseUrl}/chat`;
+    // Socket.IO can't go through Next's /api/v1 rewrite (HTTP-only — Vercel and most CDNs
+    // do not proxy WebSocket Upgrade). Connect to the backend's absolute origin so WS reaches
+    // the real server. CORS is permissive in prod and the handshake uses auth.token (JWT in
+    // payload), so cross-origin works without cookies.
+    const upstream = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    return `${upstream.replace(/\/api\/v1$/, "").replace(/\/+$/, "")}/chat`;
 };
 
 let socket: Socket | null = null;
+let connectingPromise: Promise<Socket> | null = null;
+const isDev = process.env.NODE_ENV !== "production";
+// let lastConnectErrorToastAt = 0;
+/**
+ * Reference count of active consumers (chat panels currently mounted). The socket is
+ * only torn down when the last consumer unmounts, preventing the drawer from killing
+ * the page chat (or vice versa) when both are open.
+ */
+let consumerCount = 0;
 
-export const connectSocket = (): Socket => {
-    if (socket?.connected) {
-        return socket;
-    }
-
-    const token = Cookies.get(ACCESS_TOKEN);
-    if (!token) {
-        throw new Error("No access token available");
-    }
-
-    const socketUrl = getSocketUrl();
-
-    socket = io(socketUrl, {
-        query: { token },
-        transports: ["websocket"],
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        reconnectionAttempts: 5,
-    });
-
-    socket.on("connect", () => {
-        console.log("Socket connected:", socket?.id);
-    });
-
-    socket.on("disconnect", (reason) => {
-        console.log("Socket disconnected:", reason);
-        if (reason === "io server disconnect") {
-            // Server disconnected the socket, reconnect manually
-            socket?.connect();
-        }
-    });
-
-    socket.on("connect_error", (error) => {
-        console.error("Socket connection error:", error);
-    });
-
-    return socket;
-};
-
-export const disconnectSocket = () => {
+/**
+ * Reconnect with a freshly refreshed access token. Called when the backend rejects
+ * the handshake (token expired or missing).
+ */
+async function reconnectWithFreshToken(): Promise<void> {
     if (socket) {
         socket.disconnect();
         socket = null;
     }
-};
+    connectingPromise = null;
+    // Refresh returns:
+    //   - null       → refresh genuinely failed (HTTP error, refresh-token cookie expired, …)
+    //   - "" (empty) → HTTP refresh succeeded under cookie-only auth (no Bearer in body)
+    //   - non-empty  → new Bearer token available
+    // We only show "Session expired" on `null` — empty string means cookies have been
+    // rotated and the next handshake will pick them up. Treating `!fresh` as the failure
+    // signal was producing the wrong toast in production every time access cookies hit 15min.
+    const fresh = await refreshAccessToken();
+    if (fresh === null) {
+        toast.error("Session expired. Please sign in again.");
+        return;
+    }
+    await connectSocketAsync();
+}
 
-export const getSocket = (): Socket | null => {
+async function connectSocketAsync(): Promise<Socket> {
+    if (socket?.connected) { return socket; }
+    if (connectingPromise) { return connectingPromise; }
+
+    connectingPromise = (async () => {
+        let token = getAccessToken();
+        // Pre-emptive refresh when we have no Bearer in localStorage. The handshake itself
+        // can succeed with just the cookie (backend SocketGuard accepts cookie-or-Bearer),
+        // but this avoids a visible "connection failed → reconnect" blip in the UI when
+        // the cookie has gone stale and the handshake would have 401'd. The refresh may
+        // legitimately return "" (cookie-only mode — backend doesn't include Bearer in
+        // the response body); the `token ? { token } : {}` below treats that correctly
+        // as "no Bearer to send in auth payload, rely on the (now-fresh) cookie".
+        if (!token) {
+            token = await refreshAccessToken();
+        }
+
+        const next = io(getSocketUrl(), {
+            auth: token ? { token } : {},
+            // Must match the backend gateway's `path` (chat.gateway.ts / app.gateway.ts).
+            // The NestJS global prefix /api/v1 doesn't apply to WS gateways, so we set the
+            // socket.io path manually to keep WS behind the same proxy/CDN routing as HTTP.
+            path: "/api/v1/socket.io",
+            // Allow polling fallback for environments where WS is blocked/proxied.
+            // (If you remove this entirely, socket.io will negotiate transports anyway.)
+            transports: ["websocket", "polling"],
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: 5,
+            withCredentials: true,
+        });
+
+        next.on("connect_error", async (error) => {
+            const message = (error as { message?: string }).message ?? "";
+            const looksUnauth =
+                /unauth|token|jwt|expired/i.test(message);
+            if (looksUnauth) {
+                // Try once to refresh — avoid an infinite loop by tearing the current socket down first.
+                if (socket === next) { socket = null; }
+                connectingPromise = null;
+                next.disconnect();
+                await reconnectWithFreshToken();
+                return;
+            }
+
+            // Visibility for non-auth failures: helpful during proxy/CORS/path issues.
+            if (isDev) {
+                // eslint-disable-next-line no-console
+                console.warn("[socket] connect_error", { message, error });
+
+                // const now = Date.now();
+                // if (now - lastConnectErrorToastAt > 10_000) {
+                //     lastConnectErrorToastAt = now;
+                //     toast.error(
+                //         message
+                //             ? `Chat connection failed: ${message}`
+                //             : "Chat connection failed. Check console for details."
+                //     );
+                // }
+            }
+        });
+
+        socket = next;
+        return next;
+    })();
+
+    try {
+        return await connectingPromise;
+    } finally {
+        connectingPromise = null;
+    }
+}
+
+export const connectSocket = (): Socket => {
+    if (socket?.connected) { return socket; }
+    // Fire-and-forget: most callers don't need the resolved socket immediately.
+    void connectSocketAsync();
+    // Return a placeholder if no socket yet; callers should rely on event listeners.
+    if (!socket) {
+        socket = io(getSocketUrl(), { autoConnect: false, path: "/api/v1/socket.io" });
+    }
     return socket;
 };
 
-// Join a conversation room
-export const joinConversation = (conversationId: string) => {
-    if (!socket?.connected) {
-        connectSocket();
-    }
-    socket?.emit("joinConversation", { conversationId });
+/** Acquire a chat-socket lease. Connects on first acquire; idempotent across panels. */
+export const acquireChatSocket = (): void => {
+    consumerCount += 1;
+    void connectSocketAsync();
 };
 
-// Leave a conversation room
+/** Release a chat-socket lease. Disconnects only when the last consumer unmounts. */
+export const releaseChatSocket = (): void => {
+    consumerCount = Math.max(0, consumerCount - 1);
+    if (consumerCount === 0 && socket) {
+        socket.disconnect();
+        socket = null;
+        connectingPromise = null;
+    }
+};
+
+export const disconnectSocket = () => {
+    consumerCount = 0;
+    if (socket) {
+        socket.disconnect();
+        socket = null;
+        connectingPromise = null;
+    }
+};
+
+export const getSocket = (): Socket | null => socket;
+
+const ensureConnectedAndEmit = (event: string, payload: unknown) => {
+    if (!socket) {
+        void connectSocketAsync().then((s) => s.emit(event, payload));
+        return;
+    }
+    if (socket.connected) {
+        socket.emit(event, payload);
+    } else {
+        socket.once("connect", () => socket?.emit(event, payload));
+    }
+};
+
+export const joinConversation = (conversationId: string) => {
+    ensureConnectedAndEmit("joinConversation", { conversationId });
+};
+
 export const leaveConversation = (conversationId: string) => {
     socket?.emit("leaveConversation", { conversationId });
 };
 
-// Send typing indicator
 export const sendTypingIndicator = (conversationId: string, isTyping: boolean) => {
     socket?.emit("typing", { conversationId, isTyping });
 };
 
-// Mark message as read
 export const markMessageAsRead = (conversationId: string, messageId: string) => {
     socket?.emit("markAsRead", { conversationId, messageId });
 };
 
-// Re-export types for convenience
+// Re-export types
 export type NewMessageEvent = WsNewMessageEvent;
 export type MessageProcessingEvent = WsMessageProcessingEvent;
 export type TypingEvent = WsTypingEvent;
 export type MessageReadEvent = WsMessageReadEvent;
 
-// Helper to add event listeners
-export const onNewMessage = (callback: (data: NewMessageEvent) => void) => {
-    socket?.on("newMessage", callback);
-    return () => socket?.off("newMessage", callback);
+const subscribe = <T>(event: string, callback: (data: T) => void) => {
+    const attach = (s: Socket) => {
+        s.on(event, callback as (...args: unknown[]) => void);
+    };
+    if (socket) {
+        attach(socket);
+    } else {
+        void connectSocketAsync().then(attach);
+    }
+    return () => socket?.off(event, callback as (...args: unknown[]) => void);
 };
 
-export const onMessageProcessing = (callback: (data: MessageProcessingEvent) => void) => {
-    socket?.on("messageProcessing", callback);
-    return () => socket?.off("messageProcessing", callback);
-};
+export const onNewMessage = (callback: (data: NewMessageEvent) => void) =>
+    subscribe<NewMessageEvent>("newMessage", callback);
+export const onMessageProcessing = (callback: (data: MessageProcessingEvent) => void) =>
+    subscribe<MessageProcessingEvent>("messageProcessing", callback);
+export const onTyping = (callback: (data: TypingEvent) => void) =>
+    subscribe<TypingEvent>("typing", callback);
+export const onMessageRead = (callback: (data: MessageReadEvent) => void) =>
+    subscribe<MessageReadEvent>("messageRead", callback);
 
-export const onTyping = (callback: (data: TypingEvent) => void) => {
-    socket?.on("typing", callback);
-    return () => socket?.off("typing", callback);
-};
-
-export const onMessageRead = (callback: (data: MessageReadEvent) => void) => {
-    socket?.on("messageRead", callback);
-    return () => socket?.off("messageRead", callback);
-};
+/**
+ * NOTE: token-streaming has migrated entirely to SSE (`lib/sse.ts streamJobStatus`).
+ * The backend may still emit a `chatChunk` socket event — there is intentionally no
+ * listener wired up here so the frontend treats SSE as the single source of truth
+ * for token deltas. Production SSE buffering issues that previously made sockets
+ * the de-facto streaming channel are addressed by routing SSE direct to the API
+ * origin via `apiAbsoluteUrl` (bypasses Next.js rewrites).
+ */
