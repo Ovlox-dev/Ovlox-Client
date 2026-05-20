@@ -168,9 +168,20 @@ class TokenService {
             headers.Authorization = `Bearer ${compositeRefresh}`;
         }
 
-        const absoluteBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-        const baseUrl = typeof window === "undefined" ? `${absoluteBaseUrl}/api/v1` : "/api/v1";
-        const response = await fetch(`${baseUrl}/auth/refresh-token`, {
+        // Always hit the backend origin directly. The previous "use a relative path in
+        // the browser" trick depended on a Next.js rewrite at /api/v1/[[...path]] that
+        // no longer exists in next.config.ts. Without that rewrite a relative URL 404s
+        // in production, which is precisely what surfaces as the "session expired"
+        // toast when the chat sidebar opens (an SSE stream hits a 401, tries to
+        // refresh via this method, gets 404, gives up).
+        //
+        // Cross-origin cookies still work: app.ovlox.dev and api.ovlox.dev share an
+        // eTLD+1 (ovlox.dev) so SameSite=Lax permits the accessToken/refreshToken
+        // cookies on this `credentials: "include"` request. If you later deploy the
+        // frontend on a different registrable domain, switch the backend's cookie
+        // sameSite to 'none' (with Secure) and CORS will already permit credentials.
+        const absoluteBaseUrl = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/v1`;
+        const response = await fetch(`${absoluteBaseUrl}/auth/refresh-token`, {
             method: "GET",
             credentials: "include",
             headers: Object.keys(headers).length > 0 ? headers : undefined,
@@ -186,9 +197,28 @@ class TokenService {
             return tokens;
         }
 
+        // Cookie-only refresh path. The backend currently returns only `{ message }`
+        // from /auth/refresh-token — the new accessToken / refreshToken are delivered as
+        // HttpOnly Set-Cookie headers (good for XSS resistance, but the response body
+        // carries nothing for the frontend to store). That's a valid mode: every guard
+        // in the backend reads cookie OR Bearer, and `credentials: 'include'` on every
+        // request means the rotated cookies attach themselves automatically.
+        //
+        // Before this branch existed, an HTTP-successful refresh that didn't include a
+        // token in the body would throw — which is exactly what was causing the chat
+        // sidebar to show "session expired" 15 minutes after sign-in: the refresh worked
+        // at the HTTP layer (cookies rotated), but the frontend believed it had failed
+        // and bailed out.
+        //
+        // Return existing TokenData if we have any (so callers reading `.accessToken`
+        // keep getting something), otherwise synthesize an empty-Bearer placeholder so
+        // the success path proceeds and downstream callers fall through to cookie auth.
         const existing = this.getTokens();
         if (existing) { return existing; }
-        throw new Error("Token refresh failed");
+        return {
+            accessToken: "",
+            expiresAt: Date.now() + FALLBACK_TOKEN_TTL_MS,
+        };
     }
 }
 

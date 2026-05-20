@@ -39,8 +39,15 @@ async function reconnectWithFreshToken(): Promise<void> {
         socket = null;
     }
     connectingPromise = null;
+    // Refresh returns:
+    //   - null       → refresh genuinely failed (HTTP error, refresh-token cookie expired, …)
+    //   - "" (empty) → HTTP refresh succeeded under cookie-only auth (no Bearer in body)
+    //   - non-empty  → new Bearer token available
+    // We only show "Session expired" on `null` — empty string means cookies have been
+    // rotated and the next handshake will pick them up. Treating `!fresh` as the failure
+    // signal was producing the wrong toast in production every time access cookies hit 15min.
     const fresh = await refreshAccessToken();
-    if (!fresh) {
+    if (fresh === null) {
         toast.error("Session expired. Please sign in again.");
         return;
     }
@@ -53,7 +60,13 @@ async function connectSocketAsync(): Promise<Socket> {
 
     connectingPromise = (async () => {
         let token = getAccessToken();
-        // If missing or stale, do a refresh — handshake without a token is rejected.
+        // Pre-emptive refresh when we have no Bearer in localStorage. The handshake itself
+        // can succeed with just the cookie (backend SocketGuard accepts cookie-or-Bearer),
+        // but this avoids a visible "connection failed → reconnect" blip in the UI when
+        // the cookie has gone stale and the handshake would have 401'd. The refresh may
+        // legitimately return "" (cookie-only mode — backend doesn't include Bearer in
+        // the response body); the `token ? { token } : {}` below treats that correctly
+        // as "no Bearer to send in auth payload, rely on the (now-fresh) cookie".
         if (!token) {
             token = await refreshAccessToken();
         }

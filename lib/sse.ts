@@ -77,9 +77,18 @@ export function createEventSource<T = unknown>(
             // We don't loop on repeated 401s — if the refresh itself fails
             // or the second attempt also 401s, the user is genuinely signed
             // out and the SSE has no business continuing.
+            //
+            // `refreshAccessToken()` distinguishes its return values precisely:
+            //   - null         → refresh threw (HTTP failed, network error, etc.) → genuine session loss
+            //   - "" (empty)   → refresh HTTP succeeded but body carried no Bearer token. That's the
+            //                    cookie-only auth mode the backend currently uses — rotated cookies are
+            //                    fresh, we just have no Authorization header value. Retry with cookies.
+            //   - non-empty    → new Bearer token to use on the retry.
+            // Treating `!refreshed` (which is true for both null AND "") as failure was the bug:
+            // a perfectly-good cookie refresh produced "" and the SSE bailed with "session expired".
             if (res.status === 401) {
                 const refreshed = await refreshAccessToken();
-                if (!refreshed) {
+                if (refreshed === null) {
                     handlers.onError?.(new Event("error"));
                     return;
                 }

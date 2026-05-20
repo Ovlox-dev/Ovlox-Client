@@ -244,14 +244,34 @@ export function AiChatPanel({
     }, [activeConversationId]);
 
     // Once the persisted assistant message lands in the message list, drop the streamed
-    // bubble. Doing this only after the persisted row is visible avoids the
+    // bubble. Doing this when the persisted row is visible avoids the
     // "stream → blank → row" flicker on the SSE/DB handoff.
+    //
+    // Fallback: if the messages query refetch doesn't return the new assistant message
+    // within FORCE_CLEAR_MS, we force-clear anyway. Without this fallback, a single
+    // missed/delayed socket `newMessage(assistant)` event, a read-replica lag, or an
+    // SSE `answer` event that arrived without `chatMessageId` would leave the panel
+    // permanently stuck in "streaming…" state. The 1.5 s budget is generous enough for
+    // normal refetch latency but short enough that the user notices a hung state for at
+    // most one beat of UI feedback.
+    const FORCE_CLEAR_MS = 1500;
     React.useEffect(() => {
         if (!activeConversationId) { return; }
         if (!persistedAssistantId) { return; }
-        if (!messages || messages.length === 0) { return; }
-        if (!messages.some((m) => m.id === persistedAssistantId)) { return; }
-        useChatStreamingStore.getState().clear(activeConversationId);
+
+        // Happy path — persisted row is already in messages: clear synchronously.
+        if (messages && messages.some((m) => m.id === persistedAssistantId)) {
+            useChatStreamingStore.getState().clear(activeConversationId);
+            return;
+        }
+
+        // Otherwise wait up to FORCE_CLEAR_MS for messages to catch up. The timer is reset
+        // whenever messages updates (effect re-runs with new deps), so a slow-but-eventual
+        // refetch with the new row still clears synchronously and skips the fallback.
+        const timer = window.setTimeout(() => {
+            useChatStreamingStore.getState().clear(activeConversationId);
+        }, FORCE_CLEAR_MS);
+        return () => window.clearTimeout(timer);
     }, [activeConversationId, persistedAssistantId, messages]);
 
     const isNearBottom = React.useCallback((el: HTMLElement) => {
@@ -558,7 +578,15 @@ export function AiChatPanel({
                             showHoverTime={false}
                             trailingCaret
                         />
-                    ) : pending ? (
+                    ) : pending && !persistedAssistantId ? (
+                        // Only show "thinking…" while we genuinely don't have an answer yet.
+                        // Once the SSE `answer` event has fired (`persistedAssistantId` set), we
+                        // know the backend has produced the response — even if `streamingBuffer`
+                        // is still empty because no chunks came through and the answer string
+                        // was empty (which makes `seedAnswerIfEmpty` no-op in lib/chat-runtime.ts).
+                        // Without this extra gate, "thinking…" would persist under the response
+                        // for the entire window between the answer event firing and the messages
+                        // query refetch completing — visible to the user as a bug.
                         <AssistantRow
                             compact={compact}
                             markdown=""

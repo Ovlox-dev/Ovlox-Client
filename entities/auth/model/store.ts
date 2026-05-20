@@ -12,7 +12,7 @@ import {
     verifyOtp as verifyOtpRequest,
 } from "@/shared/api/auth";
 import { setSessionUserId } from "@/shared/lib/auth/session-storage";
-import { clearClientSessionState, getAccessToken, setAccessToken } from "@/shared/lib/auth/token-service";
+import { clearClientSessionState, setAccessToken } from "@/shared/lib/auth/token-service";
 
 type AuthStatus = "idle" | "loading" | "authenticated" | "unauthenticated";
 
@@ -189,8 +189,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
                 }));
                 return user;
             } catch (error) {
-                const hasToken = Boolean(getAccessToken());
-                const shouldClearAuthState = isAuthFailure(error) || !hasToken;
+                // Only sign out on explicit auth failures (401/403). The previous condition
+                // also signed out when `getAccessToken()` returned null, but in cookie-only
+                // mode (the current production setup) localStorage is permanently empty —
+                // the backend issues HttpOnly cookies and never sends accessToken in the
+                // response body. That meant a transient 500 / network blip on /user/me
+                // would falsely sign out a perfectly-authenticated user.
+                //
+                // Trusting only 401/403 means: genuine session loss still signs out, and
+                // transient infrastructure errors preserve the session for retry. A user
+                // who has never signed in will eventually hit a real 401 on the next API
+                // call and get cleared then — no permanent stuck state.
+                const shouldClearAuthState = isAuthFailure(error);
 
                 if (shouldClearAuthState) {
                     set((state) => ({
