@@ -361,6 +361,17 @@ export function startConversationJob(conversationId: string, jobId: string) {
     const rt = conversations.get(conversationId);
     if (!rt) { return; }
 
+    // Idempotency guard. The send-mutation's onSuccess can fire more than once in real
+    // deployments (React StrictMode dev double-effects, hot-reload, multiple panel mounts,
+    // page+drawer panels both calling handleSend for the same conversation). Without this
+    // check each invocation opens its own SSE — production logs showed 9 concurrent
+    // /chat/jobs/<id>/stream connections for a single send, each holding a Redis pub/sub
+    // subscription on the server. Re-entering for the SAME jobId is a no-op; switching to
+    // a NEW jobId still works (unsubscribes the previous and opens a new SSE).
+    if (rt.sseJobId === jobId && rt.sseSub) {
+        return;
+    }
+
     if (rt.sseSub) { rt.sseSub.unsubscribe(); rt.sseSub = null; }
     rt.sseJobId = jobId;
     useChatStreamingStore.getState().setJobId(conversationId, jobId);
@@ -386,6 +397,13 @@ export function startConversationJob(conversationId: string, jobId: string) {
                     // the final answer so the bubble isn't permanently blank.
                     store.seedAnswerIfEmpty(conversationId, evt.answer);
                 }
+                // Trigger the same messages-query invalidation the socket `newMessage` handler
+                // does. The SSE `answer` event always arrives before (or at the same time as)
+                // the socket `newMessage`, and waiting solely on the socket meant any delay
+                // there held the panel in "thinking…" state under the rendered response. Doing
+                // it here too closes that gap so the clear-effect in ai-chat-panel.tsx can run
+                // as soon as the persisted assistant message is fetchable.
+                try { onAssistantMessageReady?.({ conversationId }); } catch { /* swallow */ }
             }
         },
         () => {
