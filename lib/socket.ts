@@ -6,8 +6,8 @@ import {
     WsTypingEvent,
     WsMessageReadEvent,
 } from "@/types/api-types";
-import { apiBaseUrl } from "@/shared/api/client";
-import { toast } from "sonner";
+// import { apiBaseUrl } from "@/shared/api/client";
+// import { toast } from "sonner";
 
 const getSocketUrl = () => {
     // Socket.IO can't go through Next's /api/v1 rewrite (HTTP-only — Vercel and most CDNs
@@ -46,11 +46,11 @@ async function reconnectWithFreshToken(): Promise<void> {
     // We only show "Session expired" on `null` — empty string means cookies have been
     // rotated and the next handshake will pick them up. Treating `!fresh` as the failure
     // signal was producing the wrong toast in production every time access cookies hit 15min.
-    const fresh = await refreshAccessToken();
-    if (fresh === null) {
-        toast.error("Session expired. Please sign in again.");
-        return;
-    }
+    // const fresh = await refreshAccessToken();
+    // if (fresh === null) {
+    //     toast.error("Session expired. Please sign in again.");
+    //     return;
+    // }
     await connectSocketAsync();
 }
 

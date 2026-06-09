@@ -6,7 +6,6 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { SiLinear } from "react-icons/si"
 import { Users } from "lucide-react"
 import { toast } from "sonner"
-
 import {
     listLinearTeams,
     syncLinearTeams,
@@ -14,6 +13,8 @@ import {
 } from "@/shared/api/integration-linear"
 import { ExternalProvider } from "@/types/enum"
 import { Skeleton } from "@/components/ui/skeleton"
+import { decodeApiError } from "@/hooks/useApiError"
+import { useRemoveOrgIntegration } from "@/shared/queries/org.queries"
 
 import { ProviderHeader } from "@/widgets/integrations/ui/provider-header"
 import { ProviderInstances } from "@/widgets/integrations/ui/provider-instances"
@@ -36,6 +37,9 @@ export default function LinearIntegrationPage() {
         [router, pathname, searchParams]
     )
 
+    const removeMutation = useRemoveOrgIntegration(organizationId)
+    const handledUnauthorizedRef = React.useRef(false)
+
     const {
         data: teams,
         isLoading,
@@ -47,16 +51,43 @@ export default function LinearIntegrationPage() {
         enabled: !!integrationId,
     })
 
+    const errorInfo = error ? decodeApiError(error) : null
+    const isUnauthorized = errorInfo?.status === 400
+
+    const handleUnauthorizedAccess = React.useCallback(async () => {
+        if (!integrationId || handledUnauthorizedRef.current) {
+            return
+        }
+        handledUnauthorizedRef.current = true
+
+        toast.error("Unauthorized access", {
+            description: "Removing the integration. Please reconnect Linear.",
+        })
+
+        try {
+            await removeMutation.mutateAsync(integrationId)
+        } catch {
+            // Integration may already be removed.
+        }
+
+        router.replace(`/${organizationId}/integrations`)
+    }, [integrationId, organizationId, removeMutation, router])
+
+    React.useEffect(() => {
+        handledUnauthorizedRef.current = false
+    }, [integrationId])
+
+    React.useEffect(() => {
+        if (!error || !isUnauthorized) {
+            return
+        }
+        void handleUnauthorizedAccess()
+    }, [error, isUnauthorized, handleUnauthorizedAccess])
+
     const syncMutation = useMutation({
         mutationFn: () => syncLinearTeams(integrationId),
         onSuccess: () => {
             refetch()
-            toast.success("Synced Linear teams")
-        },
-        onError: (err) => {
-            toast.error(
-                `Failed to sync Linear teams: ${err instanceof Error ? err.message : "Unknown error"}`
-            )
         },
     })
 
@@ -72,7 +103,17 @@ export default function LinearIntegrationPage() {
                         organizationId={organizationId}
                         integrationId={integrationId}
                         getReinstallUrl={getLinearInstallUrl}
-                        onSync={() => syncMutation.mutate()}
+                        onSync={async () => {
+                            try {
+                                await syncMutation.mutateAsync()
+                            } catch (err) {
+                                if (decodeApiError(err).status === 400) {
+                                    await handleUnauthorizedAccess()
+                                    return
+                                }
+                                throw err
+                            }
+                        }}
                         isSyncing={syncMutation.isPending}
                     />
                 }
@@ -101,7 +142,14 @@ export default function LinearIntegrationPage() {
                     <div className="p-5">
                         {error ? (
                             <div className="rounded-[10px] border border-[rgba(255,91,110,0.3)] bg-[rgba(255,91,110,0.06)] p-4">
-                                <p className="text-sm text-(--danger)">{error.message}</p>
+                                <p className="text-sm text-(--danger)">
+                                    {isUnauthorized ? "Unauthorized access" : errorInfo?.message}
+                                </p>
+                                {isUnauthorized ? (
+                                    <p className="text-sm text-(--fg-3) mt-1">
+                                        Removing the integration. Please reconnect Linear from the integrations page.
+                                    </p>
+                                ) : null}
                             </div>
                         ) : isLoading ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

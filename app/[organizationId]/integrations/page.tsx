@@ -2,14 +2,12 @@
 
 import { useMemo, useState } from "react"
 import { useParams } from "next/navigation"
-import { useQuery } from "@tanstack/react-query"
-
 import type { IconType } from "react-icons"
 import { IoLogoGithub } from "react-icons/io5"
 import { SiDiscord, SiJira, SiLinear, SiSlack } from "react-icons/si"
 
 import type { OrgIntegrationStatusItem } from "@/types/api-types"
-import { listIntegrations } from "@/entities/organization/api/org"
+import { useOrgByIdentifier, useOrgIntegrations } from "@/shared/queries/org.queries"
 
 import { PageTitle } from "@/components/page-title"
 
@@ -85,18 +83,24 @@ function isToolInSetup(app: IntegrationToolDef, integrations: OrgIntegrationStat
 
 export default function IntegrationsPage() {
   const params = useParams<{ organizationId: string }>()
-  const organizationId = params?.organizationId ?? ""
+  // Route segment is the org slug (legacy URLs may still use a UUID).
+  const routeIdentifier = params?.organizationId ?? ""
+  const { data: orgData, isLoading: orgLoading } = useOrgByIdentifier(routeIdentifier)
+  const org = orgData?.organization
+  const organizationId = org?.id ?? ""
+  const orgSlug = org?.slug ?? routeIdentifier
+
   const [addedIds, setAddedIds] = useState(() => new Set<string>())
 
-  const { data: integrationsData, isLoading: integrationsLoading, error: integrationsError, refetch } = useQuery({
-    queryKey: ["listIntegrations", organizationId],
-    queryFn: async () => {
-      const res = await listIntegrations(organizationId)
-      return res ?? null
-    },
-  })
+  const {
+    data: integrationsData,
+    isLoading: integrationsLoading,
+    error: integrationsError,
+    refetch,
+  } = useOrgIntegrations(organizationId)
 
   const integrations = useMemo(() => integrationsData ?? [], [integrationsData])
+  const isLoading = orgLoading || integrationsLoading
 
   const setupTools = useMemo(
     () => INTEGRATION_CATALOG.filter((t) => isToolInSetup(t, integrations, addedIds)),
@@ -107,7 +111,7 @@ export default function IntegrationsPage() {
     [addedIds, integrations]
   )
 
-  const basePath = `/${encodeURIComponent(organizationId)}/integrations`
+  const basePath = `/${encodeURIComponent(orgSlug)}/integrations`
 
   const handleAddedToSetup = (appId: string) => {
     setAddedIds((prev) => {
@@ -189,7 +193,7 @@ export default function IntegrationsPage() {
         description="Connect your tools to sync activity, projects, and team updates."
       />
 
-      {integrationsLoading ? (
+      {isLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
@@ -212,7 +216,7 @@ export default function IntegrationsPage() {
         </div>
       ) : null}
 
-      {!integrationsLoading && integrationsError ? (
+      {!isLoading && integrationsError ? (
         <div className="rounded-[14px] border border-[rgba(255,91,110,0.3)] bg-[rgba(255,91,110,0.06)] p-5">
           <p className="text-sm text-(--danger) font-medium">
             {integrationsError instanceof Error ? integrationsError.message : "Failed to load integrations"}
@@ -240,7 +244,7 @@ export default function IntegrationsPage() {
         </section>
       ) : null}
 
-      {!integrationsLoading && availableTools.length > 0 ? (
+      {!isLoading && availableTools.length > 0 ? (
         <section className="space-y-4">
           <div className="flex items-baseline gap-3">
             <h2 className="text-lg font-semibold tracking-tight text-(--fg)">

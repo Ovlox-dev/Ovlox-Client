@@ -4,8 +4,6 @@ import * as React from "react"
 import { useRouter, useParams, useSearchParams, usePathname } from "next/navigation"
 import { SiJira } from "react-icons/si"
 import { FolderKanban, Lock, Globe } from "lucide-react"
-import { toast } from "sonner"
-
 import { useGetJiraProjects, useSyncJiraProjects } from "@/shared/queries/jira.queries"
 import { getJiraInstallUrl } from "@/shared/api/integration-jira"
 import { ExternalProvider } from "@/types/enum"
@@ -39,18 +37,9 @@ export default function JiraIntegrationPage() {
     } = useGetJiraProjects(integrationId)
     const syncMutation = useSyncJiraProjects()
 
-    const handleSync = React.useCallback(() => {
-        if (!integrationId) return
-        syncMutation.mutate(
-            { integrationId },
-            {
-                onSuccess: () => toast.success("Synced Jira projects"),
-                onError: (err) =>
-                    toast.error(
-                        `Failed to sync Jira projects: ${err instanceof Error ? err.message : "Unknown error"}`
-                    ),
-            }
-        )
+    const handleSync = React.useCallback(async () => {
+        if (!integrationId) { return }
+        await syncMutation.mutateAsync({ integrationId })
     }, [integrationId, syncMutation])
 
     return (
@@ -146,16 +135,18 @@ export default function JiraIntegrationPage() {
                                                         </span>
                                                     </div>
                                                     <div className="mt-1.5 flex items-center gap-3 text-[10px] font-mono uppercase tracking-wider text-(--fg-3)">
-                                                        <span>
+                                                        {/* <span>
                                                             <span className="text-(--fg-2) normal-case tracking-normal">
                                                                 {project.key}
                                                             </span>
-                                                        </span>
+                                                        </span> */}
                                                         {project.projectTypeKey ? (
                                                             <span>
-                                                                <span className="text-(--fg-2) normal-case tracking-normal">
+                                                        <p>Project Type: {" "}
+                                                                <span className="text-(--fg-2) uppercase normal-case tracking-normal">
                                                                     {project.projectTypeKey}
                                                                 </span>
+                                                        </p>
                                                             </span>
                                                         ) : null}
                                                     </div>

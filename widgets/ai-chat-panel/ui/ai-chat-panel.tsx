@@ -123,7 +123,7 @@ export function AiChatPanel({
     const setActiveConversationInStore = useChatSidebarStore((s) => s.setActiveConversation);
     const setActiveConversationId = React.useCallback(
         (next: string | null | ((prev: string | null) => string | null)) => {
-            if (!scopeKey) return;
+            if (!scopeKey) { return; }
             const nextValue = typeof next === "function" ? next(activeConversationId) : next;
             setActiveConversationInStore(scopeKey, nextValue);
         },
@@ -221,6 +221,8 @@ export function AiChatPanel({
     }, [
         activeConversationId,
         conversations,
+        creatingConversation,
+        setActiveConversationId,
         // creatingConversation intentionally omitted — see ref-latch comment above.
         createConversation,
         isProject,
@@ -454,7 +456,7 @@ export function AiChatPanel({
     }, []);
 
     return (
-        <div className={cn("flex bg-background overflow-hidden", height, className)}>
+        <div className={cn("flex min-h-0 flex-1", height, className)}>
             <ConversationSidebar
                 show={showConversationList}
                 conversations={conversationList}
@@ -470,7 +472,7 @@ export function AiChatPanel({
                 onMobileOpenChange={setMobileSidebarOpen}
             />
 
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex min-h-0 flex-1 flex-col min-w-0">
                 <ChatHeader
                     compact={compact}
                     isProject={isProject}
@@ -490,7 +492,7 @@ export function AiChatPanel({
                         userNearBottomRef.current = near;
                         if (near) { setShowJumpToLatest(false); }
                     }}
-                    className={cn("custom-scrollbar flex-1 overflow-y-auto space-y-3 relative", compact ? "p-3" : "p-4")}
+                    className={cn("custom-scrollbar relative min-h-0 flex-1 overflow-y-auto space-y-3", compact ? "p-3" : "p-4")}
                 >
                     {(() => {
                         const messageCount = messages?.length ?? 0;
@@ -815,7 +817,7 @@ function ChatHeader({
     if (compact) { return null; }
 
     return (
-        <div className="px-3 py-2 flex items-start justify-between gap-3">
+        <div className="shrink-0 px-3 py-2 flex items-start justify-between gap-3">
             <div className="min-w-0">
                 <h2 className="font-semibold text-sm flex items-center gap-2 min-w-0">
                     <MessageSquare className="size-4 shrink-0" />
@@ -856,7 +858,7 @@ function ChatComposer({
     const showHelper = !compact && !sending && !value.trim();
 
     return (
-        <div className={cn(compact ? "p-2" : "p-4")}>
+        <div className={cn("shrink-0", compact ? "p-2" : "p-4")}>
             <div className="relative rounded-2xl bg-card shadow-sm ring-1 ring-border/40 px-3 py-2">
                 <textarea
                     ref={resolvedTextareaRef}

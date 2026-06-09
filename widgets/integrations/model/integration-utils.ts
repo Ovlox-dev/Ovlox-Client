@@ -28,3 +28,11 @@ export function isDiscordIntegration(integration: OrgIntegrationStatusItem | nul
   )
 }
 
+export function isProviderConnected(integrations: OrgIntegrationStatusItem[], appId: string) {
+  return integrations.some(
+    (integration) =>
+      String(integration.app).toLowerCase() === appId.toLowerCase() &&
+      integration.status === IntegrationStatus.CONNECTED
+  )
+}
+

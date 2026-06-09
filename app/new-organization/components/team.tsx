@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useRef, KeyboardEvent } from "react"
-import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -14,7 +13,16 @@ import {
 import { PlusIcon, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import { PageTitle } from "@/components/page-title"
+import { PredefinedOrgRole } from "@/types/enum"
+
+const PREDEFINED_ROLE_OPTIONS: Array<{ value: PredefinedOrgRole; label: string; hint: string }> = [
+    { value: PredefinedOrgRole.OWNER, label: "Owner", hint: "Full control" },
+    { value: PredefinedOrgRole.ADMIN, label: "Admin", hint: "Manage org + members" },
+    { value: PredefinedOrgRole.CEO, label: "CEO", hint: "Executive view" },
+    { value: PredefinedOrgRole.CTO, label: "CTO", hint: "Tech leadership" },
+    { value: PredefinedOrgRole.DEVELOPER, label: "Developer", hint: "Read + write projects" },
+    { value: PredefinedOrgRole.VIEWER, label: "Viewer", hint: "Read-only" },
+]
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -31,12 +39,16 @@ type TeamProps = {
     invitedMembers: TeamInvitedMember[]
     onAddMembers: (emails: string[]) => void
     onUpdateMemberRole: (memberId: string, role: string) => void
+    onRemoveMember: (memberId: string) => void
+    disabled?: boolean
 }
 
 const Team = ({
     invitedMembers,
     onAddMembers,
     onUpdateMemberRole,
+    onRemoveMember,
+    disabled = false,
 }: TeamProps) => {
     const [emails, setEmails] = useState<string[]>([])
     const [inputValue, setInputValue] = useState("")
@@ -44,8 +56,7 @@ const Team = ({
 
     const addEmail = (email: string) => {
         const trimmed = email.trim().toLowerCase()
-        if (!trimmed || !EMAIL_REGEX.test(trimmed) || emails.includes(trimmed))
-            { return; }
+        if (!trimmed || !EMAIL_REGEX.test(trimmed) || emails.includes(trimmed)) { return; }
         setEmails((prev) => [...prev, trimmed])
         setInputValue("")
     }
@@ -119,21 +130,13 @@ const Team = ({
         member.name ? member.name[0].toUpperCase() : member.email[0].toUpperCase()
 
     return (
-        <div>
-            <div className="space-y-8">
-                <PageTitle
-                    title="Invite your team"
-                    description="Bring others into your workspace. You can do this later."
-                />
-
+        <div className={cn(disabled && "pointer-events-none select-none opacity-50")}>
+            <div className="space-y-4">
                 <div className="">
-                    <Label className="text-xl text-muted font-semibold mb-2">
-                        Invite via email
-                    </Label>
                     <div className="flex items-center gap-4 w-full">
                         <div
                             className={cn(
-                                "flex flex-wrap items-center gap-2 min-h-9 w-full rounded-[8px] border border-border bg-background px-2 py-1.5",
+                                "flex flex-wrap items-center gap-2 min-h-9 w-full rounded-xl border border-border bg-background px-2 py-1.5",
                                 "focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:border-ring"
                             )}
                             onClick={() => inputRef.current?.focus()}
@@ -141,7 +144,7 @@ const Team = ({
                             {emails.map((email) => (
                                 <span
                                     key={email}
-                                    className="inline-flex items-center gap-2 rounded-lg bg-[#191b1b] dark:bg-card px-3 py-1 text-sm text-accent"
+                                    className="inline-flex items-center gap-2 rounded-lg bg-[#191b1b] dark:bg-card px-3 py-1 text-sm text-white"
                                 >
                                     {email}
                                     <button
@@ -150,10 +153,10 @@ const Team = ({
                                             e.stopPropagation()
                                             removeEmail(email)
                                         }}
-                                        className="rounded p-0.5 hover:bg-white/10 focus:outline-none"
+                                        className="rounded p-0.5 hover:bg-white/10 focus:outline-none text-red-500 cursor-pointer"
                                         aria-label={`Remove ${email}`}
                                     >
-                                        <X className="size-3.5 hover:text-red-500" />
+                                        <X className="size-3.5" />
                                     </button>
                                 </span>
                             ))}
@@ -167,14 +170,15 @@ const Team = ({
                                 onBlur={() => {
                                     if (inputValue.trim()) { addEmail(inputValue); }
                                 }}
+                                disabled={disabled}
                                 className="flex-1 min-w-0 sm:min-w-35 bg-transparent border-0 py-1 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-0"
                             />
                         </div>
                         <Button
                             type="button"
-                            size="lg"
                             onClick={handleAddToList}
-                            className="shrink-0 bg-accent text-card rounded-full font-medium text-sm hover:bg-[#4fb8e8]"
+                            disabled={disabled}
+                            className="shrink-0 bg-[rgba(200,255,62,0.80)] text-black rounded-full font-medium text-sm"
                         >
                             <PlusIcon />
                             Add Emails
@@ -186,7 +190,7 @@ const Team = ({
                 </div>
 
                 {invitedMembers.length > 0 && (
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                         {invitedMembers.map((member) => (
                             <div
                                 key={member.id}
@@ -213,40 +217,38 @@ const Team = ({
                                     >
                                         <SelectTrigger
                                             size="sm"
-                                            className="h-8 rounded-full border-border bg-transparent dark:bg-card text-text text-xs w-25 disabled:opacity-70 disabled:pointer-events-none"
+                                            className="h-8 rounded-full border-border bg-transparent dark:bg-card text-text text-xs min-w-28 disabled:opacity-70 disabled:pointer-events-none"
                                         >
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <SelectItem value="Admin">Admin</SelectItem>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="left">
-                                                    <p>Manages the product and its data.</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <SelectItem value="Member">Member</SelectItem>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="left">
-                                                    <p>Writes and maintains the product’s code.</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <SelectItem value="Guest">Guest</SelectItem>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="left">
-                                                    <p>Can view the product but not edit it.</p>
-                                                </TooltipContent>
-                                            </Tooltip>
+                                            {PREDEFINED_ROLE_OPTIONS.map((option) => (
+                                                <Tooltip key={option.value}>
+                                                    <TooltipTrigger asChild>
+                                                        <SelectItem value={option.value}>
+                                                            {option.label}
+                                                        </SelectItem>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="left">
+                                                        <p>{option.hint}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            ))}
                                         </SelectContent>
                                     </Select>
-                                    <span className="inline-flex h-8 items-center rounded-md border border-[#33383B] bg-transparent dark:bg-card px-3 text-xs text-muted-foreground">
-                                        Will be sent on finish
-                                    </span>
+                                    {member.status === "pending" ? (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => onRemoveMember(member.id)}
+                                            className="rounded-full border border-[#33383B] bg-transparent text-xs text-muted-foreground hover:text-red-500 hover:border-red-500/40"
+                                            aria-label={`Remove ${member.email}`}
+                                        >
+                                            <X className="size-3.5" />
+                                            Cancel
+                                        </Button>
+                                    ) : null}
                                 </div>
                             </div>
                         ))}

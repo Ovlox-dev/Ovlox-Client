@@ -1,27 +1,27 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { LogOut, Loader2, Plus, UserPlus, Check, ArrowRight } from "lucide-react"
+import { LogOut, Loader2, Plus, Check, ArrowRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 import createWorkspace from "@/assets/create-workspace.svg"
-import joinWorkspace from "@/assets/join-workspace.svg"
+// import joinWorkspace from "@/assets/join-workspace.svg"
 import CreateWorkspace from "./components/create-workspace"
-import JoinWorkspace from "./components/join-workspace"
+// import JoinWorkspace from "./components/join-workspace"
 
-import { buildDashboardOrgRoute, getActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
+import { buildDashboardOrgRoute, getActiveOrgId, syncActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
 import { useAuthStore } from "@/entities/auth"
 
-const CREATE_WORKSPACE_STEPS = [
-    { id: 1 as const, label: "Workspace" },
-    { id: 2 as const, label: "Tools" },
-    { id: 3 as const, label: "Team" },
-]
+// const CREATE_WORKSPACE_STEPS = [
+//     { id: 1 as const, label: "Workspace" },
+//     { id: 2 as const, label: "Tools" },
+//     { id: 3 as const, label: "Team" },
+// ]
 
 type WorkspaceChoice = "create" | "join" | null
 type Phase = "setupWorkspace" | "create" | "join"
@@ -29,7 +29,7 @@ type CreateStep = 1 | 2 | 3
 
 export default function NewUserPage() {
     const router = useRouter()
-    const [workspaceChoice, setWorkspaceChoice] = useState<WorkspaceChoice>(null)
+    const [workspaceChoice, setWorkspaceChoice] = useState<WorkspaceChoice>("create")
     const [phase, setPhase] = useState<Phase>("setupWorkspace")
     const [createStep, setCreateStep] = useState<CreateStep>(1)
     const { logout, isLoading } = useAuthStore((s) => s.auth)
@@ -48,19 +48,19 @@ export default function NewUserPage() {
         setWorkspaceChoice(null)
     }
 
-    const handleCreateNext = () => {
-        if (createStep < 3) setCreateStep((createStep + 1) as CreateStep)
-    }
+    // const handleCreateNext = () => {
+    //     if (createStep < 3) { setCreateStep((createStep + 1) as CreateStep) }
+    // }
 
     const handleCreateBack = () => {
-        if (createStep === 1) handleBackFromCreateStep1()
-        else setCreateStep((createStep - 1) as CreateStep)
+        if (createStep === 1) { handleBackFromCreateStep1() }
+        else { setCreateStep((createStep - 1) as CreateStep) }
     }
 
-    const handleJoinBack = () => {
-        setPhase("setupWorkspace")
-        setWorkspaceChoice(null)
-    }
+    // const handleJoinBack = () => {
+    //     setPhase("setupWorkspace")
+    //     setWorkspaceChoice(null)
+    // }
 
     const handleLogout = async () => {
         try {
@@ -75,7 +75,20 @@ export default function NewUserPage() {
         }
     }
 
-    const activeOrgId = getActiveOrgId()
+    const [activeOrgId, setActiveOrgIdState] = useState<string | null>(() => getActiveOrgId())
+
+    useEffect(() => {
+        let cancelled = false
+        void (async () => {
+            const synced = await syncActiveOrgId()
+            if (!cancelled) {
+                setActiveOrgIdState(synced)
+            }
+        })()
+        return () => {
+            cancelled = true
+        }
+    }, [])
 
     return (
         <div className="relative min-h-screen w-full bg-(--bg) overflow-hidden">
@@ -105,7 +118,7 @@ export default function NewUserPage() {
                             </div>
 
                             {/* CHOICE CARDS */}
-                            <div className="grid gap-4 sm:grid-cols-2 mb-6">
+                            <div className="grid gap-4 sm:grid-cols-1 mb-6">
                                 <ChoiceCard
                                     selected={workspaceChoice === "create"}
                                     onSelect={() => setWorkspaceChoice("create")}
@@ -122,7 +135,7 @@ export default function NewUserPage() {
                                     title="Create a workspace"
                                     description="Starting something new and building from scratch."
                                 />
-                                <ChoiceCard
+                                {/* <ChoiceCard
                                     selected={workspaceChoice === "join"}
                                     onSelect={() => setWorkspaceChoice("join")}
                                     icon={
@@ -139,7 +152,7 @@ export default function NewUserPage() {
                                     }
                                     title="Join a workspace"
                                     description={"You’ve been invited by your team."}
-                                />
+                                /> */}
                             </div>
 
                             {/* CONTINUE */}
@@ -160,8 +173,8 @@ export default function NewUserPage() {
                                         <p className="text-sm text-(--fg) font-medium">
                                             Already part of an organization?
                                         </p>
-                                        <p className="text-xs text-(--fg-3) font-mono mt-0.5 truncate">
-                                            {activeOrgId.slice(0, 8)}…
+                                        <p className="text-xs text-(--fg-3) font-mono mt-0.5">
+                                            {activeOrgId}
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap gap-2 shrink-0">
@@ -198,20 +211,19 @@ export default function NewUserPage() {
 
                 {phase === "create" && (
                     <div className="max-w-5xl mx-auto px-4 py-10">
-                        <StepIndicator currentStep={createStep} />
+                        {/* <StepIndicator currentStep={createStep} /> */}
                         <CreateWorkspace
-                            createStep={createStep}
-                            handleCreateNext={handleCreateNext}
                             handleCreateBack={handleCreateBack}
+                            activeOrgId={activeOrgId}
                         />
                     </div>
                 )}
 
-                {phase === "join" && (
+                {/* {phase === "join" && (
                     <div className="max-w-5xl mx-auto px-4 py-10">
                         <JoinWorkspace handleJoinBack={handleJoinBack} />
                     </div>
-                )}
+                )} */}
             </div>
         </div>
     )
@@ -275,50 +287,50 @@ function ChoiceCard({
     )
 }
 
-function StepIndicator({ currentStep }: { currentStep: CreateStep }) {
-    return (
-        <div className="mb-8">
-            <div className="flex items-baseline gap-3 mb-3">
-                <span className="font-mono uppercase tracking-widest text-[10px] text-(--fg-3)">
-                    Step {currentStep} of {CREATE_WORKSPACE_STEPS.length}
-                </span>
-                <span className="font-mono text-[10px] text-(--fg-3)">·</span>
-                <span className="text-sm font-semibold text-(--fg)">
-                    {CREATE_WORKSPACE_STEPS.find((s) => s.id === currentStep)?.label}
-                </span>
-            </div>
-            <div className="flex gap-2 w-full">
-                {CREATE_WORKSPACE_STEPS.map((step) => {
-                    const isCompleted = step.id < currentStep
-                    const isActive = step.id === currentStep
-                    return (
-                        <div key={step.id} className="flex-1 flex flex-col gap-2">
-                            <div
-                                className={cn(
-                                    "h-[3px] rounded-full transition-all duration-300",
-                                    isCompleted
-                                        ? "bg-(--accent-lime) shadow-[0_0_8px_var(--accent-glow)]"
-                                        : isActive
-                                            ? "bg-linear-to-r from-(--accent-lime) to-(--accent-lime)/30"
-                                            : "bg-(--line-2)"
-                                )}
-                            />
-                            <span
-                                className={cn(
-                                    "text-[10px] font-mono uppercase tracking-wider transition-colors",
-                                    isActive
-                                        ? "text-(--accent-lime)"
-                                        : isCompleted
-                                            ? "text-(--fg-2)"
-                                            : "text-(--fg-3)"
-                                )}
-                            >
-                                {step.label}
-                            </span>
-                        </div>
-                    )
-                })}
-            </div>
-        </div>
-    )
-}
+// function StepIndicator({ currentStep }: { currentStep: CreateStep }) {
+//     return (
+//         <div className="mb-8">
+//             <div className="flex items-baseline gap-3 mb-3">
+//                 <span className="font-mono uppercase tracking-widest text-[10px] text-(--fg-3)">
+//                     Step {currentStep} of {CREATE_WORKSPACE_STEPS.length}
+//                 </span>
+//                 <span className="font-mono text-[10px] text-(--fg-3)">·</span>
+//                 <span className="text-sm font-semibold text-(--fg)">
+//                     {CREATE_WORKSPACE_STEPS.find((s) => s.id === currentStep)?.label}
+//                 </span>
+//             </div>
+//             <div className="flex gap-2 w-full">
+//                 {CREATE_WORKSPACE_STEPS.map((step) => {
+//                     const isCompleted = step.id < currentStep
+//                     const isActive = step.id === currentStep
+//                     return (
+//                         <div key={step.id} className="flex-1 flex flex-col gap-2">
+//                             <div
+//                                 className={cn(
+//                                     "h-[3px] rounded-full transition-all duration-300",
+//                                     isCompleted
+//                                         ? "bg-(--accent-lime) shadow-[0_0_8px_var(--accent-glow)]"
+//                                         : isActive
+//                                             ? "bg-linear-to-r from-(--accent-lime) to-(--accent-lime)/30"
+//                                             : "bg-(--line-2)"
+//                                 )}
+//                             />
+//                             <span
+//                                 className={cn(
+//                                     "text-[10px] font-mono uppercase tracking-wider transition-colors",
+//                                     isActive
+//                                         ? "text-(--accent-lime)"
+//                                         : isCompleted
+//                                             ? "text-(--fg-2)"
+//                                             : "text-(--fg-3)"
+//                                 )}
+//                             >
+//                                 {step.label}
+//                             </span>
+//                         </div>
+//                     )
+//                 })}
+//             </div>
+//         </div>
+//     )
+// }

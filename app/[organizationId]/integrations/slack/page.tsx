@@ -5,7 +5,9 @@ import { useRouter, useParams, useSearchParams, usePathname } from "next/navigat
 import { SiSlack } from "react-icons/si"
 import { Hash, Lock, MessageCircle } from "lucide-react"
 
-import { useSlackChannels, useSyncSlackChannels } from "@/shared/queries/integration-slack.queries"
+import { useSlackChannels, useSyncSlackChannels, slackKeys } from "@/shared/queries/integration-slack.queries"
+import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { getSlackInstallUrl } from "@/shared/api/integration-slack"
 import { ExternalProvider } from "@/types/enum"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -31,8 +33,22 @@ export default function SlackIntegrationPage() {
         [router, pathname, searchParams]
     )
 
-    const { data: channels, isLoading } = useSlackChannels(integrationId)
+    const queryClient = useQueryClient()
+    const { data: channels, isLoading, refetch: refetchChannels } = useSlackChannels(integrationId)
     const syncChannelsMutation = useSyncSlackChannels(integrationId)
+
+    const handleResetSuccess = React.useCallback(async () => {
+        if (!integrationId) { return }
+        queryClient.invalidateQueries({
+            queryKey: slackKeys.channels(integrationId),
+        })
+        const { error } = await refetchChannels()
+        if (error) {
+            toast.error("Couldn't reload Slack channels", {
+                description: error instanceof Error ? error.message : "Unknown error",
+            })
+        }
+    }, [integrationId, queryClient, refetchChannels])
 
     return (
         <div className="space-y-6">
@@ -46,8 +62,11 @@ export default function SlackIntegrationPage() {
                         organizationId={organizationId}
                         integrationId={integrationId}
                         getReinstallUrl={getSlackInstallUrl}
-                        onSync={() => syncChannelsMutation.mutate()}
+                        onSync={async () => {
+                            await syncChannelsMutation.mutateAsync()
+                        }}
                         isSyncing={syncChannelsMutation.isPending}
+                        onResetSuccess={handleResetSuccess}
                     />
                 }
             />
@@ -89,7 +108,7 @@ export default function SlackIntegrationPage() {
                                 </p>
                             </div>
                         ) : (
-                            <div className="space-y-2">
+                            <div className=" grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 space-y-2">
                                 {channels.map((channel) => {
                                     const Icon = channel.is_im
                                         ? MessageCircle
@@ -107,7 +126,7 @@ export default function SlackIntegrationPage() {
                                     return (
                                         <div
                                             key={channel.id}
-                                            className="flex items-start justify-between gap-3 rounded-[10px] border border-(--line-2) bg-(--bg-3) px-4 py-3 transition-colors hover:border-(--accent-lime)/30"
+                                            className="flex items-start justify-between gap-3 rounded-[10px] border border-(--line-2) bg-(--bg-3) px-4 py-3 transition-colors"
                                         >
                                             <div className="flex items-start gap-3 min-w-0 flex-1">
                                                 <div className="size-8 shrink-0 grid place-items-center rounded-[8px] border border-(--line-2) bg-(--bg-2) text-(--fg-2)">
@@ -121,11 +140,6 @@ export default function SlackIntegrationPage() {
                                                         {channel.is_archived ? (
                                                             <span className="rounded-full px-2 py-0.5 font-mono uppercase tracking-wider text-[10px] font-semibold border border-(--line-2) bg-(--bg-2) text-(--fg-3)">
                                                                 Archived
-                                                            </span>
-                                                        ) : null}
-                                                        {channel.is_member ? (
-                                                            <span className="rounded-full px-2 py-0.5 font-mono uppercase tracking-wider text-[10px] font-semibold border border-[rgba(124,246,111,0.3)] bg-[rgba(124,246,111,0.12)] text-(--accent-2)">
-                                                                Member
                                                             </span>
                                                         ) : null}
                                                     </div>

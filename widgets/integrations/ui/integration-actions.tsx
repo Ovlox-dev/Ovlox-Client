@@ -1,21 +1,20 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, RefreshCw, RotateCcw, Trash2, Wand2 } from "lucide-react"
+import { Loader2, RefreshCw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
     CustomModal,
     CustomModalHeader,
-    CustomModalTitle,
-    CustomModalDescription,
-    CustomModalBody,
+    // CustomModalDescription,
     CustomModalFooter,
+    CustomModalDescription,
 } from "@/components/ui/custom-modal"
 import {
     useRemoveOrgIntegration,
-    useResetOrgIntegration,
+    // useResetOrgIntegration,
 } from "@/shared/queries/org.queries"
 
 export interface IntegrationActionsProps {
@@ -40,7 +39,7 @@ export interface IntegrationActionsProps {
      * Optional explicit Sync handler. When provided, the "Sync" button is
      * shown and disabled while `isSyncing` is true.
      */
-    onSync?: () => void
+    onSync?: () => void | Promise<void>
     isSyncing?: boolean
 
     /**
@@ -48,6 +47,12 @@ export interface IntegrationActionsProps {
      * integrations page so the now-deleted row vanishes from view.
      */
     afterRemoveHref?: string
+
+    /**
+     * Called after a successful Reset (e.g. refetch provider-specific
+     * resources like Slack channels).
+     */
+    onResetSuccess?: () => void | Promise<void>
 }
 
 /**
@@ -62,51 +67,79 @@ export function IntegrationActions({
     provider,
     organizationId,
     integrationId,
-    getReinstallUrl,
+    // getReinstallUrl,
     onSync,
     isSyncing,
     afterRemoveHref,
+    // onResetSuccess,
 }: IntegrationActionsProps) {
     const removeMutation = useRemoveOrgIntegration(organizationId)
-    const resetMutation = useResetOrgIntegration(organizationId)
+    // const resetMutation = useResetOrgIntegration(organizationId)
 
-    const [reinstalling, setReinstalling] = React.useState(false)
-    const [confirmReset, setConfirmReset] = React.useState(false)
+    // const [reinstalling, setReinstalling] = React.useState(false)
+    // const [confirmReset, setConfirmReset] = React.useState(false)
     const [confirmRemove, setConfirmRemove] = React.useState(false)
 
     const disabled = !integrationId
 
-    const handleReinstall = async () => {
-        if (!integrationId || !getReinstallUrl) return
-        try {
-            setReinstalling(true)
-            const { url } = await getReinstallUrl(organizationId, integrationId)
-            window.location.href = url
-        } catch (err) {
-            toast.error(`Couldn't start ${provider} reauth`, {
-                description: err instanceof Error ? err.message : "Unknown error",
-            })
-            setReinstalling(false)
-        }
-    }
+    // const handleReinstall = async () => {
+    //     if (!integrationId || !getReinstallUrl) {
+    //         return
+    //     }
+    //     try {
+    //         setReinstalling(true)
+    //         const { url } = await getReinstallUrl(organizationId, integrationId)
+    //         window.location.href = url
+    //     } catch (err) {
+    //         toast.error(`Couldn't start ${provider} reauth`, {
+    //             description: err instanceof Error ? err.message : "Unknown error",
+    //         })
+    //         setReinstalling(false)
+    //     }
+    // }
 
-    const handleReset = async () => {
-        if (!integrationId) return
+    // const handleReset = async () => {
+    //     if (!integrationId) {
+    //         return
+    //     }
+    //     try {
+    //         await resetMutation.mutateAsync(integrationId)
+    //         setConfirmReset(false)
+    //         try {
+    //             await onResetSuccess?.()
+    //         } catch (err) {
+    //             toast.error(`Couldn't reload ${provider} data`, {
+    //                 description: err instanceof Error ? err.message : "Unknown error",
+    //             })
+    //         }
+    //         toast.success(`${provider} integration reset`, {
+    //             description: "Tokens cleared. Click Reinstall to reconnect.",
+    //         })
+    //     } catch (err) {
+    //         toast.error(`Couldn't reset ${provider} integration`, {
+    //             description: err instanceof Error ? err.message : "Unknown error",
+    //         })
+    //     }
+    // }
+
+    const handleSync = async () => {
+        if (!onSync || !integrationId) {
+            return
+        }
         try {
-            await resetMutation.mutateAsync(integrationId)
-            toast.success(
-                `${provider} integration reset — click Reinstall to reconnect`
-            )
-            setConfirmReset(false)
+            await onSync()
+            toast.success(`Synced ${provider} resources`)
         } catch (err) {
-            toast.error("Couldn't reset integration", {
+            toast.error(`Couldn't sync ${provider} resources`, {
                 description: err instanceof Error ? err.message : "Unknown error",
             })
         }
     }
 
     const handleRemove = async () => {
-        if (!integrationId) return
+        if (!integrationId) {
+            return
+        }
         try {
             await removeMutation.mutateAsync(integrationId)
             toast.success(`${provider} integration removed`)
@@ -127,7 +160,7 @@ export function IntegrationActions({
                     <Button
                         size="sm"
                         variant="outline"
-                        onClick={onSync}
+                        onClick={() => void handleSync()}
                         disabled={isSyncing || disabled}
                         title={`Re-pull ${provider} resources from the provider`}
                     >
@@ -145,7 +178,7 @@ export function IntegrationActions({
                     </Button>
                 ) : null}
 
-                {getReinstallUrl ? (
+                {/* {getReinstallUrl ? (
                     <Button
                         size="sm"
                         variant="outline"
@@ -176,7 +209,7 @@ export function IntegrationActions({
                 >
                     <RotateCcw className="size-3.5" />
                     Reset
-                </Button>
+                </Button> */}
 
                 <Button
                     size="sm"
@@ -191,7 +224,7 @@ export function IntegrationActions({
             </div>
 
             {/* RESET confirm */}
-            <CustomModal open={confirmReset} onOpenChange={setConfirmReset}>
+            {/* <CustomModal open={confirmReset} onOpenChange={setConfirmReset}>
                 <CustomModalHeader>
                     <CustomModalTitle>Reset {provider} integration?</CustomModalTitle>
                     <CustomModalDescription>
@@ -224,23 +257,20 @@ export function IntegrationActions({
                         )}
                     </Button>
                 </CustomModalFooter>
-            </CustomModal>
+            </CustomModal> */}
 
             {/* REMOVE confirm */}
             <CustomModal open={confirmRemove} onOpenChange={setConfirmRemove}>
-                <CustomModalHeader>
-                    <CustomModalTitle className="text-(--danger)">
-                        Remove {provider} integration?
-                    </CustomModalTitle>
-                    <CustomModalDescription>
-                        This permanently deletes the integration record, tokens, cached
-                        resources, and all project connections that depend on it.{" "}
-                        <strong>Ingested events stay</strong> as historical records,
-                        but no new ones will arrive until you reconnect from scratch.
-                        This action cannot be undone.
-                    </CustomModalDescription>
+                <CustomModalHeader className="text-(--danger)">
+                    Remove {provider} integration?
                 </CustomModalHeader>
-                <CustomModalBody>{null}</CustomModalBody>
+                <CustomModalDescription>
+                    This permanently deletes the integration record, tokens, cached
+                    resources, and all project connections that depend on it.{" "}
+                    <strong>Ingested events stay</strong> as historical records,
+                    but no new ones will arrive until you reconnect from scratch.
+                    This action cannot be undone.
+                </CustomModalDescription>
                 <CustomModalFooter>
                     <Button
                         variant="outline"
