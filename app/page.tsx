@@ -3,14 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/entities/auth/model/store";
-import {
-    buildDashboardOrgRoute,
-    DASHBOARD_NEW_ORGANIZATION_ROUTE,
-    getActiveOrgId,
-
-} from "@/shared/lib/auth/post-auth-org-resolver";
+import { resolvePostAuthOrgRedirect } from "@/shared/lib/auth/post-auth-org-resolver";
 import { LoaderSpinner } from "@/shared/ui/LoaderSpinner";
-import { userOrgs } from "@/entities/organization/api/org";
 
 export default function Home() {
     const router = useRouter();
@@ -30,24 +24,13 @@ export default function Home() {
                 router.replace("/signin");
                 return;
             }
-            const orgId = getActiveOrgId();
-            if (orgId) {
-                router.replace(buildDashboardOrgRoute(orgId));
-                return;
-            }
-
             try {
-                const response = await userOrgs();
+                const { redirectTo } = await resolvePostAuthOrgRedirect();
                 if (cancelled) { return; }
-
-                const orgs = response?.data ?? [];
-                const firstOrgId = orgs?.[0]?.id;
-                router.replace(
-                    firstOrgId ? buildDashboardOrgRoute(firstOrgId) : DASHBOARD_NEW_ORGANIZATION_ROUTE
-                );
+                router.replace(redirectTo);
             } catch {
                 if (cancelled) { return; }
-                router.replace(DASHBOARD_NEW_ORGANIZATION_ROUTE);
+                router.replace("/new-organization");
             }
         })();
         return () => {

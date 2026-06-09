@@ -46,12 +46,30 @@ export default function DiscordIntegrationPage() {
     const syncGuildsMutation = useSyncChannels()
     const [expandedGuildId, setExpandedGuildId] = React.useState<string | null>(null)
     const [syncingGuildId, setSyncingGuildId] = React.useState<string | null>(null)
+    const initialExpandDoneRef = React.useRef<string | null>(null)
+
+    React.useEffect(() => {
+        initialExpandDoneRef.current = null
+        setExpandedGuildId(null)
+    }, [integrationId])
+
+    React.useEffect(() => {
+        if (!guilds?.length || !integrationId) {
+            return
+        }
+        if (initialExpandDoneRef.current === integrationId) {
+            return
+        }
+        initialExpandDoneRef.current = integrationId
+        setExpandedGuildId(guilds[0].id)
+    }, [guilds, integrationId])
 
     const handleBotInstall = async (guildId: string) => {
         try {
             const res = await getBotInstallUrlForGuild(integrationId, guildId)
-            if (res?.url)
+            if (res?.url) {
                 window.open(res.url, "_blank", "noopener,noreferrer")
+            }
         } catch (err) {
             toast.error(formatAuthErrorMessage(err))
         }
@@ -217,9 +235,6 @@ function GuildCard(props: {
                         )}
                     />
                 </Button>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
                 {props.guild.botInstalled ? (
                     <>
                         <Button
@@ -235,7 +250,6 @@ function GuildCard(props: {
                                     props.syncingChannels ? "animate-spin" : ""
                                 )}
                             />
-                            {props.syncingChannels ? "Syncing…" : "Sync channels"}
                         </Button>
                     </>
                 ) : (
@@ -244,6 +258,8 @@ function GuildCard(props: {
                     </Button>
                 )}
             </div>
+
+
 
             {props.expanded ? (
                 <div className="mt-3 rounded-[10px] border border-(--line-2) bg-(--bg-2) p-3">
@@ -275,11 +291,8 @@ function GuildCard(props: {
                                 >
                                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                         <Hash className="size-3 shrink-0 text-(--fg-3)" />
-                                        <p className="text-xs text-(--fg) truncate">{c.name}</p>
+                                        <p className="text-xs text-(--fg) ">{c.name}</p>
                                     </div>
-                                    <p className="text-[10px] font-mono text-(--fg-3) shrink-0 ml-2">
-                                        {c.id.slice(-6)}
-                                    </p>
                                 </div>
                             ))}
                         </div>

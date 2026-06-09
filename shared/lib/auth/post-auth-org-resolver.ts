@@ -45,7 +45,7 @@ export function buildDashboardOrgRoute(orgIdentifier: string): string {
     return `/${encodeURIComponent(orgIdentifier)}/dashboard`;
 }
 
-export async function resolvePostAuthOrgRedirect(): Promise<ResolvePostAuthOrgRedirectResult> {
+async function resolveActiveOrgContext(): Promise<ResolvePostAuthOrgRedirectResult> {
     try {
         const response = await userOrgs();
         const orgs = response.data ?? [];
@@ -79,4 +79,18 @@ export async function resolvePostAuthOrgRedirect(): Promise<ResolvePostAuthOrgRe
             activeOrgId: null,
         };
     }
+}
+
+export async function resolvePostAuthOrgRedirect(): Promise<ResolvePostAuthOrgRedirectResult> {
+    return resolveActiveOrgContext();
+}
+
+/**
+ * Fetches the user's organizations and persists the active org identifier
+ * without redirecting. Use on pages (e.g. new-organization) that need the
+ * escape-hatch UI after login when `ovlox.activeOrgId` was cleared on logout.
+ */
+export async function syncActiveOrgId(): Promise<string | null> {
+    const { activeOrgId } = await resolveActiveOrgContext();
+    return activeOrgId;
 }

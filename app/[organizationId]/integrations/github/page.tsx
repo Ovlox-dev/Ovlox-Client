@@ -49,7 +49,7 @@ export default function GitHubIntegrationPage() {
     })
 
     const handleSync = React.useCallback(async () => {
-        if (!integrationId) return
+        if (!integrationId) { return; }
         try {
             setSyncing(true)
             await syncGithubRepositories(integrationId, undefined, { force: true })
@@ -58,6 +58,11 @@ export default function GitHubIntegrationPage() {
             setSyncing(false)
         }
     }, [integrationId, refetchRepos])
+
+    React.useEffect(() => {
+        if (!integrationId) { return; }
+        void handleSync();
+    }, [integrationId, handleSync]);
 
     const repos = reposData?.data ?? []
 
@@ -123,7 +128,7 @@ export default function GitHubIntegrationPage() {
                                         className="rounded-[12px] border border-(--line-2) bg-(--bg-3) p-4 transition-colors hover:border-(--accent-lime)/30"
                                     >
                                         <div className="flex items-start gap-3 min-w-0">
-                                            <div className="size-8 shrink-0 grid place-items-center rounded-[8px] border border-(--line-2) bg-(--bg-2) text-(--fg-2)">
+                                            <div className="size-8 shrink-0 grid place-items-center rounded-xl border border-(--line-2) bg-(--bg-2) text-(--fg-2)">
                                                 <GitBranch className="size-4" />
                                             </div>
                                             <div className="flex-1 min-w-0">

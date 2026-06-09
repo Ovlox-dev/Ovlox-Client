@@ -11,6 +11,7 @@ import {
     Settings2,
     Plug,
     ListTodo,
+    Plus,
 } from "lucide-react"
 import { SiDiscord, SiFigma, SiGithub, SiJira, SiLinear, SiNotion, SiSlack } from "react-icons/si"
 
@@ -145,13 +146,6 @@ function addHours(d: Date, hours: number): Date {
     const x = new Date(d)
     x.setHours(x.getHours() + hours)
     return x
-}
-
-function toYmd(d: Date): string {
-    const yyyy = d.getFullYear()
-    const mm = String(d.getMonth() + 1).padStart(2, "0")
-    const dd = String(d.getDate()).padStart(2, "0")
-    return `${yyyy}-${mm}-${dd}`
 }
 
 function sinceIsoForRange(r: TimeRange): string {
@@ -487,7 +481,7 @@ export function ProjectDetailsPage() {
         }
 
         return items.sort((a, b) => b.ts - a.ts).slice(0, 12)
-    }, [ contribResponse, contribSinceIso, memberById, tasksResponse])
+    }, [contribResponse, contribSinceIso, memberById, tasksResponse])
 
     const filteredTeamActivity = React.useMemo(() => {
         if (activityFilter === "integrations") {
@@ -502,9 +496,7 @@ export function ProjectDetailsPage() {
                 each links to the relevant detail page. */}
             <ProjectOverviewCards organizationId={organizationId} projectId={projectId} />
 
-            {/* Live ingestion-transparency panel — currently-running jobs,
-                RawEvent counts by source, per-resource last-sync timestamps. */}
-            <IngestionStatusPanel organizationId={organizationId} projectId={projectId} />
+
 
             {/* `min-w-0` on each grid cell lets recharts ResponsiveContainer
                 shrink with the available column width instead of holding its
@@ -523,7 +515,7 @@ export function ProjectDetailsPage() {
                                     className="text-xs bg-(--bg-3) border border-(--line-2) text-(--accent-lime) hover:bg-(--bg-2) hover:border-(--accent-lime)"
                                     variant="ghost"
                                 >
-                                    ADD INTEGRATION
+                                    <Plus className="size-3.5" />
                                 </Button>
                             </Link>
                         </div>
@@ -565,7 +557,7 @@ export function ProjectDetailsPage() {
                                     className="text-xs bg-(--bg-3) border border-(--line-2) text-(--accent-lime) hover:bg-(--bg-2) hover:border-(--accent-lime)"
                                     variant="ghost"
                                 >
-                                    ADD MEMBER
+                                    <Plus className="size-3.5" />
                                 </Button>
                             </Link>
                         </div>
@@ -778,6 +770,15 @@ export function ProjectDetailsPage() {
                     </Card>
                 </div>
             </div>
+
+
+
+            {/* Live ingestion-transparency panel — currently-running jobs,
+                RawEvent counts by source, per-resource last-sync timestamps. */}
+            <IngestionStatusPanel organizationId={organizationId} projectId={projectId} />
+
+
+
 
             {/* Team Activity */}
             <Card className="bg-card border-[0.5px] border-border rounded-2xl p-4 gap-0 py-4 min-w-0 overflow-hidden">

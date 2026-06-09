@@ -49,7 +49,7 @@ export function GitHubIntegration({
   const handleAddToSetup = async () => {
     setPendingAppId("github")
     try {
-      if (!organizationId) return
+      if (!organizationId) { return; }
       await addIntegrations(organizationId, { provider: ExternalProvider.GITHUB, label: "Personal Account" })
       onAddedToSetup("github")
       refetchIntegrations()
@@ -61,11 +61,11 @@ export function GitHubIntegration({
   }
 
   const handleConnect = async () => {
-    if (!organizationId) return
+    if (!organizationId) { return; }
     try {
       setConnectingAppId("github")
       const res = await getGithubOAuthUrl(organizationId)
-      if (res?.url) window.location.href = res.url
+      if (res?.url) { window.location.href = res.url; }
     } catch (error: unknown) {
       toast.error(formatAuthErrorMessage(error))
     } finally {
@@ -74,11 +74,11 @@ export function GitHubIntegration({
   }
 
   const handleInstall = async () => {
-    if (!organizationId) return
+    if (!organizationId) { return; }
     try {
       setPendingAppId("github")
       const res = await getGithubInstallUrl(organizationId)
-      if (res?.url) window.location.href = res.url
+      if (res?.url) { window.location.href = res.url; }
     } finally {
       setPendingAppId(null)
     }

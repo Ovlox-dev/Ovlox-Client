@@ -2,11 +2,9 @@
 
 import * as React from "react"
 import type { IconType } from "react-icons"
-import { Plus, Loader2, ChevronRight } from "lucide-react"
-import { toast } from "sonner"
+import { Loader2 } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { useOrgIntegrations, useAddOrgIntegrations } from "@/shared/queries/org.queries"
+import { useOrgIntegrations } from "@/shared/queries/org.queries"
 import type { OrgIntegrationStatusItem } from "@/types/api-types"
 import { ExternalProvider, IntegrationStatus } from "@/types/enum"
 
@@ -24,14 +22,7 @@ export interface ProviderInstancesProps {
     onSelect: (integrationId: string) => void
 }
 
-/**
- * Lists every existing integration row for a provider and lets the user:
- *   - switch between them (passes integrationId via onSelect)
- *   - add a new instance (calls /orgs/:id/integrations with the provider)
- *
- * Auto-selects the first instance on mount if none is already selected via
- * the URL.
- */
+
 export function ProviderInstances({
     organizationId,
     provider,
@@ -40,8 +31,8 @@ export function ProviderInstances({
     selectedIntegrationId,
     onSelect,
 }: ProviderInstancesProps) {
-    const { data: integrations, isLoading, refetch } = useOrgIntegrations(organizationId)
-    const addMutation = useAddOrgIntegrations(organizationId)
+    const { data: integrations, isLoading } = useOrgIntegrations(organizationId)
+    // const addMutation = useAddOrgIntegrations(organizationId)
 
     const instances = React.useMemo<OrgIntegrationStatusItem[]>(
         () =>
@@ -51,29 +42,37 @@ export function ProviderInstances({
         [integrations, provider]
     )
 
-    // Auto-select the first instance if there's none in the URL yet.
+    // Auto-select an instance so detail panels (channels, repos, etc.) load immediately.
     React.useEffect(() => {
-        if (selectedIntegrationId) return
-        if (instances.length === 0) return
-        onSelect(instances[0].integrationId)
+        if (instances.length === 0) { return; }
+
+        const selectedIsValid =
+            Boolean(selectedIntegrationId) &&
+            instances.some((i) => i.integrationId === selectedIntegrationId)
+        if (selectedIsValid) { return; }
+
+        const preferred =
+            instances.find((i) => i.status === IntegrationStatus.CONNECTED) ??
+            instances[0]
+        onSelect(preferred.integrationId)
     }, [instances, selectedIntegrationId, onSelect])
 
-    const handleAdd = async () => {
-        try {
-            const res = await addMutation.mutateAsync({
-                provider,
-                label: `${providerName} ${instances.length + 1}`,
-            })
-            await refetch()
-            const newId = res?.data?.id
-            if (newId) onSelect(newId)
-            toast.success(`Created a new ${providerName} integration`)
-        } catch (err) {
-            toast.error(`Couldn't create ${providerName} integration`, {
-                description: err instanceof Error ? err.message : "Unknown error",
-            })
-        }
-    }
+    // const handleAdd = async () => {
+    //     try {
+    //         const res = await addMutation.mutateAsync({
+    //             provider,
+    //             label: `${providerName} ${instances.length + 1}`,
+    //         })
+    //         await refetch()
+    //         const newId = res?.data?.id
+    //         if (newId) { onSelect(newId); }
+    //         toast.success(`Created a new ${providerName} integration`)
+    //     } catch (err) {
+    //         toast.error(`Couldn't create ${providerName} integration`, {
+    //             description: err instanceof Error ? err.message : "Unknown error",
+    //         })
+    //     }
+    // }
 
     if (isLoading) {
         return (
@@ -99,7 +98,7 @@ export function ProviderInstances({
                     Create your first {providerName} integration to start syncing data
                     from {providerName} into Ovlox.
                 </p>
-                <Button onClick={handleAdd} disabled={addMutation.isPending}>
+                {/* <Button onClick={handleAdd} disabled={addMutation.isPending}>
                     {addMutation.isPending ? (
                         <>
                             <Loader2 className="size-4 animate-spin" />
@@ -111,7 +110,7 @@ export function ProviderInstances({
                             Add {providerName} integration
                         </>
                     )}
-                </Button>
+                </Button> */}
             </div>
         )
     }
@@ -122,7 +121,7 @@ export function ProviderInstances({
                 <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-(--fg-3)">
                     {instances.length} {providerName} {instances.length === 1 ? "instance" : "instances"}
                 </span>
-                <Button
+                {/* <Button
                     size="sm"
                     variant="outline"
                     onClick={handleAdd}
@@ -139,13 +138,14 @@ export function ProviderInstances({
                             Add another
                         </>
                     )}
-                </Button>
+                </Button> */}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {instances.map((inst) => {
                     const isSelected = inst.integrationId === selectedIntegrationId
                     const status = inst.status ?? IntegrationStatus.NOT_CONNECTED
+                    const isConnected = status === IntegrationStatus.CONNECTED
                     const account =
                         inst.oauthAccount?.identifier ||
                         inst.externalAccount ||
@@ -159,7 +159,6 @@ export function ProviderInstances({
                             onClick={() => onSelect(inst.integrationId)}
                             className={[
                                 "group relative text-left rounded-[12px] border bg-(--bg-2) p-4 transition-all",
-                                "hover:border-(--accent-lime)/40 hover:bg-(--bg-2)",
                                 isSelected
                                     ? "border-(--accent-lime) shadow-[inset_2px_0_0_var(--accent-lime),0_0_24px_rgba(200,255,62,0.08)]"
                                     : "border-(--line)",
@@ -181,9 +180,15 @@ export function ProviderInstances({
                             </div>
                             <div className="mt-3 flex items-center text-xs text-(--fg-3) font-mono">
                                 {isSelected ? (
-                                    <span className="text-(--accent-lime) inline-flex items-center gap-1">
-                                        Active <ChevronRight className="size-3" />
-                                    </span>
+                                    isConnected ? (
+                                        <span className="text-(--accent-lime) inline-flex items-center gap-1">
+                                            Active <ChevronRight className="size-3" />
+                                        </span>
+                                    ) : (
+                                        <span className="text-(--warn) inline-flex items-center gap-1">
+                                            Pending <ChevronRight className="size-3" />
+                                        </span>
+                                    )
                                 ) : (
                                     <span className="inline-flex items-center gap-1 group-hover:text-(--fg-2)">
                                         Open <ChevronRight className="size-3" />
@@ -193,41 +198,41 @@ export function ProviderInstances({
                         </button>
                     )
                 })}
-            </div>
+            </div> */}
         </div>
     )
 }
 
-function StatusPill({ status }: { status: IntegrationStatus }) {
-    const map: Record<
-        string,
-        { label: string; cls: string }
-    > = {
-        [IntegrationStatus.CONNECTED]: {
-            label: "Connected",
-            cls:
-                "border border-[rgba(124,246,111,0.3)] bg-[rgba(124,246,111,0.12)] text-(--accent-2)",
-        },
-        [IntegrationStatus.PROCESSING]: {
-            label: "Processing",
-            cls:
-                "border border-[rgba(255,138,61,0.3)] bg-[rgba(255,138,61,0.12)] text-(--warn)",
-        },
-        [IntegrationStatus.NOT_CONNECTED]: {
-            label: "Not connected",
-            cls: "border border-(--line-2) bg-(--bg-3) text-(--fg-3)",
-        },
-    }
-    const cfg = map[status] ?? map[IntegrationStatus.NOT_CONNECTED]
-    return (
-        <span
-            className={[
-                "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5",
-                "font-mono uppercase tracking-wider text-[10px] font-semibold whitespace-nowrap",
-                cfg.cls,
-            ].join(" ")}
-        >
-            {cfg.label}
-        </span>
-    )
-}
+// function StatusPill({ status }: { status: IntegrationStatus }) {
+//     const map: Record<
+//         string,
+//         { label: string; cls: string }
+//     > = {
+//         [IntegrationStatus.CONNECTED]: {
+//             label: "Connected",
+//             cls:
+//                 "border border-[rgba(124,246,111,0.3)] bg-[rgba(124,246,111,0.12)] text-(--accent-2)",
+//         },
+//         [IntegrationStatus.PROCESSING]: {
+//             label: "Processing",
+//             cls:
+//                 "border border-[rgba(255,138,61,0.3)] bg-[rgba(255,138,61,0.12)] text-(--warn)",
+//         },
+//         [IntegrationStatus.NOT_CONNECTED]: {
+//             label: "Not connected",
+//             cls: "border border-(--line-2) bg-(--bg-3) text-(--fg-3)",
+//         },
+//     }
+//     const cfg = map[status] ?? map[IntegrationStatus.NOT_CONNECTED]
+//     return (
+//         <span
+//             className={[
+//                 "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5",
+//                 "font-mono uppercase tracking-wider text-[10px] font-semibold whitespace-nowrap",
+//                 cfg.cls,
+//             ].join(" ")}
+//         >
+//             {cfg.label}
+//         </span>
+//     )
+// }
