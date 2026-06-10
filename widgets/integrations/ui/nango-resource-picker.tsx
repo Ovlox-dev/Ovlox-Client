@@ -19,6 +19,11 @@ const PROVIDER_NOUN: Record<string, string> = {
     GITHUB: "repositories", SLACK: "channels", DISCORD: "channels", JIRA: "projects", LINEAR: "teams",
 };
 
+function errorMessage(e: unknown, fallback: string): string {
+    const withResponse = e as { response?: { data?: { error?: { message?: string }; message?: string } }; message?: string };
+    return withResponse?.response?.data?.error?.message || withResponse?.response?.data?.message || withResponse?.message || fallback;
+}
+
 /**
  * Per-project picker for which Slack/Discord channels (or Jira projects / Linear teams) Ovlox
  * should bulk-ingest. Selecting a new resource triggers a server-side backfill; the hourly cron
@@ -38,7 +43,7 @@ export function NangoResourcePicker({
     onOpenChange: (open: boolean) => void;
 }) {
     const noun = PROVIDER_NOUN[connection.provider ?? ""] ?? "resources";
-    const { data: resources, isLoading } = useNangoResources(
+    const { data: resources, isLoading, isError, error, refetch } = useNangoResources(
         organizationId,
         connection.providerConfigKey,
         connection.connectionId,
@@ -101,6 +106,13 @@ export function NangoResourcePicker({
                     {isLoading ? (
                         <div className="flex items-center gap-2 text-sm text-(--fg-3) px-1 py-4">
                             <Loader2 className="size-4 animate-spin" /> Loading {noun}…
+                        </div>
+                    ) : isError ? (
+                        <div className="px-1 py-4 space-y-2">
+                            <p className="text-sm text-(--danger)">
+                                Couldn’t load {noun}: {errorMessage(error, "the provider call failed")}.
+                            </p>
+                            <Button variant="outline" size="sm" onClick={() => void refetch()}>Retry</Button>
                         </div>
                     ) : (resources?.length ?? 0) === 0 ? (
                         <p className="text-sm text-(--fg-3) px-1 py-4">No {noun} found on this connection.</p>

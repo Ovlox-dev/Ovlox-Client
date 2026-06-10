@@ -83,6 +83,9 @@ export const useNangoResources = (
         queryKey: nangoKeys.resources(orgId, providerConfigKey, connectionId, projectId),
         queryFn: () => getNangoResources(orgId, providerConfigKey, connectionId, projectId),
         enabled: !!orgId && !!providerConfigKey && !!connectionId && !!projectId && enabled,
+        // The provider proxy call (e.g. GitHub /user/repos) can be slow/fail; don't spin through
+        // multiple retries — fail fast so the picker shows an error instead of hanging.
+        retry: false,
     });
 
 export const useReindexNangoConnection = (orgId: string) =>

@@ -129,6 +129,11 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                         <span className="font-medium text-(--fg)">{c.provider || c.providerConfigKey}</span>
+                                        {(c.metadata as { accountName?: string } | null)?.accountName ? (
+                                            <span className="text-sm text-(--fg-2) truncate">
+                                                {(c.metadata as { accountName?: string }).accountName}
+                                            </span>
+                                        ) : null}
                                         <span className="font-mono text-[10px] uppercase tracking-wider text-(--fg-3)">{c.status}</span>
                                     </div>
                                     <span className="block font-mono text-[10px] text-(--fg-3) truncate">
