@@ -29,7 +29,7 @@ function buildTree(nodes: CodeTreeNode[]): TreeItem[] {
         }
     });
     const sort = (items: TreeItem[]) => {
-        items.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "FOLDER" ? -1 : 1));
+        items.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "DIR" ? -1 : 1));
         items.forEach((i) => sort(i.children));
     };
     sort(roots);
@@ -187,7 +187,7 @@ function TreeNode({
     onSelectFile: (n: TreeItem) => void;
 }) {
     const [open, setOpen] = React.useState(depth < 1);
-    const isFolder = node.kind === "FOLDER";
+    const isFolder = node.kind === "DIR";
     const isSelected = node.codeFileId && node.codeFileId === selectedId;
 
     return (

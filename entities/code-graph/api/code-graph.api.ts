@@ -9,7 +9,7 @@ export interface CodeTreeNode {
     parentId: string | null;
     path: string;
     name: string;
-    kind: "FILE" | "FOLDER";
+    kind: "FILE" | "DIR";
     depth: number;
     codeFileId: string | null;
     repositoryId: string;
