@@ -68,6 +68,8 @@ export type StreamState = {
      *  streamed via SSE `kind:'stage'` — shown as a "thinking" hint until tokens/answer arrive. */
     stage?: string | null;
     stageDetail?: string | null;
+    /** Highest stage `seq` applied so far — guards against out-of-order/duplicate stage events. */
+    lastStageSeq?: number;
 };
 
 type StreamingStore = {
@@ -76,7 +78,7 @@ type StreamingStore = {
 
     startPending: (conversationId: string, userText: string) => void;
     setJobId: (conversationId: string, jobId: string) => void;
-    setStage: (conversationId: string, stage: string, detail?: string) => void;
+    setStage: (conversationId: string, stage: string, detail?: string, seq?: number) => void;
     appendChunk: (conversationId: string, delta: string) => void;
     /** Used in degraded mode (server emitted only the final answer, no chunks). */
     seedAnswerIfEmpty: (conversationId: string, answer: string) => void;
@@ -121,13 +123,17 @@ export const useChatStreamingStore = create<StreamingStore>((set) => ({
             };
         }),
 
-    setStage: (conversationId, stage, detail) =>
+    setStage: (conversationId, stage, detail, seq) =>
         set((state) => {
             const prev = state.byConversation[conversationId] ?? emptyStream();
+            // Drop out-of-order/duplicate stage events, and ignore any stage once tokens have begun
+            // (the streamed text supersedes the "thinking" hint — a late stage must not re-show it).
+            if (seq !== undefined && prev.lastStageSeq !== undefined && seq <= prev.lastStageSeq) { return {}; }
+            if (prev.buffer.length > 0) { return {}; }
             return {
                 byConversation: {
                     ...state.byConversation,
-                    [conversationId]: { ...prev, stage, stageDetail: detail ?? null },
+                    [conversationId]: { ...prev, stage, stageDetail: detail ?? null, lastStageSeq: seq ?? prev.lastStageSeq },
                 },
             };
         }),
@@ -402,7 +408,7 @@ export function startConversationJob(conversationId: string, jobId: string) {
             if ("kind" in evt && evt.kind === "stage") {
                 // Non-token progress (planning/retrieval/tool/critique). Shown as a "thinking" hint
                 // until tokens or the final answer arrive. Additive — never blocks the chunk path.
-                store.setStage(conversationId, evt.stage, evt.detail);
+                store.setStage(conversationId, evt.stage, evt.detail, evt.seq);
                 return;
             }
             if ("kind" in evt && evt.kind === "chunk") {

@@ -93,3 +93,46 @@ export const getNangoConfig = async (orgId: string): Promise<{ nangoHost: string
     const res = await apiClient.get<{ nangoHost: string }>(`/orgs/${orgId}/nango/config`);
     return res.data;
 };
+
+/* -------------------------------------------------------------------------- */
+/*                        BULK ingest resource selection                      */
+/* -------------------------------------------------------------------------- */
+
+export type NangoResourceType = "channel" | "project" | "team";
+
+export interface NangoResource {
+    resourceId: string;
+    resourceName: string;
+    resourceType: NangoResourceType;
+    selected: boolean;
+    metadata?: Record<string, unknown>;
+}
+
+/** Live channels/projects/teams on a connection, annotated with the project's current selection. */
+export const getNangoResources = async (
+    orgId: string,
+    providerConfigKey: string,
+    connectionId: string,
+    projectId: string,
+): Promise<NangoResource[]> => {
+    const res = await apiClient.get<{ resources: NangoResource[] }>(
+        `/orgs/${orgId}/nango/connections/${encodeURIComponent(providerConfigKey)}/${encodeURIComponent(connectionId)}/resources`,
+        { params: { projectId } },
+    );
+    return res.data.resources ?? [];
+};
+
+/** Save which resources to ingest for a project; newly-selected ones are backfilled server-side. */
+export const saveNangoResources = async (
+    orgId: string,
+    providerConfigKey: string,
+    connectionId: string,
+    projectId: string,
+    resources: Array<{ resourceId: string; resourceName?: string; resourceType: NangoResourceType }>,
+): Promise<{ selected: number; backfillsEnqueued: number }> => {
+    const res = await apiClient.post<{ selected: number; backfillsEnqueued: number }>(
+        `/orgs/${orgId}/nango/connections/${encodeURIComponent(providerConfigKey)}/${encodeURIComponent(connectionId)}/resources`,
+        { projectId, resources },
+    );
+    return res.data;
+};

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plug, X } from "lucide-react";
+import { Loader2, Plug, X, ListChecks } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +10,12 @@ import {
     useCreateNangoSession,
     useSyncNangoConnections,
     useDeleteNangoConnection,
+    type NangoConnection,
 } from "@/entities/nango";
+import { NangoResourcePicker } from "./nango-resource-picker";
+
+/** Providers that ingest in bulk (Slack/Discord) or per resource (Jira/Linear) → offer a picker. */
+const SELECTABLE_PROVIDERS = new Set(["SLACK", "DISCORD", "JIRA", "LINEAR"]);
 
 function errorMessage(e: unknown, fallback: string): string {
     const withResponse = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
@@ -31,6 +36,7 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
 
     const pollRef = useRef<number | null>(null);
     const [connecting, setConnecting] = useState(false);
+    const [picker, setPicker] = useState<NangoConnection | null>(null);
 
     useEffect(() => () => { if (pollRef.current) { window.clearInterval(pollRef.current); } }, []);
 
@@ -108,20 +114,37 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                     {c.status}
                                 </span>
                             </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={del.isPending}
-                                onClick={() =>
-                                    del.mutate({ providerConfigKey: c.providerConfigKey, connectionId: c.connectionId })
-                                }
-                            >
-                                <X className="size-4" /> Disconnect
-                            </Button>
+                            <div className="flex items-center gap-1">
+                                {projectId && SELECTABLE_PROVIDERS.has(c.provider ?? "") ? (
+                                    <Button variant="ghost" size="sm" onClick={() => setPicker(c)}>
+                                        <ListChecks className="size-4" /> Select
+                                    </Button>
+                                ) : null}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={del.isPending}
+                                    onClick={() =>
+                                        del.mutate({ providerConfigKey: c.providerConfigKey, connectionId: c.connectionId })
+                                    }
+                                >
+                                    <X className="size-4" /> Disconnect
+                                </Button>
+                            </div>
                         </div>
                     ))}
                 </div>
             </div>
+
+            {projectId && picker ? (
+                <NangoResourcePicker
+                    organizationId={organizationId}
+                    projectId={projectId}
+                    connection={picker}
+                    open={!!picker}
+                    onOpenChange={(o) => { if (!o) { setPicker(null); } }}
+                />
+            ) : null}
         </section>
     );
 }
