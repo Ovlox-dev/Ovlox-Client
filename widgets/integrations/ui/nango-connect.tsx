@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plug, X, ListChecks } from "lucide-react";
+import { Loader2, Plug, X, ListChecks, RefreshCw } from "lucide-react";
 import type { IconType } from "react-icons";
 import { IoLogoGithub } from "react-icons/io5";
 import { SiDiscord, SiJira, SiLinear, SiSlack, SiNotion, SiFigma } from "react-icons/si";
@@ -13,6 +13,7 @@ import {
     useCreateNangoSession,
     useSyncNangoConnections,
     useDeleteNangoConnection,
+    useReindexNangoConnection,
     type NangoConnection,
 } from "@/entities/nango";
 import { NangoResourcePicker } from "./nango-resource-picker";
@@ -45,6 +46,7 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
     const createSession = useCreateNangoSession(organizationId);
     const sync = useSyncNangoConnections(organizationId);
     const del = useDeleteNangoConnection(organizationId);
+    const reindex = useReindexNangoConnection(organizationId);
 
     const pollRef = useRef<number | null>(null);
     const [connecting, setConnecting] = useState(false);
@@ -138,6 +140,25 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                 {projectId && SELECTABLE_PROVIDERS.has(c.provider ?? "") ? (
                                     <Button variant="ghost" size="sm" onClick={() => setPicker(c)}>
                                         <ListChecks className="size-4" /> {SELECT_LABEL[c.provider ?? ""] ?? "Select"}
+                                    </Button>
+                                ) : null}
+                                {projectId && c.provider === "GITHUB" ? (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        disabled={reindex.isPending}
+                                        onClick={() =>
+                                            reindex.mutate(
+                                                { providerConfigKey: c.providerConfigKey, connectionId: c.connectionId, projectId },
+                                                {
+                                                    onSuccess: (r) =>
+                                                        toast.success(r.repos > 0 ? `Re-indexing ${r.repos} repo(s)…` : "No selected repos to re-index."),
+                                                    onError: () => toast.error("Failed to start re-index."),
+                                                },
+                                            )
+                                        }
+                                    >
+                                        {reindex.isPending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Re-index
                                     </Button>
                                 ) : null}
                                 <Button

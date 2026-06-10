@@ -122,6 +122,20 @@ export const getNangoResources = async (
     return res.data.resources ?? [];
 };
 
+/** Re-trigger code-indexing for the selected GitHub repos on a connection (project-scoped). */
+export const reindexNangoConnection = async (
+    orgId: string,
+    providerConfigKey: string,
+    connectionId: string,
+    projectId: string,
+): Promise<{ repos: number }> => {
+    const res = await apiClient.post<{ repos: number }>(
+        `/orgs/${orgId}/nango/connections/${encodeURIComponent(providerConfigKey)}/${encodeURIComponent(connectionId)}/reindex`,
+        { projectId },
+    );
+    return res.data;
+};
+
 /** Save which resources to ingest for a project; newly-selected ones are backfilled server-side. */
 export const saveNangoResources = async (
     orgId: string,

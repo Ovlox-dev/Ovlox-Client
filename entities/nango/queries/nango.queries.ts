@@ -7,6 +7,7 @@ import {
     deleteNangoConnection,
     getNangoResources,
     saveNangoResources,
+    reindexNangoConnection,
     type CreateNangoSessionBody,
     type NangoResourceType,
 } from "../api/nango.api";
@@ -82,6 +83,12 @@ export const useNangoResources = (
         queryKey: nangoKeys.resources(orgId, providerConfigKey, connectionId, projectId),
         queryFn: () => getNangoResources(orgId, providerConfigKey, connectionId, projectId),
         enabled: !!orgId && !!providerConfigKey && !!connectionId && !!projectId && enabled,
+    });
+
+export const useReindexNangoConnection = (orgId: string) =>
+    useMutation({
+        mutationFn: (vars: { providerConfigKey: string; connectionId: string; projectId: string }) =>
+            reindexNangoConnection(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId),
     });
 
 export const useSaveNangoResources = (orgId: string) => {
