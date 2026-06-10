@@ -67,6 +67,24 @@ export const deleteSkillDocument = async (orgId: string, id: string): Promise<{ 
     return res.data;
 };
 
+/** A per-file skill doc generated during code indexing (FileSkillDoc table; read-only). */
+export interface FileSkillDoc {
+    codeFileId: string;
+    path: string;
+    language: string | null;
+    riskScore: number | null;
+    intent: string | null;
+    howToWork: string | null;
+    dependsOn: unknown;
+    body: string;
+    updated_at: string;
+}
+
+export const listFileSkillDocs = async (orgId: string, projectId: string): Promise<FileSkillDoc[]> => {
+    const res = await apiClient.get<FileSkillDoc[]>(`/orgs/${orgId}/projects/${projectId}/file-skill-docs`);
+    return res.data;
+};
+
 export const generateProjectOverview = async (
     orgId: string,
     projectId: string,

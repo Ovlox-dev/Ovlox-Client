@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
-import { ChevronRight, File as FileIcon, Folder, Code2, Loader2 } from "lucide-react";
+import { ChevronRight, File as FileIcon, Folder, Code2, Loader2, GitCommit, FileCode } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApiError } from "@/hooks/useApiError";
-import { useListRepositories } from "@/entities/project";
+import { useListRepositories, useListProjectCommits } from "@/entities/project";
 import { useCodeTree, useFileSymbols, type CodeTreeNode } from "@/entities/code-graph";
 
 interface TreeItem extends CodeTreeNode {
@@ -39,15 +40,32 @@ export function ProjectCodeBrowserPage() {
     const { organizationId, projectId } = useParams<{ organizationId: string; projectId: string }>();
     const [repositoryId, setRepositoryId] = React.useState<string | undefined>(undefined);
     const [selectedFile, setSelectedFile] = React.useState<{ id: string; path: string } | null>(null);
+    const [view, setView] = React.useState<"files" | "changes">("files");
 
     const reposQuery = useListRepositories(organizationId, projectId);
     const treeQuery = useCodeTree(organizationId, projectId, repositoryId);
     const symbolsQuery = useFileSymbols(organizationId, projectId, selectedFile?.id);
+    const commitsQuery = useListProjectCommits(organizationId, projectId, {
+        repositoryId,
+        limit: 100,
+    });
 
     useApiError(reposQuery.error);
     useApiError(treeQuery.error);
 
     const tree = React.useMemo(() => buildTree(treeQuery.data ?? []), [treeQuery.data]);
+
+    // Group commits by calendar day for the chronological "Changes" view.
+    type Commit = NonNullable<typeof commitsQuery.data>["commits"][number];
+    const commitsByDay = React.useMemo(() => {
+        const byDay = new Map<string, Commit[]>();
+        for (const c of commitsQuery.data?.commits ?? []) {
+            const day = c.timestamp ? new Date(c.timestamp).toLocaleDateString() : "Unknown";
+            if (!byDay.has(day)) { byDay.set(day, []); }
+            byDay.get(day)!.push(c);
+        }
+        return Array.from(byDay.entries()).map(([day, commits]) => ({ day, commits }));
+    }, [commitsQuery.data]);
 
     return (
         <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
@@ -71,6 +89,46 @@ export function ProjectCodeBrowserPage() {
                 ) : null}
             </header>
 
+            <Tabs value={view} onValueChange={(v) => setView(v as "files" | "changes")}>
+                <TabsList>
+                    <TabsTrigger value="files"><FileCode className="size-4 mr-1" /> Files</TabsTrigger>
+                    <TabsTrigger value="changes"><GitCommit className="size-4 mr-1" /> Changes</TabsTrigger>
+                </TabsList>
+            </Tabs>
+
+            {view === "changes" ? (
+                <Card className="p-4 max-h-[72vh] overflow-y-auto">
+                    {commitsQuery.isPending ? (
+                        <div className="flex items-center gap-2 text-sm text-(--fg-3) p-2"><Loader2 className="size-4 animate-spin" /> Loading changes…</div>
+                    ) : commitsByDay.length === 0 ? (
+                        <p className="text-sm text-(--fg-3) p-2">No commits ingested yet.</p>
+                    ) : (
+                        <div className="space-y-5">
+                            {commitsByDay.map(({ day, commits }) => (
+                                <div key={day} className="space-y-2">
+                                    <p className="sticky top-0 bg-(--bg-2) py-1 text-xs font-semibold text-(--fg-2)">{day}</p>
+                                    <ul className="space-y-2 border-l border-(--line) pl-4">
+                                        {commits.map((c) => (
+                                            <li key={c.rawEventId} className="relative">
+                                                <span className="absolute -left-[21px] top-1.5 size-2 rounded-full bg-(--accent-lime)" />
+                                                <p className="text-sm text-(--fg) line-clamp-2">{c.llmSummary || c.content || "(no message)"}</p>
+                                                <div className="flex items-center gap-2 flex-wrap text-[11px] text-(--fg-3) mt-0.5">
+                                                    {c.authorName ? <span>{c.authorName}</span> : null}
+                                                    {c.repository?.name ? <span>· {c.repository.name}</span> : null}
+                                                    {typeof c.fileChangesCount === "number" ? <span>· {c.fileChangesCount} files</span> : null}
+                                                    {typeof c.additions === "number" ? <span className="text-green-600">+{c.additions}</span> : null}
+                                                    {typeof c.deletions === "number" ? <span className="text-red-600">-{c.deletions}</span> : null}
+                                                    {c.branchName ? <span>· {c.branchName}</span> : null}
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Card>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card className="p-3 max-h-[70vh] overflow-y-auto">
                     {treeQuery.isPending ? (
@@ -115,6 +173,7 @@ export function ProjectCodeBrowserPage() {
                     )}
                 </Card>
             </div>
+            )}
         </div>
     );
 }

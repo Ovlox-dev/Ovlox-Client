@@ -3,6 +3,7 @@
 import * as React from "react";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
 import { Network, Loader2, Search } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useApiError } from "@/hooks/useApiError";
 import { useListRepositories } from "@/entities/project";
-import { getFileSymbols, getNeighbors, useCodeTree } from "@/entities/code-graph";
+import { getFileSymbols, getNeighbors, getProjectGraph, useCodeTree } from "@/entities/code-graph";
 
 // react-force-graph renders to canvas/WebGL — it must not run during SSR. The dynamic() wrapper
 // erases the component's generic prop types, so we widen to a permissive component type here.
@@ -60,10 +61,27 @@ export function ProjectCodeGraphPage() {
             setLinks([]);
             expanded.current = new Set();
             setSelected(null);
+            if (symbols.length === 0) { toast.message("No symbols indexed for this file."); }
         } finally {
             setSeeding(false);
         }
     }, [organizationId, projectId]);
+
+    // Load the whole-project file dependency graph (files + IMPORTS edges) in one shot.
+    const loadProjectGraph = React.useCallback(async () => {
+        setSeedFileId(undefined);
+        setSeeding(true);
+        try {
+            const g = await getProjectGraph(organizationId, projectId, repositoryId);
+            setNodes(g.nodes.map((n) => ({ id: n.id, label: n.path.split("/").pop() || n.path, type: "CODE_FILE" })));
+            setLinks(g.links.map((l) => ({ source: l.source, target: l.target, relation: l.relation })));
+            expanded.current = new Set();
+            setSelected(null);
+            if (g.nodes.length === 0) { toast.message("No file-dependency edges indexed yet for this project."); }
+        } finally {
+            setSeeding(false);
+        }
+    }, [organizationId, projectId, repositoryId]);
 
     const expandNode = React.useCallback(async (nodeId: string) => {
         if (expanded.current.has(nodeId)) { return; }
@@ -71,6 +89,7 @@ export function ProjectCodeGraphPage() {
         setLoadingNode(nodeId);
         try {
             const res = await getNeighbors(organizationId, projectId, nodeId, "both");
+            if (res.neighbors.length === 0) { toast.message("No connections found for this node."); }
             setNodes((prev) => {
                 const ids = new Set(prev.map((n) => n.id));
                 const additions = res.neighbors
@@ -102,7 +121,7 @@ export function ProjectCodeGraphPage() {
                     <Network className="size-6" /> Code graph
                 </h1>
                 <p className="text-muted-foreground text-sm">
-                    Pick a file to seed the graph with its symbols, then click any node to expand its callers and callees.
+                    Load the whole-project dependency graph, or pick a file to seed from its symbols — then click any node to expand its callers and callees.
                 </p>
             </header>
 
@@ -118,6 +137,10 @@ export function ProjectCodeGraphPage() {
                             {reposQuery.data!.map((r) => <option key={r.id} value={r.id}>{r.name ?? r.id}</option>)}
                         </select>
                     ) : null}
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => void loadProjectGraph()} disabled={seeding}>
+                        <Network className="size-4" /> Whole-project graph
+                    </Button>
+                    <p className="text-[10px] uppercase tracking-wider text-(--fg-3) px-1 pt-1">or seed from a file</p>
                     <div className="relative">
                         <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-(--fg-3)" />
                         <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter files…" className="pl-7 h-8 text-sm" />

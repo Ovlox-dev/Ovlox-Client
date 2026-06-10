@@ -4,6 +4,7 @@ import {
     createSkillDocument,
     deleteSkillDocument,
     generateProjectOverview,
+    listFileSkillDocs,
     listSkillDocuments,
     updateSkillDocument,
     type CreateSkillDocumentBody,
@@ -15,6 +16,7 @@ import {
 export const skillDocKeys = {
     all: ["skill-documents"] as const,
     list: (orgId: string, params?: unknown) => [...skillDocKeys.all, "list", orgId, params] as const,
+    fileDocs: (orgId: string, projectId: string) => [...skillDocKeys.all, "file-docs", orgId, projectId] as const,
 };
 
 export const useListSkillDocuments = (
@@ -25,6 +27,13 @@ export const useListSkillDocuments = (
         queryKey: skillDocKeys.list(orgId, params),
         queryFn: () => listSkillDocuments(orgId, params),
         enabled: !!orgId,
+    });
+
+export const useListFileSkillDocs = (orgId: string, projectId: string) =>
+    useQuery({
+        queryKey: skillDocKeys.fileDocs(orgId, projectId),
+        queryFn: () => listFileSkillDocs(orgId, projectId),
+        enabled: !!orgId && !!projectId,
     });
 
 export const useCreateSkillDocument = (orgId: string) => {

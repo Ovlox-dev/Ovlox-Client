@@ -19,6 +19,15 @@ function riskTone(score?: number | null): string {
     return "bg-muted text-muted-foreground";
 }
 
+// FileRisk rows carry only a numeric score + reason — derive a severity label for the UI.
+function severityLabel(score?: number | null): string {
+    const s = score ?? 0;
+    if (s >= 75) { return "CRITICAL"; }
+    if (s >= 50) { return "HIGH"; }
+    if (s >= 25) { return "MEDIUM"; }
+    return "LOW";
+}
+
 export function ProjectRiskForecastPage() {
     const { organizationId, projectId } = useParams<{ organizationId: string; projectId: string }>();
     const [tab, setTab] = React.useState<"risk" | "forecast">("risk");
@@ -56,15 +65,20 @@ export function ProjectRiskForecastPage() {
                             <Card key={f.id} className="p-3 flex items-start gap-3">
                                 <ShieldAlert className="size-4 mt-0.5 text-orange-600 shrink-0" />
                                 <div className="flex-1 min-w-0 space-y-1">
-                                    <p className="font-mono text-xs text-(--fg) break-all">{f.path}</p>
+                                    <p className="font-mono text-xs text-(--fg) break-all">{f.file?.path ?? f.fileId}</p>
+                                    {f.reason ? <p className="text-xs text-muted-foreground">{f.reason}</p> : null}
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        {f.language ? <Badge variant="outline" className="text-[10px]">{f.language}</Badge> : null}
-                                        {f.repository?.name ? <span className="text-[10px] text-(--fg-3)">{f.repository.name}</span> : null}
+                                        {f.file?.language ? <Badge variant="outline" className="text-[10px]">{f.file.language}</Badge> : null}
+                                        {f.file?.repository?.name ? <span className="text-[10px] text-(--fg-3)">{f.file.repository.name}</span> : null}
+                                        {f.detectedAt ? <span className="text-[10px] text-(--fg-3)">{new Date(f.detectedAt).toLocaleDateString()}</span> : null}
                                     </div>
                                 </div>
-                                <Badge variant="outline" className={`text-xs ${riskTone(f.riskScore)}`}>
-                                    {Math.round(f.riskScore ?? 0)}
-                                </Badge>
+                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                    <Badge variant="outline" className={`text-[10px] ${riskTone(f.riskScore)}`}>
+                                        {severityLabel(f.riskScore)}
+                                    </Badge>
+                                    <span className="text-xs font-bold text-(--fg)">{Math.round(f.riskScore ?? 0)}</span>
+                                </div>
                             </Card>
                         ))
                     )}

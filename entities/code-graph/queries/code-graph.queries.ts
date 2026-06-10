@@ -6,12 +6,15 @@ import {
     getCodeTree,
     getFileSymbols,
     getNeighbors,
+    getProjectGraph,
 } from "../api/code-graph.api";
 
 export const codeGraphKeys = {
     all: ["code-graph"] as const,
     tree: (orgId: string, projectId: string, repositoryId?: string) =>
         [...codeGraphKeys.all, "tree", orgId, projectId, repositoryId ?? "all"] as const,
+    projectGraph: (orgId: string, projectId: string, repositoryId?: string) =>
+        [...codeGraphKeys.all, "project", orgId, projectId, repositoryId ?? "all"] as const,
     fileSymbols: (orgId: string, projectId: string, fileId: string) =>
         [...codeGraphKeys.all, "file-symbols", orgId, projectId, fileId] as const,
     neighbors: (orgId: string, projectId: string, nodeId: string, direction: string) =>
@@ -27,6 +30,13 @@ export const useCodeTree = (orgId: string, projectId: string, repositoryId?: str
         queryKey: codeGraphKeys.tree(orgId, projectId, repositoryId),
         queryFn: () => getCodeTree(orgId, projectId, repositoryId),
         enabled: !!orgId && !!projectId,
+    });
+
+export const useProjectGraph = (orgId: string, projectId: string, repositoryId?: string, enabled = true) =>
+    useQuery({
+        queryKey: codeGraphKeys.projectGraph(orgId, projectId, repositoryId),
+        queryFn: () => getProjectGraph(orgId, projectId, repositoryId),
+        enabled: !!orgId && !!projectId && enabled,
     });
 
 export const useFileSymbols = (orgId: string, projectId: string, fileId: string | undefined) =>

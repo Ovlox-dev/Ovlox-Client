@@ -40,6 +40,18 @@ export interface NeighborsResponse {
     neighbors: GraphNeighbor[];
 }
 
+export interface ProjectGraphNode {
+    id: string;
+    path: string;
+    riskScore: number | null;
+    repositoryId: string;
+}
+
+export interface ProjectGraphResponse {
+    nodes: ProjectGraphNode[];
+    links: Array<{ source: string; target: string; relation: string }>;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                   API                                      */
 /* -------------------------------------------------------------------------- */
@@ -54,6 +66,19 @@ export const getCodeTree = async (
         { params: repositoryId ? { repositoryId } : undefined },
     );
     return res.data.nodes ?? [];
+};
+
+export const getProjectGraph = async (
+    orgId: string,
+    projectId: string,
+    repositoryId?: string,
+    limit?: number,
+): Promise<ProjectGraphResponse> => {
+    const res = await apiClient.get<ProjectGraphResponse>(
+        `/orgs/${orgId}/projects/${projectId}/code-graph/project`,
+        { params: { ...(repositoryId ? { repositoryId } : {}), ...(limit ? { limit } : {}) } },
+    );
+    return res.data;
 };
 
 export const getFileSymbols = async (

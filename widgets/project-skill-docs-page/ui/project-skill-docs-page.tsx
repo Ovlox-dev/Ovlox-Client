@@ -17,7 +17,7 @@ import { useApiError } from "@/hooks/useApiError";
 import { useGetProject } from "@/entities/project";
 import {
     useListSkillDocuments, useCreateSkillDocument, useUpdateSkillDocument,
-    useDeleteSkillDocument, useGenerateProjectOverview, type SkillDocument,
+    useDeleteSkillDocument, useGenerateProjectOverview, useListFileSkillDocs, type SkillDocument,
 } from "@/entities/skill-documents";
 
 const STATUS_CLS: Record<string, string> = {
@@ -37,9 +37,11 @@ export function ProjectSkillDocsPage() {
     const updateDoc = useUpdateSkillDocument(orgUuid);
     const deleteDoc = useDeleteSkillDocument(orgUuid);
     const generate = useGenerateProjectOverview(orgUuid);
+    const fileDocsQuery = useListFileSkillDocs(orgUuid, projectUuid);
     useApiError(listQuery.error);
 
     const [editing, setEditing] = React.useState<SkillDocument | "new" | null>(null);
+    const [openFileDoc, setOpenFileDoc] = React.useState<string | null>(null);
 
     const handleGenerate = () => {
         generate.mutate(
@@ -97,6 +99,44 @@ export function ProjectSkillDocsPage() {
                     ))}
                 </div>
             )}
+
+            {/* Read-only: per-file skill docs the indexer generated (FileSkillDoc), so the indexed
+                knowledge is visible even before any overview is generated. */}
+            <section className="space-y-2 pt-2">
+                <div className="flex items-baseline gap-3">
+                    <h2 className="text-lg font-semibold tracking-tight text-(--fg)">Indexed file docs</h2>
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-(--fg-3)">
+                        {fileDocsQuery.data?.length ?? 0} files
+                    </span>
+                </div>
+                {fileDocsQuery.isPending ? (
+                    <div className="flex items-center gap-2 text-sm text-(--fg-3) p-2"><Loader2 className="size-4 animate-spin" /> Loading…</div>
+                ) : (fileDocsQuery.data?.length ?? 0) === 0 ? (
+                    <Card className="p-4 text-center text-sm text-muted-foreground">
+                        No per-file docs yet. They are generated when a repository is indexed.
+                    </Card>
+                ) : (
+                    <div className="space-y-1">
+                        {fileDocsQuery.data!.map((d) => (
+                            <Card key={d.codeFileId} className="p-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setOpenFileDoc(openFileDoc === d.codeFileId ? null : d.codeFileId)}
+                                    className="w-full text-left"
+                                >
+                                    <p className="font-mono text-xs text-(--fg) break-all">{d.path}</p>
+                                    {d.intent ? <p className="text-xs text-muted-foreground line-clamp-1">{d.intent}</p> : null}
+                                </button>
+                                {openFileDoc === d.codeFileId ? (
+                                    <pre className="mt-2 text-xs text-(--fg-2) whitespace-pre-wrap bg-(--bg-3) rounded-[8px] p-3 overflow-x-auto">
+                                        {d.body}
+                                    </pre>
+                                ) : null}
+                            </Card>
+                        ))}
+                    </div>
+                )}
+            </section>
 
             {editing ? (
                 <SkillDocEditor
