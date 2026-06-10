@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Plug, X, ListChecks } from "lucide-react";
+import type { IconType } from "react-icons";
+import { IoLogoGithub } from "react-icons/io5";
+import { SiDiscord, SiJira, SiLinear, SiSlack, SiNotion, SiFigma } from "react-icons/si";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,8 +17,17 @@ import {
 } from "@/entities/nango";
 import { NangoResourcePicker } from "./nango-resource-picker";
 
-/** Providers that ingest in bulk (Slack/Discord) or per resource (Jira/Linear) → offer a picker. */
-const SELECTABLE_PROVIDERS = new Set(["SLACK", "DISCORD", "JIRA", "LINEAR"]);
+/** Providers where you pick resources after connecting: repos (GitHub), channels (Slack/Discord),
+ *  projects (Jira), teams (Linear). */
+const SELECTABLE_PROVIDERS = new Set(["GITHUB", "SLACK", "DISCORD", "JIRA", "LINEAR"]);
+
+const PROVIDER_ICON: Record<string, IconType> = {
+    GITHUB: IoLogoGithub, SLACK: SiSlack, DISCORD: SiDiscord, JIRA: SiJira, LINEAR: SiLinear, NOTION: SiNotion, FIGMA: SiFigma,
+};
+
+const SELECT_LABEL: Record<string, string> = {
+    GITHUB: "Repos", SLACK: "Channels", DISCORD: "Channels", JIRA: "Projects", LINEAR: "Teams",
+};
 
 function errorMessage(e: unknown, fallback: string): string {
     const withResponse = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
@@ -103,21 +115,29 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                     {!isLoading && (connections?.length ?? 0) === 0 ? (
                         <p className="text-xs text-(--fg-3)">No Nango connections yet.</p>
                     ) : null}
-                    {(connections ?? []).map((c) => (
+                    {(connections ?? []).map((c) => {
+                        const Icon = PROVIDER_ICON[c.provider ?? ""] ?? Plug;
+                        return (
                         <div
                             key={c.id}
                             className="flex items-center justify-between rounded-[10px] border border-(--line-2) bg-(--bg-3) px-3 py-2"
                         >
-                            <div className="text-sm">
-                                <span className="font-medium text-(--fg)">{c.provider || c.providerConfigKey}</span>
-                                <span className="ml-2 font-mono text-[10px] uppercase tracking-wider text-(--fg-3)">
-                                    {c.status}
-                                </span>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <Icon className="size-5 shrink-0 text-(--fg-2)" />
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium text-(--fg)">{c.provider || c.providerConfigKey}</span>
+                                        <span className="font-mono text-[10px] uppercase tracking-wider text-(--fg-3)">{c.status}</span>
+                                    </div>
+                                    <span className="block font-mono text-[10px] text-(--fg-3) truncate">
+                                        {c.providerConfigKey} · {c.connectionId?.slice(0, 8)}
+                                    </span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 shrink-0">
                                 {projectId && SELECTABLE_PROVIDERS.has(c.provider ?? "") ? (
                                     <Button variant="ghost" size="sm" onClick={() => setPicker(c)}>
-                                        <ListChecks className="size-4" /> Select
+                                        <ListChecks className="size-4" /> {SELECT_LABEL[c.provider ?? ""] ?? "Select"}
                                     </Button>
                                 ) : null}
                                 <Button
@@ -132,7 +152,8 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                 </Button>
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 

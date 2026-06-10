@@ -16,7 +16,7 @@ import {
 import { useNangoResources, useSaveNangoResources, type NangoConnection, type NangoResource } from "@/entities/nango";
 
 const PROVIDER_NOUN: Record<string, string> = {
-    SLACK: "channels", DISCORD: "channels", JIRA: "projects", LINEAR: "teams",
+    GITHUB: "repositories", SLACK: "channels", DISCORD: "channels", JIRA: "projects", LINEAR: "teams",
 };
 
 /**
