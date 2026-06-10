@@ -189,6 +189,7 @@ export function streamProjectReadiness(
 export type JobStatusEvent =
     | { jobId: string; status?: string; attempts?: number; payload?: unknown; updatedAt?: string; completed?: boolean; userId?: string; error?: string }
     | { jobId: string; userId?: string; kind: "chunk"; seq: number; delta: string }
+    | { jobId: string; userId?: string; kind: "stage"; seq: number; stage: string; detail?: string }
     | { jobId: string; userId?: string; kind: "answer"; answer: string; chatMessageId?: string; partialContext?: boolean };
 
 /**

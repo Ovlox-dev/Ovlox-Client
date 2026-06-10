@@ -87,6 +87,20 @@ function formatTime(d: Date): string {
  * - `compact = true` collapses the conversation list and tightens spacing for the drawer.
  * - `showConversationList = false` hides the sidebar entirely (forces single-conversation mode).
  */
+
+/** Map a streamed agent stage to a friendly "thinking" label. Falls back to "thinking…". */
+function stageToLabel(stage?: string | null, detail?: string | null): string {
+    switch (stage) {
+        case "PLANNING": return "planning…";
+        case "RETRIEVAL": return detail ? `retrieving · ${detail}` : "retrieving…";
+        case "TOOL_CALL": return detail ? `using ${detail}…` : "using tools…";
+        case "ANALYZING": return "analyzing…";
+        case "GENERATING": return "generating…";
+        case "CRITIQUE": return "reviewing…";
+        default: return "thinking…";
+    }
+}
+
 export function AiChatPanel({
     scope,
     compact = false,
@@ -148,6 +162,9 @@ export function AiChatPanel({
     const streamingBuffer = streamState?.buffer ?? "";
     const pending = streamState?.pending ?? null;
     const persistedAssistantId = streamState?.persistedAssistantMessageId ?? null;
+    // Friendly label for the current agent stage (planning/retrieving/etc.), shown in place of the
+    // generic "thinking…" while the backend works. Falls back to "thinking…" when no stage yet.
+    const thinkingMeta = stageToLabel(streamState?.stage, streamState?.stageDetail);
 
     const { data: conversations, isLoading: convosLoading, refetch: refetchConversations } = useListConversations(
         isProject ? { projectId } : { organizationId },
@@ -592,7 +609,7 @@ export function AiChatPanel({
                         <AssistantRow
                             compact={compact}
                             markdown=""
-                            meta="thinking…"
+                            meta={thinkingMeta}
                             showBadge
                             enableCopy={false}
                             showHoverTime={false}

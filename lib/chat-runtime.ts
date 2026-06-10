@@ -64,6 +64,10 @@ export type StreamState = {
      *  persisted assistant message id here. The panel keeps showing the streamed bubble
      *  until that id is visible in the `messages` query result. */
     persistedAssistantMessageId: string | null;
+    /** Current agent stage (PLANNING / RETRIEVAL / TOOL_CALL / ANALYZING / GENERATING / CRITIQUE)
+     *  streamed via SSE `kind:'stage'` — shown as a "thinking" hint until tokens/answer arrive. */
+    stage?: string | null;
+    stageDetail?: string | null;
 };
 
 type StreamingStore = {
@@ -72,6 +76,7 @@ type StreamingStore = {
 
     startPending: (conversationId: string, userText: string) => void;
     setJobId: (conversationId: string, jobId: string) => void;
+    setStage: (conversationId: string, stage: string, detail?: string) => void;
     appendChunk: (conversationId: string, delta: string) => void;
     /** Used in degraded mode (server emitted only the final answer, no chunks). */
     seedAnswerIfEmpty: (conversationId: string, answer: string) => void;
@@ -116,13 +121,25 @@ export const useChatStreamingStore = create<StreamingStore>((set) => ({
             };
         }),
 
-    appendChunk: (conversationId, delta) =>
+    setStage: (conversationId, stage, detail) =>
         set((state) => {
             const prev = state.byConversation[conversationId] ?? emptyStream();
             return {
                 byConversation: {
                     ...state.byConversation,
-                    [conversationId]: { ...prev, buffer: prev.buffer + delta },
+                    [conversationId]: { ...prev, stage, stageDetail: detail ?? null },
+                },
+            };
+        }),
+
+    appendChunk: (conversationId, delta) =>
+        set((state) => {
+            const prev = state.byConversation[conversationId] ?? emptyStream();
+            return {
+                byConversation: {
+                    // Once tokens flow, the streamed text replaces the "thinking: <stage>" hint.
+                    ...state.byConversation,
+                    [conversationId]: { ...prev, buffer: prev.buffer + delta, stage: null, stageDetail: null },
                 },
             };
         }),
@@ -382,6 +399,12 @@ export function startConversationJob(conversationId: string, jobId: string) {
             if (!evt || typeof evt !== "object") { return; }
             if ("jobId" in evt && evt.jobId !== jobId) { return; }
             const store = useChatStreamingStore.getState();
+            if ("kind" in evt && evt.kind === "stage") {
+                // Non-token progress (planning/retrieval/tool/critique). Shown as a "thinking" hint
+                // until tokens or the final answer arrive. Additive — never blocks the chunk path.
+                store.setStage(conversationId, evt.stage, evt.detail);
+                return;
+            }
             if ("kind" in evt && evt.kind === "chunk") {
                 store.appendChunk(conversationId, evt.delta);
                 return;
