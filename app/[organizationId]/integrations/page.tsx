@@ -16,6 +16,7 @@ import { SlackIntegration } from "@/widgets/integrations/ui/slack-integration"
 import { JiraIntegration } from "@/widgets/integrations/ui/jira-integration"
 import { LinearIntegration } from "@/widgets/integrations/ui/linear-integration"
 import { DiscordIntegration } from "@/widgets/integrations/ui/discord-integration"
+import { NangoConnect } from "@/widgets/integrations/ui/nango-connect"
 import { integrationForApp } from "@/widgets/integrations/model/integration-utils"
 
 type IntegrationToolDef = {
@@ -262,6 +263,10 @@ export default function IntegrationsPage() {
             ))}
           </div>
         </section>
+      ) : null}
+
+      {!isLoading && organizationId ? (
+        <NangoConnect organizationId={organizationId} />
       ) : null}
     </div>
   )
