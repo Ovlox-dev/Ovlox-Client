@@ -43,13 +43,16 @@ function errorMessage(e: unknown, fallback: string): string {
  * the org's current Nango connections with a disconnect action.
  */
 export function NangoConnect({ organizationId, projectId }: { organizationId: string; projectId?: string }) {
-    const { data: connections, isLoading } = useNangoConnections(organizationId, !!organizationId);
+    const { data: connections, isLoading, refetch } = useNangoConnections(organizationId, !!organizationId);
     const createSession = useCreateNangoSession(organizationId);
     const sync = useSyncNangoConnections(organizationId);
     const del = useDeleteNangoConnection(organizationId);
     const reindex = useReindexNangoConnection(organizationId);
 
     const pollRef = useRef<number | null>(null);
+    // Connection ids present before a connect attempt — used to detect the newly-added one so we can
+    // immediately prompt for which data sources to ingest (project-level connect flow).
+    const preConnectIds = useRef<Set<string>>(new Set());
     const [connecting, setConnecting] = useState(false);
     const [picker, setPicker] = useState<NangoConnection | null>(null);
 
@@ -58,6 +61,8 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
     const handleConnect = async () => {
         try {
             setConnecting(true);
+            // Snapshot existing connections so we can spot the new one after connecting.
+            preConnectIds.current = new Set((connections ?? []).map((c) => c.connectionId));
             const { connectUrl } = await createSession.mutateAsync(projectId ? { projectId } : {});
             const popup = window.open(connectUrl, "nango-connect", "width=520,height=720");
             if (!popup) {
@@ -74,8 +79,17 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                     pollRef.current = null;
                     setConnecting(false);
                     sync.mutate(undefined, {
-                        onSuccess: (r) => {
+                        onSuccess: async (r) => {
                             if (r.imported > 0) { toast.success("Connection added."); }
+                            // Project-level connect → immediately ask which data sources (repos /
+                            // channels / projects / teams) to ingest for this project.
+                            if (projectId) {
+                                const fresh = await refetch();
+                                const added = (fresh.data ?? []).find(
+                                    (c) => !preConnectIds.current.has(c.connectionId) && SELECTABLE_PROVIDERS.has(c.provider ?? ""),
+                                );
+                                if (added) { setPicker(added); }
+                            }
                         },
                     });
                 }
