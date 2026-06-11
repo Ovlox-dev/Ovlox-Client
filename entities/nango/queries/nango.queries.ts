@@ -6,6 +6,7 @@ import {
     syncNangoConnections,
     deleteNangoConnection,
     getNangoResources,
+    getSelectedNangoResources,
     getRepoBranches,
     removeNangoResource,
     saveNangoResources,
@@ -24,6 +25,8 @@ export const nangoKeys = {
     integrations: (orgId: string) => [...nangoKeys.all, "integrations", orgId] as const,
     resources: (orgId: string, providerConfigKey: string, connectionId: string, projectId: string) =>
         [...nangoKeys.all, "resources", orgId, providerConfigKey, connectionId, projectId] as const,
+    selected: (orgId: string, providerConfigKey: string, connectionId: string, projectId: string) =>
+        [...nangoKeys.all, "selected", orgId, providerConfigKey, connectionId, projectId] as const,
     branches: (orgId: string, providerConfigKey: string, connectionId: string, repo: string) =>
         [...nangoKeys.all, "branches", orgId, providerConfigKey, connectionId, repo] as const,
 };
@@ -92,6 +95,19 @@ export const useNangoResources = (
         retry: false,
     });
 
+export const useSelectedNangoResources = (
+    orgId: string,
+    providerConfigKey: string,
+    connectionId: string,
+    projectId: string,
+    enabled = true,
+) =>
+    useQuery({
+        queryKey: nangoKeys.selected(orgId, providerConfigKey, connectionId, projectId),
+        queryFn: () => getSelectedNangoResources(orgId, providerConfigKey, connectionId, projectId),
+        enabled: !!orgId && !!providerConfigKey && !!connectionId && !!projectId && enabled,
+    });
+
 export const useRepoBranches = (
     orgId: string,
     providerConfigKey: string,
@@ -112,9 +128,8 @@ export const useRemoveNangoResource = (orgId: string) => {
         mutationFn: (vars: { providerConfigKey: string; connectionId: string; projectId: string; resourceId: string }) =>
             removeNangoResource(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId, vars.resourceId),
         onSuccess: (_data, vars) => {
-            void qc.invalidateQueries({
-                queryKey: nangoKeys.resources(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId),
-            });
+            void qc.invalidateQueries({ queryKey: nangoKeys.resources(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId) });
+            void qc.invalidateQueries({ queryKey: nangoKeys.selected(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId) });
         },
     });
 };

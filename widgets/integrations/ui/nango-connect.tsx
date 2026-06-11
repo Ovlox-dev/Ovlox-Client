@@ -14,6 +14,7 @@ import {
     useSyncNangoConnections,
     useDeleteNangoConnection,
     useReindexNangoConnection,
+    useSelectedNangoResources,
     type NangoConnection,
 } from "@/entities/nango";
 import { NangoResourcePicker } from "./nango-resource-picker";
@@ -122,8 +123,9 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                         return (
                         <div
                             key={c.id}
-                            className="flex items-center justify-between rounded-[10px] border border-(--line-2) bg-(--bg-3) px-3 py-2"
+                            className="rounded-[10px] border border-(--line-2) bg-(--bg-3) px-3 py-2 space-y-2"
                         >
+                          <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2.5 min-w-0">
                                 <Icon className="size-5 shrink-0 text-(--fg-2)" />
                                 <div className="min-w-0">
@@ -187,6 +189,15 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                     <X className="size-4" /> Disconnect
                                 </Button>
                             </div>
+                          </div>
+                          {projectId && SELECTABLE_PROVIDERS.has(c.provider ?? "") ? (
+                              <ConnectedResources
+                                  organizationId={organizationId}
+                                  projectId={projectId}
+                                  connection={c}
+                                  noun={SELECT_LABEL[c.provider ?? ""]?.toLowerCase() ?? "resources"}
+                              />
+                          ) : null}
                         </div>
                         );
                     })}
@@ -203,5 +214,39 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                 />
             ) : null}
         </section>
+    );
+}
+
+/** Chips showing which resources (repos/channels/teams) this connection ingests for THIS project. */
+function ConnectedResources({
+    organizationId, projectId, connection, noun,
+}: {
+    organizationId: string;
+    projectId: string;
+    connection: NangoConnection;
+    noun: string;
+}) {
+    const { data, isPending } = useSelectedNangoResources(
+        organizationId,
+        connection.providerConfigKey,
+        connection.connectionId,
+        projectId,
+    );
+    if (isPending) { return null; }
+    if (!data || data.length === 0) {
+        return <p className="text-[11px] text-(--fg-3)">No {noun} selected for this project yet — click “Select”.</p>;
+    }
+    return (
+        <div className="flex flex-wrap gap-1">
+            {data.map((r) => (
+                <span
+                    key={r.resourceId}
+                    title={r.resourceId}
+                    className="inline-flex items-center rounded-full border border-(--line) bg-(--bg-2) px-2 py-0.5 text-[11px] text-(--fg-2)"
+                >
+                    {r.resourceName || r.resourceId}
+                </span>
+            ))}
+        </div>
     );
 }

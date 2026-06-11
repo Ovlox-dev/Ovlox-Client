@@ -127,6 +127,20 @@ export const getNangoResources = async (
     return res.data.resources ?? [];
 };
 
+/** Resources currently selected for a project on a connection (read from stored selection, no provider call). */
+export const getSelectedNangoResources = async (
+    orgId: string,
+    providerConfigKey: string,
+    connectionId: string,
+    projectId: string,
+): Promise<NangoResource[]> => {
+    const res = await apiClient.get<{ resources: NangoResource[] }>(
+        `/orgs/${orgId}/nango/connections/${encodeURIComponent(providerConfigKey)}/${encodeURIComponent(connectionId)}/selected`,
+        { params: { projectId } },
+    );
+    return res.data.resources ?? [];
+};
+
 /** Branches of a GitHub repo (for the multi-branch / environment picker). Default branch first. */
 export const getRepoBranches = async (
     orgId: string,
