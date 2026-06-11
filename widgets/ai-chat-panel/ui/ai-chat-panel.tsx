@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Plus, MessageSquare, Loader2, PanelLeftClose, PanelLeftOpen, ArrowUp, Copy } from "lucide-react";
+import { Plus, MessageSquare, Loader2, PanelLeftClose, PanelLeftOpen, ArrowUp, Copy, Check, ChevronRight } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import {
     releaseConversation,
     startConversationJob,
     useChatStreamingStore,
+    type AgentStep,
 } from "@/lib/chat-runtime";
 import {
     buildScopeKey,
@@ -596,6 +598,8 @@ export function AiChatPanel({
                             enableCopy={false}
                             showHoverTime={false}
                             trailingCaret
+                            steps={streamState?.steps}
+                            stepsLive
                         />
                     ) : pending && !persistedAssistantId ? (
                         // Only show "thinking…" while we genuinely don't have an answer yet.
@@ -613,7 +617,9 @@ export function AiChatPanel({
                             showBadge
                             enableCopy={false}
                             showHoverTime={false}
-                            placeholderDots
+                            placeholderDots={!(streamState?.steps && streamState.steps.length > 0)}
+                            steps={streamState?.steps}
+                            stepsLive
                         />
                     ) : null}
 
@@ -966,6 +972,7 @@ function MessageRow({
                 timeLabel={isGroupStart ? formatTime(ts) : undefined}
                 showHoverTime
                 enableCopy
+                steps={message.metadata?.steps as AgentStep[] | undefined}
             />
         );
     }
@@ -1021,6 +1028,43 @@ function UserBubble({
     );
 }
 
+/** The agent's step timeline. Live (streaming): an expanded list with spinner/check + finding.
+ *  Done (persisted/final): collapses into a "Worked through N steps" toggle. */
+function StepsTimeline({ steps, live }: { steps: AgentStep[]; live: boolean }) {
+    if (!steps || steps.length === 0) { return null; }
+    const Row = ({ s }: { s: AgentStep }) => (
+        <div className="flex items-start gap-2 py-0.5">
+            {s.status === "running" ? (
+                <Loader2 className="size-3.5 mt-0.5 shrink-0 animate-spin text-muted-foreground" />
+            ) : (
+                <Check className="size-3.5 mt-0.5 shrink-0 text-(--accent-lime)" />
+            )}
+            <div className="min-w-0">
+                <span className="text-xs text-foreground/90">{s.label}</span>
+                {s.detail ? <span className="text-[11px] text-muted-foreground"> — {s.detail}</span> : null}
+            </div>
+        </div>
+    );
+    if (live) {
+        return (
+            <div className="mb-2 rounded-md border border-border/50 bg-muted/30 px-2.5 py-1.5">
+                {steps.map((s) => <Row key={s.id} s={s} />)}
+            </div>
+        );
+    }
+    return (
+        <Collapsible className="mb-2">
+            <CollapsibleTrigger className="group/steps flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
+                <ChevronRight className="size-3 transition-transform group-data-[state=open]/steps:rotate-90" />
+                Worked through {steps.length} step{steps.length === 1 ? "" : "s"}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-1 rounded-md border border-border/50 bg-muted/20 px-2.5 py-1.5">
+                {steps.map((s) => <Row key={s.id} s={s} />)}
+            </CollapsibleContent>
+        </Collapsible>
+    );
+}
+
 function AssistantRow({
     compact,
     markdown,
@@ -1031,6 +1075,8 @@ function AssistantRow({
     enableCopy,
     trailingCaret,
     placeholderDots,
+    steps,
+    stepsLive,
 }: {
     compact: boolean;
     markdown: string;
@@ -1041,6 +1087,8 @@ function AssistantRow({
     enableCopy: boolean;
     trailingCaret?: boolean;
     placeholderDots?: boolean;
+    steps?: AgentStep[];
+    stepsLive?: boolean;
 }) {
     return (
         <div className="group relative">
@@ -1071,6 +1119,8 @@ function AssistantRow({
                             {meta ? <p className="text-[10px] text-muted-foreground">{meta}</p> : null}
                         </div>
                     ) : null}
+
+                    {steps && steps.length > 0 ? <StepsTimeline steps={steps} live={!!stepsLive} /> : null}
 
                     {placeholderDots ? (
                         <div className="flex items-center gap-1 py-2">
