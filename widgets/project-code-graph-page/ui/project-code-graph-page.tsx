@@ -57,6 +57,9 @@ export function ProjectCodeGraphPage() {
     // the set of revealed node ids; the full graph stays client-side so expansion needs no refetch.
     const [kgVisible, setKgVisible] = React.useState<Set<string>>(new Set());
     const [kgSeededFrom, setKgSeededFrom] = React.useState<unknown>(null);
+    // Optional: narrow the overall graph's FILE nodes to one repo (features/people stay — a feature
+    // can span repos, which is the point of a project-level graph).
+    const [kgRepoFilter, setKgRepoFilter] = React.useState<string | undefined>(undefined);
 
     // CSS fullscreen for the canvas (fills the viewport; Esc exits). The force graph auto-sizes to its
     // container, so toggling the container size is enough — no canvas resize plumbing needed.
@@ -148,6 +151,14 @@ export function ProjectCodeGraphPage() {
         for (const n of kgQuery.data?.nodes ?? []) { m.set(n.id, { id: n.id, label: n.label, type: n.type }); }
         return m;
     }, [kgQuery.data]);
+    // fileNodeId → repositoryId, for the optional repo filter.
+    const kgFileRepo = React.useMemo(() => {
+        const m = new Map<string, string>();
+        for (const n of kgQuery.data?.nodes ?? []) {
+            if (n.type === "FILE" && n.meta?.repositoryId) { m.set(n.id, n.meta.repositoryId as string); }
+        }
+        return m;
+    }, [kgQuery.data]);
     const kgAdj = React.useMemo(() => {
         const adj = new Map<string, Set<string>>();
         for (const l of kgQuery.data?.links ?? []) {
@@ -187,13 +198,17 @@ export function ProjectCodeGraphPage() {
     // real reveal — that's when we want the force layout to re-heat and animate the new nodes in.
     const overallGraph = React.useMemo(() => {
         if (!overall) { return { nodes: [] as GNode[], links: [] as GLink[] }; }
-        const nodeList = Array.from(kgVisible).map((id) => kgNodeObjs.get(id)).filter((n): n is GNode => !!n);
+        const nodeList = Array.from(kgVisible)
+            .map((id) => kgNodeObjs.get(id))
+            .filter((n): n is GNode => !!n)
+            // Repo filter: drop FILE nodes outside the chosen repo (features/people unaffected).
+            .filter((n) => !kgRepoFilter || n.type !== "FILE" || kgFileRepo.get(n.id) === kgRepoFilter);
         const visible = new Set(nodeList.map((n) => n.id));
         const linkList = (kgQuery.data?.links ?? [])
             .filter((l) => visible.has(l.source) && visible.has(l.target))
             .map((l) => ({ source: l.source, target: l.target, relation: l.relation }));
         return { nodes: nodeList, links: linkList };
-    }, [overall, kgVisible, kgNodeObjs, kgQuery.data]);
+    }, [overall, kgVisible, kgNodeObjs, kgQuery.data, kgRepoFilter, kgFileRepo]);
 
     const displayNodes: GNode[] = overall ? overallGraph.nodes : nodes;
     const displayLinks: GLink[] = overall ? overallGraph.links : links;
@@ -213,7 +228,7 @@ export function ProjectCodeGraphPage() {
             .filter((l) => l.source === selected.id && l.relation === "INVOLVES")
             .map((l) => labelById.get(l.target))
             .filter((n): n is NonNullable<typeof n> => !!n)
-            .map((n) => ({ id: n.id, label: (n.meta?.path as string) ?? n.label }));
+            .map((n) => ({ id: n.id, label: (n.meta?.path as string) ?? n.label, repo: (n.meta?.repoName as string) ?? null }));
         const people = kgQuery.data.links
             .filter((l) => l.target === selected.id && l.relation === "CONTRIBUTED")
             .map((l) => labelById.get(l.source))
@@ -267,6 +282,16 @@ export function ProjectCodeGraphPage() {
                         <Button variant="outline" size="sm" className="w-full" onClick={resetKgView} disabled={!kgQuery.data}>
                             Reset to features
                         </Button>
+                        {(reposQuery.data?.length ?? 0) > 1 ? (
+                            <select
+                                className="w-full rounded-[8px] border border-(--line) bg-(--bg-2) px-2 py-1.5 text-sm"
+                                value={kgRepoFilter ?? "all"}
+                                onChange={(e) => setKgRepoFilter(e.target.value === "all" ? undefined : e.target.value)}
+                            >
+                                <option value="all">All repositories</option>
+                                {reposQuery.data!.map((r) => <option key={r.id} value={r.id}>{r.name ?? r.id}</option>)}
+                            </select>
+                        ) : null}
                         <p className="text-[10px] uppercase tracking-wider text-(--fg-3)">Legend</p>
                         <ul className="space-y-1.5 text-sm">
                             <li className="flex items-center gap-2"><span className="size-2.5 rounded-full bg-(--accent-lime)" /> Feature</li>
@@ -388,7 +413,9 @@ export function ProjectCodeGraphPage() {
                                 ) : (
                                     <ul className="space-y-0.5">
                                         {featureDetail.files.slice(0, 50).map((f) => (
-                                            <li key={f.id} className="text-[11px] text-(--fg-2) truncate" title={f.label}>{f.label}</li>
+                                            <li key={f.id} className="text-[11px] text-(--fg-2) truncate" title={f.label}>
+                                                {f.repo ? <span className="text-(--fg-3)">{f.repo}/</span> : null}{f.label}
+                                            </li>
                                         ))}
                                     </ul>
                                 )}
