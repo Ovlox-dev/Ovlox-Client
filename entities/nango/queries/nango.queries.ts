@@ -6,6 +6,8 @@ import {
     syncNangoConnections,
     deleteNangoConnection,
     getNangoResources,
+    getRepoBranches,
+    removeNangoResource,
     saveNangoResources,
     reindexNangoConnection,
     type CreateNangoSessionBody,
@@ -22,6 +24,8 @@ export const nangoKeys = {
     integrations: (orgId: string) => [...nangoKeys.all, "integrations", orgId] as const,
     resources: (orgId: string, providerConfigKey: string, connectionId: string, projectId: string) =>
         [...nangoKeys.all, "resources", orgId, providerConfigKey, connectionId, projectId] as const,
+    branches: (orgId: string, providerConfigKey: string, connectionId: string, repo: string) =>
+        [...nangoKeys.all, "branches", orgId, providerConfigKey, connectionId, repo] as const,
 };
 
 /* -------------------------------------------------------------------------- */
@@ -88,6 +92,33 @@ export const useNangoResources = (
         retry: false,
     });
 
+export const useRepoBranches = (
+    orgId: string,
+    providerConfigKey: string,
+    connectionId: string,
+    repo: string | null,
+    enabled = true,
+) =>
+    useQuery({
+        queryKey: nangoKeys.branches(orgId, providerConfigKey, connectionId, repo ?? ""),
+        queryFn: () => getRepoBranches(orgId, providerConfigKey, connectionId, repo as string),
+        enabled: !!orgId && !!providerConfigKey && !!connectionId && !!repo && enabled,
+        retry: false,
+    });
+
+export const useRemoveNangoResource = (orgId: string) => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (vars: { providerConfigKey: string; connectionId: string; projectId: string; resourceId: string }) =>
+            removeNangoResource(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId, vars.resourceId),
+        onSuccess: (_data, vars) => {
+            void qc.invalidateQueries({
+                queryKey: nangoKeys.resources(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId),
+            });
+        },
+    });
+};
+
 export const useReindexNangoConnection = (orgId: string) =>
     useMutation({
         mutationFn: (vars: { providerConfigKey: string; connectionId: string; projectId: string }) =>
@@ -101,7 +132,7 @@ export const useSaveNangoResources = (orgId: string) => {
             providerConfigKey: string;
             connectionId: string;
             projectId: string;
-            resources: Array<{ resourceId: string; resourceName?: string; resourceType: NangoResourceType }>;
+            resources: Array<{ resourceId: string; resourceName?: string; resourceType: NangoResourceType; selectedBranches?: string[] }>;
         }) => saveNangoResources(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId, vars.resources),
         onSuccess: (_data, vars) => {
             void qc.invalidateQueries({

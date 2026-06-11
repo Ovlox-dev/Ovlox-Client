@@ -98,7 +98,7 @@ export const getNangoConfig = async (orgId: string): Promise<{ nangoHost: string
 /*                        BULK ingest resource selection                      */
 /* -------------------------------------------------------------------------- */
 
-export type NangoResourceType = "channel" | "project" | "team";
+export type NangoResourceType = "repo" | "channel" | "project" | "team";
 
 export interface NangoResource {
     resourceId: string;
@@ -106,6 +106,11 @@ export interface NangoResource {
     resourceType: NangoResourceType;
     selected: boolean;
     metadata?: Record<string, unknown>;
+}
+
+export interface NangoRepoBranch {
+    name: string;
+    isDefault: boolean;
 }
 
 /** Live channels/projects/teams on a connection, annotated with the project's current selection. */
@@ -120,6 +125,35 @@ export const getNangoResources = async (
         { params: { projectId } },
     );
     return res.data.resources ?? [];
+};
+
+/** Branches of a GitHub repo (for the multi-branch / environment picker). Default branch first. */
+export const getRepoBranches = async (
+    orgId: string,
+    providerConfigKey: string,
+    connectionId: string,
+    repo: string,
+): Promise<NangoRepoBranch[]> => {
+    const res = await apiClient.get<{ branches: NangoRepoBranch[] }>(
+        `/orgs/${orgId}/nango/connections/${encodeURIComponent(providerConfigKey)}/${encodeURIComponent(connectionId)}/branches`,
+        { params: { repo } },
+    );
+    return res.data.branches ?? [];
+};
+
+/** Remove ONE resource (repo/channel/project/team) from a SINGLE project — connection stays intact. */
+export const removeNangoResource = async (
+    orgId: string,
+    providerConfigKey: string,
+    connectionId: string,
+    projectId: string,
+    resourceId: string,
+): Promise<{ removed: boolean; rawEventsDeleted: number; repositoryDeleted: boolean }> => {
+    const res = await apiClient.delete<{ removed: boolean; rawEventsDeleted: number; repositoryDeleted: boolean }>(
+        `/orgs/${orgId}/nango/connections/${encodeURIComponent(providerConfigKey)}/${encodeURIComponent(connectionId)}/resources`,
+        { params: { projectId, resourceId } },
+    );
+    return res.data;
 };
 
 /** Re-trigger code-indexing for the selected GitHub repos on a connection (project-scoped). */
@@ -142,7 +176,7 @@ export const saveNangoResources = async (
     providerConfigKey: string,
     connectionId: string,
     projectId: string,
-    resources: Array<{ resourceId: string; resourceName?: string; resourceType: NangoResourceType }>,
+    resources: Array<{ resourceId: string; resourceName?: string; resourceType: NangoResourceType; selectedBranches?: string[] }>,
 ): Promise<{ selected: number; backfillsEnqueued: number }> => {
     const res = await apiClient.post<{ selected: number; backfillsEnqueued: number }>(
         `/orgs/${orgId}/nango/connections/${encodeURIComponent(providerConfigKey)}/${encodeURIComponent(connectionId)}/resources`,

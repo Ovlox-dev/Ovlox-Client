@@ -170,9 +170,19 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                     variant="ghost"
                                     size="sm"
                                     disabled={del.isPending}
-                                    onClick={() =>
-                                        del.mutate({ providerConfigKey: c.providerConfigKey, connectionId: c.connectionId })
-                                    }
+                                    onClick={() => {
+                                        // Connection-level delete is org-wide: it removes this connection from
+                                        // EVERY project. To drop a single repo/channel from just this project,
+                                        // use the per-resource remove in the "Select" picker instead.
+                                        if (
+                                            !window.confirm(
+                                                `Disconnect ${c.provider || c.providerConfigKey}? This removes the whole connection from ALL projects in the org. To remove a single ${SELECT_LABEL[c.provider ?? ""]?.toLowerCase().replace(/s$/, "") ?? "resource"} from just this project, use “Select” instead.`,
+                                            )
+                                        ) {
+                                            return;
+                                        }
+                                        del.mutate({ providerConfigKey: c.providerConfigKey, connectionId: c.connectionId });
+                                    }}
                                 >
                                     <X className="size-4" /> Disconnect
                                 </Button>
