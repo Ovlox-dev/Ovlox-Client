@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { useApiError } from "@/hooks/useApiError";
 import { useListRepositories } from "@/entities/project";
 import { getFileSymbols, getNeighbors, getProjectGraph, useCodeTree } from "@/entities/code-graph";
+import { useProjectKnowledgeGraph } from "@/entities/knowledge";
 
 // react-force-graph renders to canvas/WebGL — it must not run during SSR. The dynamic() wrapper
 // erases the component's generic prop types, so we widen to a permissive component type here.
@@ -28,12 +29,17 @@ interface GLink { source: string; target: string; relation: string; }
  */
 export function ProjectCodeGraphPage() {
     const { organizationId, projectId } = useParams<{ organizationId: string; projectId: string }>();
+    const [mode, setMode] = React.useState<"code" | "overall">("code");
     const [repositoryId, setRepositoryId] = React.useState<string | undefined>(undefined);
     const [seedFileId, setSeedFileId] = React.useState<string | undefined>(undefined);
     const [filter, setFilter] = React.useState("");
 
     const reposQuery = useListRepositories(organizationId, projectId);
     const treeQuery = useCodeTree(organizationId, projectId, repositoryId);
+    // The OVERALL graph (Features ↔ Files ↔ People) is fetched whole from the backend; only enabled
+    // in overall mode so we don't pay for it while browsing code structure.
+    const kgQuery = useProjectKnowledgeGraph(organizationId, projectId, undefined, mode === "overall");
+    useApiError(kgQuery.error);
 
     useApiError(treeQuery.error);
 
@@ -114,18 +120,69 @@ export function ProjectCodeGraphPage() {
         }
     }, [organizationId, projectId]);
 
+    // What the canvas renders depends on the mode: code-structure (seeded/expanded) vs the overall
+    // cross-domain knowledge graph (fetched whole).
+    const overall = mode === "overall";
+    const displayNodes: GNode[] = overall
+        ? (kgQuery.data?.nodes ?? []).map((n) => ({ id: n.id, label: n.label, type: n.type }))
+        : nodes;
+    const displayLinks: GLink[] = overall ? (kgQuery.data?.links ?? []) : links;
+    const showLoader = overall ? kgQuery.isPending : seeding;
+
     return (
         <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
-            <header>
-                <h1 className="text-2xl md:text-3xl font-bold mb-1 flex items-center gap-2">
-                    <Network className="size-6" /> Code graph
-                </h1>
-                <p className="text-muted-foreground text-sm">
-                    Load the whole-project dependency graph, or pick a file to seed from its symbols — then click any node to expand its callers and callees.
-                </p>
+            <header className="space-y-3">
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-bold mb-1 flex items-center gap-2">
+                        <Network className="size-6" /> Graph
+                    </h1>
+                    <p className="text-muted-foreground text-sm">
+                        {overall
+                            ? "How features, files and people connect across the project."
+                            : "Load the whole-project dependency graph, or pick a file to seed from its symbols — then click any node to expand its callers and callees."}
+                    </p>
+                </div>
+                {/* Mode toggle — additive: existing code graph stays the default. */}
+                <div className="inline-flex rounded-[8px] border border-(--line) bg-(--bg-2) p-0.5 text-sm">
+                    <button
+                        type="button"
+                        onClick={() => setMode("code")}
+                        className={`px-3 py-1 rounded-[6px] ${!overall ? "bg-(--bg-3) text-(--fg)" : "text-(--fg-3)"}`}
+                    >
+                        Code structure
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setMode("overall")}
+                        className={`px-3 py-1 rounded-[6px] ${overall ? "bg-(--bg-3) text-(--fg)" : "text-(--fg-3)"}`}
+                    >
+                        Overall
+                    </button>
+                </div>
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
+                {overall ? (
+                    <Card className="p-3 max-h-[70vh] overflow-y-auto space-y-3">
+                        <p className="text-[10px] uppercase tracking-wider text-(--fg-3)">Legend</p>
+                        <ul className="space-y-1.5 text-sm">
+                            <li className="flex items-center gap-2"><span className="size-2.5 rounded-full bg-(--accent-lime)" /> Feature</li>
+                            <li className="flex items-center gap-2"><span className="size-2.5 rounded-full bg-sky-400" /> File</li>
+                            <li className="flex items-center gap-2"><span className="size-2.5 rounded-full bg-amber-400" /> Person</li>
+                        </ul>
+                        {kgQuery.data ? (
+                            <div className="pt-2 border-t border-(--line) text-xs text-(--fg-3) space-y-0.5">
+                                <p>{kgQuery.data.counts.features} features</p>
+                                <p>{kgQuery.data.counts.files} files</p>
+                                <p>{kgQuery.data.counts.people} people</p>
+                                <p>{kgQuery.data.counts.links} connections</p>
+                            </div>
+                        ) : null}
+                        <p className="text-[11px] text-(--fg-3) pt-1">
+                            Edges: a feature <span className="text-(--fg-2)">involves</span> the files its commits touched; a person <span className="text-(--fg-2)">authored</span> files and <span className="text-(--fg-2)">contributed</span> to features.
+                        </p>
+                    </Card>
+                ) : (
                 <Card className="p-3 max-h-[70vh] overflow-y-auto space-y-2">
                     {(reposQuery.data?.length ?? 0) > 1 ? (
                         <select
@@ -164,24 +221,27 @@ export function ProjectCodeGraphPage() {
                         </ul>
                     )}
                 </Card>
+                )}
 
                 <Card className="p-0 relative overflow-hidden" style={{ height: "70vh" }}>
-                    {nodes.length === 0 ? (
+                    {showLoader ? (
                         <div className="flex h-full items-center justify-center text-sm text-(--fg-3)">
-                            {seeding ? (
-                                <span className="flex items-center gap-2"><Loader2 className="size-4 animate-spin" /> Loading symbols…</span>
-                            ) : (
-                                "Select a file to build the graph."
-                            )}
+                            <span className="flex items-center gap-2">
+                                <Loader2 className="size-4 animate-spin" /> {overall ? "Building the knowledge graph…" : "Loading symbols…"}
+                            </span>
+                        </div>
+                    ) : displayNodes.length === 0 ? (
+                        <div className="flex h-full items-center justify-center text-sm text-(--fg-3)">
+                            {overall ? "No connected features, files or people yet — index a repo and detect features first." : "Select a file to build the graph."}
                         </div>
                     ) : (
                         <ForceGraph2D
-                            graphData={{ nodes, links }}
+                            graphData={{ nodes: displayNodes, links: displayLinks }}
                             nodeLabel={(n: GNode) => `${n.type}: ${n.label}`}
                             nodeAutoColorBy="type"
                             linkColor={() => "rgba(168,168,178,0.35)"}
                             linkDirectionalArrowLength={3}
-                            onNodeClick={(n: GNode) => { setSelected(n); void expandNode(n.id); }}
+                            onNodeClick={(n: GNode) => { setSelected(n); if (!overall) { void expandNode(n.id); } }}
                             cooldownTicks={80}
                         />
                     )}
@@ -190,7 +250,7 @@ export function ProjectCodeGraphPage() {
                             <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="text-[10px]">{selected.type}</Badge>
                                 <span className="text-(--fg) truncate">{selected.label}</span>
-                                {loadingNode === selected.id ? <Loader2 className="size-3.5 animate-spin ml-auto" /> : (
+                                {overall ? null : loadingNode === selected.id ? <Loader2 className="size-3.5 animate-spin ml-auto" /> : (
                                     <Button size="sm" variant="ghost" className="ml-auto h-6 text-xs" onClick={() => void expandNode(selected.id)}>Expand</Button>
                                 )}
                             </div>
