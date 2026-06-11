@@ -70,34 +70,40 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                 setConnecting(false);
                 return;
             }
-            // When the popup closes, reconcile. The auth webhook usually records the connection first;
-            // the sync call is the fallback for a missed webhook.
+            // When the popup closes, reconcile until the new connection shows up. Nango records it via
+            // an auth webhook that can land a moment after the popup closes, so a single sync often
+            // misses it (hence the old "only appears after refresh"). Poll a few times instead.
             if (pollRef.current) { window.clearInterval(pollRef.current); }
             pollRef.current = window.setInterval(() => {
                 if (popup.closed) {
                     if (pollRef.current) { window.clearInterval(pollRef.current); }
                     pollRef.current = null;
-                    setConnecting(false);
-                    sync.mutate(undefined, {
-                        onSuccess: async (r) => {
-                            if (r.imported > 0) { toast.success("Connection added."); }
-                            // Project-level connect → immediately ask which data sources (repos /
-                            // channels / projects / teams) to ingest for this project.
-                            if (projectId) {
-                                const fresh = await refetch();
-                                const added = (fresh.data ?? []).find(
-                                    (c) => !preConnectIds.current.has(c.connectionId) && SELECTABLE_PROVIDERS.has(c.provider ?? ""),
-                                );
-                                if (added) { setPicker(added); }
-                            }
-                        },
-                    });
+                    void reconcileNewConnection();
                 }
             }, 1000);
         } catch (e: unknown) {
             toast.error(errorMessage(e, "Failed to start connection"));
             setConnecting(false);
         }
+    };
+
+    // Poll Nango → our DB until the just-added connection appears (the auth webhook is eventually
+    // consistent). Keeps "connecting" until it lands, then auto-opens the data-source picker on a
+    // project page. Gives up after a bounded window; the manual "Refresh" remains as a fallback.
+    const reconcileNewConnection = async () => {
+        for (let attempt = 0; attempt < 6; attempt++) {
+            await sync.mutateAsync().catch(() => undefined);
+            const fresh = await refetch();
+            const added = (fresh.data ?? []).find((c) => !preConnectIds.current.has(c.connectionId));
+            if (added) {
+                setConnecting(false);
+                toast.success("Connection added.");
+                if (projectId && SELECTABLE_PROVIDERS.has(added.provider ?? "")) { setPicker(added); }
+                return;
+            }
+            await new Promise((r) => setTimeout(r, 1500));
+        }
+        setConnecting(false); // gave up — the connection may still arrive; user can hit Refresh
     };
 
     return (
