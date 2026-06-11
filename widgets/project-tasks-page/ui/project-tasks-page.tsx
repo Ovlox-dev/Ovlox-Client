@@ -247,7 +247,14 @@ function TaskRow({ task, organizationId, projectId }: { task: Task; organization
         <Card className="p-4 border-border/60 hover:border-border hover:bg-accent-contrast/30 transition-colors">
             <div className=" flex justify-between">
                 <div>
-                    <p className="font-semibold text-sm text-text truncate">{task.title}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="font-semibold text-sm text-text truncate">{task.title}</p>
+                        {task.provider ? (
+                            <Badge variant="outline" className="shrink-0 text-[10px] h-5 px-2 uppercase tracking-wide">
+                                {task.provider}{task.providerId ? ` · ${task.providerId}` : ""}
+                            </Badge>
+                        ) : null}
+                    </div>
                     {task.description ? (
                         <p className="text-xs text-(--fg-2)">
                             {task.description}
