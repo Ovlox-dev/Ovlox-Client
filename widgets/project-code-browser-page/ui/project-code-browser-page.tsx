@@ -55,6 +55,25 @@ export function ProjectCodeBrowserPage() {
 
     const tree = React.useMemo(() => buildTree(treeQuery.data ?? []), [treeQuery.data]);
 
+    // When no single repo is selected, DON'T merge all repos into one tree — group the flat nodes by
+    // repositoryId and build a separate tree per repo so they render as distinct sections.
+    const treesByRepo = React.useMemo(() => {
+        if (repositoryId) { return null; }
+        const byRepo = new Map<string, CodeTreeNode[]>();
+        for (const n of treeQuery.data ?? []) {
+            const k = n.repositoryId ?? "unknown";
+            if (!byRepo.has(k)) { byRepo.set(k, []); }
+            byRepo.get(k)!.push(n);
+        }
+        return Array.from(byRepo.entries())
+            .map(([repoId, nodes]) => ({
+                repoId,
+                repoName: reposQuery.data?.find((r) => r.id === repoId)?.name ?? repoId,
+                tree: buildTree(nodes),
+            }))
+            .sort((a, b) => a.repoName.localeCompare(b.repoName));
+    }, [repositoryId, treeQuery.data, reposQuery.data]);
+
     // Group commits by calendar day for the chronological "Changes" view.
     type Commit = NonNullable<typeof commitsQuery.data>["commits"][number];
     const commitsByDay = React.useMemo(() => {
@@ -135,6 +154,20 @@ export function ProjectCodeBrowserPage() {
                         <div className="flex items-center gap-2 text-sm text-(--fg-3) p-2"><Loader2 className="size-4 animate-spin" /> Loading tree…</div>
                     ) : tree.length === 0 ? (
                         <p className="text-sm text-(--fg-3) p-2">No indexed files yet. Index a repository first.</p>
+                    ) : treesByRepo ? (
+                        // Multi-repo: a separate, collapsible section per repository (no merged tree).
+                        <div className="space-y-2">
+                            {treesByRepo.map((repo) => (
+                                <RepoSection
+                                    key={repo.repoId}
+                                    repoName={repo.repoName}
+                                    tree={repo.tree}
+                                    multiple={treesByRepo.length > 1}
+                                    selectedId={selectedFile?.id ?? null}
+                                    onSelectFile={(n) => setSelectedFile({ id: n.codeFileId!, path: n.path })}
+                                />
+                            ))}
+                        </div>
                     ) : (
                         <ul className="text-sm">
                             {tree.map((node) => (
@@ -174,6 +207,40 @@ export function ProjectCodeBrowserPage() {
                 </Card>
             </div>
             )}
+        </div>
+    );
+}
+
+/** A repository's file tree under a collapsible repo header — keeps repos visually separate. */
+function RepoSection({
+    repoName, tree, multiple, selectedId, onSelectFile,
+}: {
+    repoName: string;
+    tree: TreeItem[];
+    multiple: boolean;
+    selectedId: string | null;
+    onSelectFile: (n: TreeItem) => void;
+}) {
+    // Auto-collapse when there are several repos so the page isn't a wall of files.
+    const [open, setOpen] = React.useState(!multiple);
+    return (
+        <div className="rounded-[8px] border border-(--line)">
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="flex items-center gap-1.5 w-full text-left px-2 py-1.5 text-sm font-medium text-(--fg) hover:bg-(--bg-3) rounded-[8px]"
+            >
+                <ChevronRight className={`size-3.5 shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
+                <Code2 className="size-3.5 shrink-0 text-(--fg-3)" />
+                <span className="truncate">{repoName}</span>
+            </button>
+            {open ? (
+                <ul className="text-sm pb-1">
+                    {tree.map((node) => (
+                        <TreeNode key={node.id} node={node} depth={1} selectedId={selectedId} onSelectFile={onSelectFile} />
+                    ))}
+                </ul>
+            ) : null}
         </div>
     );
 }
