@@ -4,7 +4,7 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Network, Loader2, Search } from "lucide-react";
+import { Network, Loader2, Search, Maximize2, Minimize2 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,16 @@ export function ProjectCodeGraphPage() {
     // the set of revealed node ids; the full graph stays client-side so expansion needs no refetch.
     const [kgVisible, setKgVisible] = React.useState<Set<string>>(new Set());
     const [kgSeededFrom, setKgSeededFrom] = React.useState<unknown>(null);
+
+    // CSS fullscreen for the canvas (fills the viewport; Esc exits). The force graph auto-sizes to its
+    // container, so toggling the container size is enough — no canvas resize plumbing needed.
+    const [isFullscreen, setIsFullscreen] = React.useState(false);
+    React.useEffect(() => {
+        if (!isFullscreen) { return; }
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setIsFullscreen(false); } };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [isFullscreen]);
 
     const fileNodes = React.useMemo(
         () => (treeQuery.data ?? []).filter((n) => n.kind === "FILE" && n.codeFileId)
@@ -316,7 +326,20 @@ export function ProjectCodeGraphPage() {
                 </Card>
                 )}
 
-                <Card className="p-0 relative overflow-hidden" style={{ height: "70vh" }}>
+                <Card
+                    className={`p-0 relative overflow-hidden ${isFullscreen ? "fixed inset-0 z-50 rounded-none border-0" : ""}`}
+                    style={{ height: isFullscreen ? "100dvh" : "70vh" }}
+                >
+                    {/* Fullscreen toggle. */}
+                    <button
+                        type="button"
+                        onClick={() => setIsFullscreen((v) => !v)}
+                        title={isFullscreen ? "Exit full screen (Esc)" : "Full screen"}
+                        className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-[8px] border border-(--line) bg-(--bg-2)/90 backdrop-blur px-2 py-1 text-xs text-(--fg-2) hover:text-(--fg)"
+                    >
+                        {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+                        {isFullscreen ? "Exit" : "Full screen"}
+                    </button>
                     {showLoader ? (
                         <div className="flex h-full items-center justify-center text-sm text-(--fg-3)">
                             <span className="flex items-center gap-2">
