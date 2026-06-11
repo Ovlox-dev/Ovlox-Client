@@ -52,6 +52,12 @@ export function ProjectCodeGraphPage() {
     const [loadingNode, setLoadingNode] = React.useState<string | null>(null);
     const [seeding, setSeeding] = React.useState(false);
 
+    // Overall (knowledge) graph reveals progressively: it starts at the FEATURE nodes, and clicking a
+    // node pulls in its neighbours (a feature's files, a file's other features/authors). kgVisible is
+    // the set of revealed node ids; the full graph stays client-side so expansion needs no refetch.
+    const [kgVisible, setKgVisible] = React.useState<Set<string>>(new Set());
+    const [kgSeededFrom, setKgSeededFrom] = React.useState<unknown>(null);
+
     const fileNodes = React.useMemo(
         () => (treeQuery.data ?? []).filter((n) => n.kind === "FILE" && n.codeFileId)
             .filter((n) => !filter || n.path.toLowerCase().includes(filter.toLowerCase())),
@@ -122,14 +128,69 @@ export function ProjectCodeGraphPage() {
         }
     }, [organizationId, projectId]);
 
-    // What the canvas renders depends on the mode: code-structure (seeded/expanded) vs the overall
-    // cross-domain knowledge graph (fetched whole).
     const overall = mode === "overall";
-    const displayNodes: GNode[] = overall
-        ? (kgQuery.data?.nodes ?? []).map((n) => ({ id: n.id, label: n.label, type: n.type }))
-        : nodes;
-    const displayLinks: GLink[] = overall ? (kgQuery.data?.links ?? []) : links;
+
+    // Stable node objects + adjacency, derived ONCE per fetched graph. react-force-graph mutates node
+    // objects with x/y/velocity, so we must reuse the same references across renders — otherwise the
+    // layout resets and the springy force animation never settles ("stuck edges").
+    const kgNodeObjs = React.useMemo(() => {
+        const m = new Map<string, GNode>();
+        for (const n of kgQuery.data?.nodes ?? []) { m.set(n.id, { id: n.id, label: n.label, type: n.type }); }
+        return m;
+    }, [kgQuery.data]);
+    const kgAdj = React.useMemo(() => {
+        const adj = new Map<string, Set<string>>();
+        for (const l of kgQuery.data?.links ?? []) {
+            (adj.get(l.source) ?? adj.set(l.source, new Set()).get(l.source)!).add(l.target);
+            (adj.get(l.target) ?? adj.set(l.target, new Set()).get(l.target)!).add(l.source);
+        }
+        return adj;
+    }, [kgQuery.data]);
+
+    // Seed the visible set to just the features when a fresh graph arrives (render-phase guard —
+    // the same "adjust state on prop change" pattern used for the file selection above).
+    if (overall && kgQuery.data && kgQuery.data !== kgSeededFrom) {
+        setKgSeededFrom(kgQuery.data);
+        setKgVisible(new Set(kgQuery.data.nodes.filter((n) => n.type === "FEATURE").map((n) => n.id)));
+        setSelected(null);
+    }
+
+    // Reveal a node's direct neighbours. Returns the SAME set when nothing new is added so the graph
+    // data identity is preserved (no needless simulation reset).
+    const expandKgNode = React.useCallback((nodeId: string) => {
+        setKgVisible((prev) => {
+            const neighbours = kgAdj.get(nodeId);
+            if (!neighbours || neighbours.size === 0) { return prev; }
+            const next = new Set(prev);
+            let added = 0;
+            for (const nb of neighbours) { if (!next.has(nb)) { next.add(nb); added++; } }
+            return added > 0 ? next : prev;
+        });
+    }, [kgAdj]);
+
+    const resetKgView = React.useCallback(() => {
+        setKgVisible(new Set((kgQuery.data?.nodes ?? []).filter((n) => n.type === "FEATURE").map((n) => n.id)));
+        setSelected(null);
+    }, [kgQuery.data]);
+
+    // The overall graph's visible nodes/links. Memoised on kgVisible so identity changes ONLY on a
+    // real reveal — that's when we want the force layout to re-heat and animate the new nodes in.
+    const overallGraph = React.useMemo(() => {
+        if (!overall) { return { nodes: [] as GNode[], links: [] as GLink[] }; }
+        const nodeList = Array.from(kgVisible).map((id) => kgNodeObjs.get(id)).filter((n): n is GNode => !!n);
+        const visible = new Set(nodeList.map((n) => n.id));
+        const linkList = (kgQuery.data?.links ?? [])
+            .filter((l) => visible.has(l.source) && visible.has(l.target))
+            .map((l) => ({ source: l.source, target: l.target, relation: l.relation }));
+        return { nodes: nodeList, links: linkList };
+    }, [overall, kgVisible, kgNodeObjs, kgQuery.data]);
+
+    const displayNodes: GNode[] = overall ? overallGraph.nodes : nodes;
+    const displayLinks: GLink[] = overall ? overallGraph.links : links;
     const showLoader = overall ? kgQuery.isPending : seeding;
+    // Memoise the graphData object so unrelated re-renders (e.g. selecting a node) don't hand
+    // react-force-graph a new object and reset the running simulation.
+    const graphData = React.useMemo(() => ({ nodes: displayNodes, links: displayLinks }), [displayNodes, displayLinks]);
 
     // Feature drill-down: when a FEATURE node is selected in the overall graph, resolve what it does
     // (description) and which files it consists of + who contributed, from the graph's nodes/links.
@@ -167,7 +228,7 @@ export function ProjectCodeGraphPage() {
                     </h1>
                     <p className="text-muted-foreground text-sm">
                         {overall
-                            ? "How features, files and people connect across the project."
+                            ? "The project's features — click a feature to reveal the files it consists of, then keep clicking to go deeper."
                             : "Load the whole-project dependency graph, or pick a file to seed from its symbols — then click any node to expand its callers and callees."}
                     </p>
                 </div>
@@ -193,6 +254,9 @@ export function ProjectCodeGraphPage() {
             <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
                 {overall ? (
                     <Card className="p-3 max-h-[70vh] overflow-y-auto space-y-3">
+                        <Button variant="outline" size="sm" className="w-full" onClick={resetKgView} disabled={!kgQuery.data}>
+                            Reset to features
+                        </Button>
                         <p className="text-[10px] uppercase tracking-wider text-(--fg-3)">Legend</p>
                         <ul className="space-y-1.5 text-sm">
                             <li className="flex items-center gap-2"><span className="size-2.5 rounded-full bg-(--accent-lime)" /> Feature</li>
@@ -265,13 +329,15 @@ export function ProjectCodeGraphPage() {
                         </div>
                     ) : (
                         <ForceGraph2D
-                            graphData={{ nodes: displayNodes, links: displayLinks }}
+                            graphData={graphData}
                             nodeLabel={(n: GNode) => `${n.type}: ${n.label}`}
                             nodeAutoColorBy="type"
                             linkColor={() => "rgba(168,168,178,0.35)"}
                             linkDirectionalArrowLength={3}
-                            onNodeClick={(n: GNode) => { setSelected(n); if (!overall) { void expandNode(n.id); } }}
-                            cooldownTicks={80}
+                            onNodeClick={(n: GNode) => { setSelected(n); if (overall) { expandKgNode(n.id); } else { void expandNode(n.id); } }}
+                            cooldownTicks={100}
+                            d3VelocityDecay={0.28}
+                            warmupTicks={20}
                         />
                     )}
                     {/* Feature drill-down: what it does + the files it consists of + contributors. */}
