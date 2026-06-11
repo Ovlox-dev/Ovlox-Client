@@ -105,6 +105,8 @@ export interface NangoResource {
     resourceName: string;
     resourceType: NangoResourceType;
     selected: boolean;
+    /** Jira/Linear only: this resource is the project's task-sync target (platform tasks push here). */
+    isTaskSyncTarget?: boolean;
     metadata?: Record<string, unknown>;
 }
 
@@ -166,6 +168,21 @@ export const removeNangoResource = async (
     const res = await apiClient.delete<{ removed: boolean; rawEventsDeleted: number; repositoryDeleted: boolean }>(
         `/orgs/${orgId}/nango/connections/${encodeURIComponent(providerConfigKey)}/${encodeURIComponent(connectionId)}/resources`,
         { params: { projectId, resourceId } },
+    );
+    return res.data;
+};
+
+/** Set (or clear) the project's task-sync target — the one Jira project / Linear team tasks push to. */
+export const setNangoTaskTarget = async (
+    orgId: string,
+    providerConfigKey: string,
+    connectionId: string,
+    projectId: string,
+    resourceId: string | null,
+): Promise<{ target: string | null }> => {
+    const res = await apiClient.post<{ target: string | null }>(
+        `/orgs/${orgId}/nango/connections/${encodeURIComponent(providerConfigKey)}/${encodeURIComponent(connectionId)}/task-target`,
+        { projectId, resourceId },
     );
     return res.data;
 };

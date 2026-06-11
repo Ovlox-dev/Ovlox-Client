@@ -12,6 +12,7 @@ import {
     saveNangoResources,
     reindexNangoConnection,
     syncNangoData,
+    setNangoTaskTarget,
     type CreateNangoSessionBody,
     type NangoResourceType,
 } from "../api/nango.api";
@@ -146,6 +147,18 @@ export const useSyncNangoData = (orgId: string) =>
         mutationFn: (vars: { providerConfigKey: string; connectionId: string; projectId: string }) =>
             syncNangoData(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId),
     });
+
+export const useSetNangoTaskTarget = (orgId: string) => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (vars: { providerConfigKey: string; connectionId: string; projectId: string; resourceId: string | null }) =>
+            setNangoTaskTarget(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId, vars.resourceId),
+        onSuccess: () => {
+            // The target is project-wide (one across all connections) — refresh every connection's chips.
+            void qc.invalidateQueries({ queryKey: [...nangoKeys.all, "selected", orgId] });
+        },
+    });
+};
 
 export const useSaveNangoResources = (orgId: string) => {
     const qc = useQueryClient();
