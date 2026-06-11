@@ -270,10 +270,10 @@ function GithubRepoRow({
                     <button
                         type="button"
                         onClick={() => setExpanded((v) => !v)}
-                        title="Branches to track"
-                        className="flex items-center gap-1 text-[11px] text-(--fg-3) hover:text-(--fg) shrink-0"
+                        title="Choose which branches (environments) to track"
+                        className="flex items-center gap-1 rounded-[6px] border border-(--line) px-1.5 py-0.5 text-[11px] text-(--fg-2) hover:bg-(--bg-2) shrink-0"
                     >
-                        <GitBranch className="size-3.5" />
+                        <GitBranch className="size-3.5" /> Branches
                         {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
                     </button>
                 ) : null}

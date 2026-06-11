@@ -29,7 +29,9 @@ interface GLink { source: string; target: string; relation: string; }
  */
 export function ProjectCodeGraphPage() {
     const { organizationId, projectId } = useParams<{ organizationId: string; projectId: string }>();
-    const [mode, setMode] = React.useState<"code" | "overall">("code");
+    // Default to the whole-codebase feature graph (features ↔ files ↔ people); "Code structure" is
+    // the secondary, file-seeded view.
+    const [mode, setMode] = React.useState<"code" | "overall">("overall");
     const [repositoryId, setRepositoryId] = React.useState<string | undefined>(undefined);
     const [seedFileId, setSeedFileId] = React.useState<string | undefined>(undefined);
     const [filter, setFilter] = React.useState("");
@@ -128,6 +130,33 @@ export function ProjectCodeGraphPage() {
         : nodes;
     const displayLinks: GLink[] = overall ? (kgQuery.data?.links ?? []) : links;
     const showLoader = overall ? kgQuery.isPending : seeding;
+
+    // Feature drill-down: when a FEATURE node is selected in the overall graph, resolve what it does
+    // (description) and which files it consists of + who contributed, from the graph's nodes/links.
+    const featureDetail = React.useMemo(() => {
+        if (!overall || selected?.type !== "FEATURE" || !kgQuery.data) { return null; }
+        const labelById = new Map(kgQuery.data.nodes.map((n) => [n.id, n] as const));
+        const node = labelById.get(selected.id);
+        if (!node) { return null; }
+        const files = kgQuery.data.links
+            .filter((l) => l.source === selected.id && l.relation === "INVOLVES")
+            .map((l) => labelById.get(l.target))
+            .filter((n): n is NonNullable<typeof n> => !!n)
+            .map((n) => ({ id: n.id, label: (n.meta?.path as string) ?? n.label }));
+        const people = kgQuery.data.links
+            .filter((l) => l.target === selected.id && l.relation === "CONTRIBUTED")
+            .map((l) => labelById.get(l.source))
+            .filter((n): n is NonNullable<typeof n> => !!n)
+            .map((n) => n.label);
+        return {
+            title: node.label,
+            description: (node.meta?.description as string) || null,
+            status: (node.meta?.status as string) || null,
+            progress: typeof node.meta?.progress === "number" ? (node.meta.progress as number) : null,
+            files,
+            people: Array.from(new Set(people)),
+        };
+    }, [overall, selected, kgQuery.data]);
 
     return (
         <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
@@ -245,7 +274,44 @@ export function ProjectCodeGraphPage() {
                             cooldownTicks={80}
                         />
                     )}
-                    {selected ? (
+                    {/* Feature drill-down: what it does + the files it consists of + contributors. */}
+                    {featureDetail ? (
+                        <div className="absolute top-3 right-3 w-72 max-h-[calc(70vh-1.5rem)] overflow-y-auto rounded-[10px] border border-(--line) bg-(--bg-2)/95 backdrop-blur px-3 py-3 text-sm space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                                <span className="font-medium text-(--fg) leading-snug">{featureDetail.title}</span>
+                                <button type="button" onClick={() => setSelected(null)} className="text-(--fg-3) hover:text-(--fg) shrink-0">✕</button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {featureDetail.status ? <Badge variant="outline" className="text-[10px]">{featureDetail.status}</Badge> : null}
+                                {featureDetail.progress !== null ? (
+                                    <span className="text-[11px] text-(--fg-3)">{Math.round(featureDetail.progress * 100)}% done</span>
+                                ) : null}
+                            </div>
+                            {featureDetail.description ? (
+                                <p className="text-[12px] text-(--fg-2) leading-relaxed">{featureDetail.description}</p>
+                            ) : (
+                                <p className="text-[12px] text-(--fg-3) italic">No description detected.</p>
+                            )}
+                            <div>
+                                <p className="text-[10px] uppercase tracking-wider text-(--fg-3) mb-1">Files ({featureDetail.files.length})</p>
+                                {featureDetail.files.length === 0 ? (
+                                    <p className="text-[11px] text-(--fg-3)">No file links yet — needs commit file-changes indexed.</p>
+                                ) : (
+                                    <ul className="space-y-0.5">
+                                        {featureDetail.files.slice(0, 50).map((f) => (
+                                            <li key={f.id} className="text-[11px] text-(--fg-2) truncate" title={f.label}>{f.label}</li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                            {featureDetail.people.length > 0 ? (
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wider text-(--fg-3) mb-1">Contributors ({featureDetail.people.length})</p>
+                                    <p className="text-[11px] text-(--fg-2)">{featureDetail.people.join(", ")}</p>
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : selected ? (
                         <div className="absolute bottom-3 left-3 right-3 rounded-[10px] border border-(--line) bg-(--bg-2)/90 backdrop-blur px-3 py-2 text-sm">
                             <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="text-[10px]">{selected.type}</Badge>
