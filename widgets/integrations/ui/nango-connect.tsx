@@ -175,7 +175,7 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        disabled={reindex.isPending}
+                                        disabled={reindex.isPending && reindex.variables?.connectionId === c.connectionId}
                                         onClick={() =>
                                             reindex.mutate(
                                                 { providerConfigKey: c.providerConfigKey, connectionId: c.connectionId, projectId },
@@ -187,14 +187,14 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                             )
                                         }
                                     >
-                                        {reindex.isPending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Re-index
+                                        {reindex.isPending && reindex.variables?.connectionId === c.connectionId ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Re-index
                                     </Button>
                                 ) : null}
                                 {projectId && SELECTABLE_PROVIDERS.has(c.provider ?? "") && c.provider !== "GITHUB" ? (
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        disabled={syncData.isPending}
+                                        disabled={syncData.isPending && syncData.variables?.connectionId === c.connectionId}
                                         onClick={() =>
                                             syncData.mutate(
                                                 { providerConfigKey: c.providerConfigKey, connectionId: c.connectionId, projectId },
@@ -206,7 +206,7 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                             )
                                         }
                                     >
-                                        {syncData.isPending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Sync
+                                        {syncData.isPending && syncData.variables?.connectionId === c.connectionId ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Sync
                                     </Button>
                                 ) : null}
                                 <Button
