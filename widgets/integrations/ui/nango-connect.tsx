@@ -14,6 +14,7 @@ import {
     useSyncNangoConnections,
     useDeleteNangoConnection,
     useReindexNangoConnection,
+    useSyncNangoData,
     useSelectedNangoResources,
     type NangoConnection,
 } from "@/entities/nango";
@@ -48,6 +49,7 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
     const sync = useSyncNangoConnections(organizationId);
     const del = useDeleteNangoConnection(organizationId);
     const reindex = useReindexNangoConnection(organizationId);
+    const syncData = useSyncNangoData(organizationId);
 
     const pollRef = useRef<number | null>(null);
     // Connection ids present before a connect attempt — used to detect the newly-added one so we can
@@ -186,6 +188,25 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                         }
                                     >
                                         {reindex.isPending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Re-index
+                                    </Button>
+                                ) : null}
+                                {projectId && SELECTABLE_PROVIDERS.has(c.provider ?? "") && c.provider !== "GITHUB" ? (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        disabled={syncData.isPending}
+                                        onClick={() =>
+                                            syncData.mutate(
+                                                { providerConfigKey: c.providerConfigKey, connectionId: c.connectionId, projectId },
+                                                {
+                                                    onSuccess: (r) =>
+                                                        toast.success(r.synced > 0 ? `Syncing ${r.synced} source(s)…` : "Nothing selected to sync — click Select first."),
+                                                    onError: () => toast.error("Failed to start sync."),
+                                                },
+                                            )
+                                        }
+                                    >
+                                        {syncData.isPending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Sync
                                     </Button>
                                 ) : null}
                                 <Button

@@ -170,6 +170,20 @@ export const removeNangoResource = async (
     return res.data;
 };
 
+/** Manual "Sync now": re-pull latest for every selected resource on a connection (project-scoped). */
+export const syncNangoData = async (
+    orgId: string,
+    providerConfigKey: string,
+    connectionId: string,
+    projectId: string,
+): Promise<{ synced: number }> => {
+    const res = await apiClient.post<{ synced: number }>(
+        `/orgs/${orgId}/nango/connections/${encodeURIComponent(providerConfigKey)}/${encodeURIComponent(connectionId)}/sync`,
+        { projectId },
+    );
+    return res.data;
+};
+
 /** Re-trigger code-indexing for the selected GitHub repos on a connection (project-scoped). */
 export const reindexNangoConnection = async (
     orgId: string,

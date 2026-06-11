@@ -11,6 +11,7 @@ import {
     removeNangoResource,
     saveNangoResources,
     reindexNangoConnection,
+    syncNangoData,
     type CreateNangoSessionBody,
     type NangoResourceType,
 } from "../api/nango.api";
@@ -138,6 +139,12 @@ export const useReindexNangoConnection = (orgId: string) =>
     useMutation({
         mutationFn: (vars: { providerConfigKey: string; connectionId: string; projectId: string }) =>
             reindexNangoConnection(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId),
+    });
+
+export const useSyncNangoData = (orgId: string) =>
+    useMutation({
+        mutationFn: (vars: { providerConfigKey: string; connectionId: string; projectId: string }) =>
+            syncNangoData(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId),
     });
 
 export const useSaveNangoResources = (orgId: string) => {
