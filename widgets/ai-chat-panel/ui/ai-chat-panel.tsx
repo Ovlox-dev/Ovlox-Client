@@ -1103,9 +1103,9 @@ function AssistantRow({
                                 "ring-1 ring-border/40",
                                 "text-[10px] font-semibold text-foreground/90",
                             )}
-                            title="AI"
+                            title="Ovlox"
                         >
-                            AI
+                            O
                         </div>
                     ) : (
                         <div className="w-8" aria-hidden />
@@ -1115,7 +1115,7 @@ function AssistantRow({
                 <div className="flex-1 min-w-0">
                     {showBadge ? (
                         <div className="flex items-baseline gap-2 mb-1">
-                            <p className={cn("font-semibold", compact ? "text-xs" : "text-sm")}>Assistant</p>
+                            <p className={cn("font-semibold", compact ? "text-xs" : "text-sm")}>Ovlox</p>
                             {meta ? <p className="text-[10px] text-muted-foreground">{meta}</p> : null}
                         </div>
                     ) : null}
