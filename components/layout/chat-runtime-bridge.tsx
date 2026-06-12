@@ -4,6 +4,7 @@ import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { setOnAssistantMessageReady } from "@/lib/chat-runtime";
+import { onConversationUpdated } from "@/lib/socket";
 import { chatKeys } from "@/entities/chat/queries/chat.queries";
 
 /**
@@ -20,7 +21,12 @@ export function ChatRuntimeBridge() {
             queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
             queryClient.invalidateQueries({ queryKey: [...chatKeys.all, "conversations"] });
         });
-        return () => setOnAssistantMessageReady(null);
+        // Auto-title (and any title change) → refresh the sidebar list + the open conversation header.
+        const offTitle = onConversationUpdated(({ conversationId }) => {
+            queryClient.invalidateQueries({ queryKey: [...chatKeys.all, "conversations"] });
+            queryClient.invalidateQueries({ queryKey: chatKeys.conversation(conversationId) });
+        });
+        return () => { setOnAssistantMessageReady(null); offTitle(); };
     }, [queryClient]);
 
     return null;
