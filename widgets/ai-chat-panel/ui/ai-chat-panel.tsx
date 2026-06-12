@@ -44,6 +44,7 @@ function MarkdownMessage({
     className?: string;
 }) {
     const [html, setHtml] = React.useState<string>("");
+    const ref = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -54,10 +55,36 @@ function MarkdownMessage({
         return () => { cancelled = true; };
     }, [markdown]);
 
+    // After each render, wrap code blocks and inject a hover "Copy" button (imperative DOM is fine in
+    // an effect — the sanitized HTML can't carry handlers, so we attach them here).
+    React.useEffect(() => {
+        const root = ref.current;
+        if (!root) { return; }
+        root.querySelectorAll("pre").forEach((pre) => {
+            if (pre.parentElement?.classList.contains("ovlox-codeblock")) { return; }
+            const wrap = document.createElement("div");
+            wrap.className = "ovlox-codeblock";
+            pre.parentNode?.insertBefore(wrap, pre);
+            wrap.appendChild(pre);
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "ovlox-copy-btn";
+            btn.textContent = "Copy";
+            btn.addEventListener("click", () => {
+                void navigator.clipboard.writeText(pre.innerText).then(() => {
+                    btn.textContent = "Copied";
+                    window.setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+                }).catch(() => undefined);
+            });
+            wrap.appendChild(btn);
+        });
+    }, [html]);
+
     if (!markdown) { return null; }
 
     return (
         <div
+            ref={ref}
             className={cn("ovlox-markdown text-foreground wrap-break-word", className)}
             // Sanitized by `llmMarkdownToHtml` (marked + sanitize-html allowlist).
             dangerouslySetInnerHTML={{ __html: html }}
@@ -1098,10 +1125,10 @@ function AssistantRow({
                         <div
                             className={cn(
                                 "inline-flex items-center justify-center",
-                                "h-6 w-6 rounded-full",
-                                "bg-accent-contrast text-accent-foreground",
-                                "ring-1 ring-border/40",
-                                "text-[10px] font-semibold text-foreground/90",
+                                "h-7 w-7 rounded-full",
+                                "bg-linear-to-br from-(--accent-lime) to-emerald-600",
+                                "ring-1 ring-border/40 shadow-sm",
+                                "text-[11px] font-bold text-black/80",
                             )}
                             title="Ovlox"
                         >
