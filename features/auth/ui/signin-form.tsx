@@ -192,6 +192,14 @@ export function SigninForm() {
                                 register={register}
                                 errors={errors}
                             />
+                            <div className="-mt-1 text-right">
+                                <Link
+                                    href="/forgot-password"
+                                    className="text-xs text-(--fg-3) hover:text-(--accent-lime) underline underline-offset-4"
+                                >
+                                    Forgot password?
+                                </Link>
+                            </div>
                             <Button
                                 type="submit"
                                 disabled={isLoading || googleLoading}

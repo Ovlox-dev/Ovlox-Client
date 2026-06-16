@@ -33,6 +33,26 @@ export async function requestOtp(payload: RequestOtpRequest): Promise<void> {
     await apiClient.post("/auth/request-otp", payload);
 }
 
+/** Request a password-reset code (emailed). Returns generic success even for unknown accounts. */
+export async function forgotPassword(payload: { email?: string; phoneNumber?: string }): Promise<void> {
+    await apiClient.post("/auth/forgot-password", payload);
+}
+
+/** Complete a password reset with the emailed code. */
+export async function resetPassword(payload: {
+    email?: string;
+    phoneNumber?: string;
+    otpString: string;
+    password: string;
+}): Promise<void> {
+    await apiClient.post("/auth/reset-password", payload);
+}
+
+/** Set or change the signed-in user's password (currentPassword required only if one already exists). */
+export async function setPassword(payload: { currentPassword?: string; newPassword: string }): Promise<void> {
+    await apiClient.post("/auth/set-password", payload);
+}
+
 export async function logout(): Promise<void> {
     await apiClient.put("/auth/logout");
 }
