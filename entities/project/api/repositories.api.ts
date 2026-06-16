@@ -25,9 +25,22 @@ export interface CodeFileSummary {
     metadata?: Record<string, unknown>;
 }
 
-export interface FileRiskItem extends CodeFileSummary {
-    repository?: RepositorySummary;
-    riskFactors?: Record<string, unknown>;
+/** A FileRisk row from `/repositories/risks` — keyed on the risk, with the file nested under `file`. */
+export interface FileRiskItem {
+    id: string;
+    fileId: string;
+    projectId: string;
+    riskScore: number | null;
+    reason: string | null;
+    detectedAt?: string | null;
+    updatedAt?: string | null;
+    file?: {
+        id: string;
+        path: string;
+        language?: string | null;
+        riskScore?: number | null;
+        repository?: { id: string; name?: string; provider?: string } | null;
+    } | null;
 }
 
 export interface CodeFileDetail extends CodeFileSummary {
@@ -57,7 +70,7 @@ export const listRepositories = async (
         `/orgs/${orgId}/projects/${projectId}/repositories`,
         { params },
     );
-    if (Array.isArray(response.data)) return response.data;
+    if (Array.isArray(response.data)) { return response.data; }
     return response.data.repositories ?? [];
 };
 
@@ -81,7 +94,7 @@ export const listFileRisks = async (
         `/orgs/${orgId}/projects/${projectId}/repositories/risks`,
         { params },
     );
-    if (Array.isArray(response.data)) return response.data;
+    if (Array.isArray(response.data)) { return response.data; }
     return response.data.risks ?? [];
 };
 
@@ -95,7 +108,7 @@ export const listCodeFiles = async (
         `/orgs/${orgId}/projects/${projectId}/repositories/${repositoryId}/files`,
         { params },
     );
-    if (Array.isArray(response.data)) return response.data;
+    if (Array.isArray(response.data)) { return response.data; }
     return response.data.files ?? [];
 };
 

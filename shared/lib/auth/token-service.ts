@@ -1,5 +1,6 @@
 import { clearSessionStorage } from "./session-storage";
 import { ACTIVE_ORG_ID_STORAGE_KEY, TOKEN_STORAGE_KEY } from "../storage-keys";
+import { useOrgStore } from "../organization/org-store";
 
 export interface TokenData {
     accessToken: string;
@@ -249,6 +250,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 export function clearClientSessionState(): void {
     tokenService.clearTokens();
     clearSessionStorage();
+    useOrgStore.getState().clearCurrentOrg();
     if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
         window.localStorage.removeItem(ACTIVE_ORG_ID_STORAGE_KEY);
     }

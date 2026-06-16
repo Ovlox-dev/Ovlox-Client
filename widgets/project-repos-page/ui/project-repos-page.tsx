@@ -359,15 +359,15 @@ export function ProjectReposPage() {
                             {risksList.map((f) => (
                                 <button
                                     key={f.id}
-                                    onClick={() => { setActiveRepoId(f.repositoryId); setActiveFileId(f.id); setTab("repos"); }}
+                                    onClick={() => { setActiveRepoId(f.file?.repository?.id ?? ""); setActiveFileId(f.fileId); setTab("repos"); }}
                                     className="w-full text-left px-3 py-2 rounded-md hover:bg-muted transition-colors flex items-center justify-between gap-3"
                                 >
                                     <span className="flex items-center gap-2 min-w-0">
                                         <FileCode className="size-3.5 shrink-0 text-(--fg-2)" />
-                                        <span className="font-mono text-xs truncate">{f.path}</span>
-                                        {f.repository?.name ? (
+                                        <span className="font-mono text-xs truncate">{f.file?.path ?? f.fileId}</span>
+                                        {f.file?.repository?.name ? (
                                             <span className="text-xs text-(--fg-2) hidden sm:inline">
-                                                ({f.repository.name})
+                                                ({f.file.repository.name})
                                             </span>
                                         ) : null}
                                     </span>

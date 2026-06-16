@@ -1,19 +1,35 @@
-import { marked } from "marked";
+import { Marked } from "marked";
+import { markedHighlight } from "marked-highlight";
+import hljs from "highlight.js";
 import sanitizeHtml from "sanitize-html";
 
-marked.setOptions({
-    gfm: true,
-    breaks: true,
-});
+// A dedicated Marked instance with syntax highlighting (highlight.js) so code blocks render with
+// hljs token classes. Kept local so the global `marked` config is untouched.
+const marked = new Marked(
+    markedHighlight({
+        emptyLangClass: "hljs",
+        langPrefix: "hljs language-",
+        highlight(code, lang) {
+            const language = lang && hljs.getLanguage(lang) ? lang : "plaintext";
+            try {
+                return hljs.highlight(code, { language }).value;
+            } catch {
+                return code;
+            }
+        },
+    }),
+);
+marked.setOptions({ gfm: true, breaks: true });
 
 const ALLOWED_TAGS = [
-    "h1", "h2", "h3", "h4",
-    "p",
-    "br",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "br", "hr",
     "ul", "ol", "li",
-    "strong", "em", "code", "pre",
+    "strong", "em", "del", "code", "pre",
     "blockquote",
-    "a",
+    "a", "span",
+    // GFM tables (previously stripped → tables rendered as broken text)
+    "table", "thead", "tbody", "tr", "th", "td",
 ];
 
 export async function llmMarkdownToHtml(markdown: string) {
@@ -25,6 +41,17 @@ export async function llmMarkdownToHtml(markdown: string) {
         allowedTags: ALLOWED_TAGS,
         allowedAttributes: {
             a: ["href", "target", "rel"],
+            // Allow highlight.js token classes + the language class on code blocks.
+            code: ["class"],
+            pre: ["class"],
+            span: ["class"],
+            td: ["align"],
+            th: ["align"],
+        },
+        allowedClasses: {
+            code: ["hljs", "language-*"],
+            pre: ["hljs", "language-*"],
+            span: ["hljs-*"],
         },
         transformTags: {
             a: sanitizeHtml.simpleTransform("a", {

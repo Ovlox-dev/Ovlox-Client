@@ -10,7 +10,7 @@ import {
     Database,
     Loader2,
     RefreshCw,
-    RotateCcw,
+    // RotateCcw,
     Sparkles,
     Trash2,
 } from "lucide-react";
@@ -31,7 +31,7 @@ import {
 import {
     useGetProject,
     useIngestionStatus,
-    useRetryFailedBackfill,
+    // useRetryFailedBackfill,
     useReprocessEvents,
     useResetProject,
     type IngestionStatus,
@@ -71,21 +71,21 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
 };
 
 function formatRelative(iso: string | null | undefined): string {
-    if (!iso) return "—";
+    if (!iso) { return "—"; }
     const ms = Date.now() - new Date(iso).getTime();
     const s = Math.floor(ms / 1000);
-    if (s < 60) return s <= 1 ? "just now" : `${s}s ago`;
+    if (s < 60) { return s <= 1 ? "just now" : `${s}s ago`; }
     const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m ago`;
+    if (m < 60) { return `${m}m ago`; }
     const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h ago`;
+    if (h < 24) { return `${h}h ago`; }
     const d = Math.floor(h / 24);
     return `${d}d ago`;
 }
 
 function compactNumber(n: number): string {
-    if (n < 1000) return String(n);
-    if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`;
+    if (n < 1000) { return String(n); }
+    if (n < 1_000_000) { return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`; }
     return `${(n / 1_000_000).toFixed(1)}M`;
 }
 
@@ -103,13 +103,13 @@ export function IngestionStatusPanel({
 }) {
     const { data, isLoading, isFetching, refetch } = useIngestionStatus(organizationId, projectId);
     const { data: project } = useGetProject(organizationId, projectId);
-    const retryMutation = useRetryFailedBackfill(organizationId, projectId);
+    // const retryMutation = useRetryFailedBackfill(organizationId, projectId);
     const reprocessMutation = useReprocessEvents(organizationId, projectId);
     const resetMutation = useResetProject(organizationId, projectId);
 
     const inflightCount = data?.runningJobs.length ?? 0;
     const totalEvents = data?.totalEvents ?? 0;
-    const hasFailedJobs = !!data?.recentJobs.some((j) => j.status === "FAILED");
+    // const hasFailedJobs = !!data?.recentJobs.some((j) => j.status === "FAILED");
 
     // Reset is destructive: name-typing confirmation modal, mirrored after the
     // org-danger-zone delete flow. Name match is case-sensitive on purpose.
@@ -124,7 +124,7 @@ export function IngestionStatusPanel({
     };
 
     const handleReset = () => {
-        if (!resetNamesMatch) return;
+        if (!resetNamesMatch) { return; }
         resetMutation.mutate(undefined, {
             onSuccess: (res) => {
                 const summary = res.cleared
@@ -145,21 +145,21 @@ export function IngestionStatusPanel({
         });
     };
 
-    const handleRetryFailed = () => {
-        retryMutation.mutate(undefined, {
-            onSuccess: (res) => {
-                if (res.retried > 0) {
-                    toast.success(`Re-queued ${res.retried} failed job${res.retried === 1 ? "" : "s"}`);
-                } else {
-                    toast.info("Nothing to retry — no failed jobs found");
-                }
-                refetch();
-            },
-            onError: (err) => {
-                toast.error("Retry failed", { description: (err as Error).message });
-            },
-        });
-    };
+    // const handleRetryFailed = () => {
+    //     retryMutation.mutate(undefined, {
+    //         onSuccess: (res) => {
+    //             if (res.retried > 0) {
+    //                 toast.success(`Re-queued ${res.retried} failed job${res.retried === 1 ? "" : "s"}`);
+    //             } else {
+    //                 toast.info("Nothing to retry — no failed jobs found");
+    //             }
+    //             refetch();
+    //         },
+    //         onError: (err) => {
+    //             toast.error("Retry failed", { description: (err as Error).message });
+    //         },
+    //     });
+    // };
 
     const handleReprocess = () => {
         reprocessMutation.mutate(
@@ -182,7 +182,7 @@ export function IngestionStatusPanel({
 
     // Group event counts by source for the per-provider summary cards.
     const bySource = React.useMemo(() => {
-        if (!data?.eventCountsBySource) return [];
+        if (!data?.eventCountsBySource) { return []; }
         const groups = new Map<string, {
             source: string;
             total: number;
@@ -242,7 +242,7 @@ export function IngestionStatusPanel({
                         </span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        {hasFailedJobs ? (
+                        {/* {hasFailedJobs ? (
                             <button
                                 type="button"
                                 onClick={handleRetryFailed}
@@ -258,7 +258,7 @@ export function IngestionStatusPanel({
                                 <RotateCcw className={cn("size-3", retryMutation.isPending && "animate-spin")} />
                                 Retry failed
                             </button>
-                        ) : null}
+                        ) : null} */}
                         <button
                             type="button"
                             onClick={handleReprocess}

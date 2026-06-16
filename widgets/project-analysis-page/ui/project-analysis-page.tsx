@@ -1,27 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
     Sparkles,
-    TrendingUp,
-    AlertCircle,
-    CheckCircle2,
     Clock,
     FileText,
     Loader2,
 } from "lucide-react";
 import { SiGithub, SiJira, SiSlack, SiDiscord, SiLinear, SiNotion, SiFigma } from "react-icons/si";
 import { useRouter, usePathname, useSearchParams, useParams } from "next/navigation";
-import { toast } from "sonner";
 import type { IconType } from "react-icons";
 
-import { getGithubOverview } from "@/entities/github";
-import type { GitHubOverview } from "@/types/api-types";
 import { useListProjectIntegrations } from "@/entities/project";
-import { ExternalProvider } from "@/types/enum";
 
 type DataSource = {
     id: string;
@@ -74,37 +66,14 @@ export function ProjectAnalysisPage() {
         }
     }, [searchParams, visibleSources]);
 
-    const githubIntegrationId = React.useMemo(() => {
-        return (linkedIntegrations ?? []).find(
-            (l) => (l.provider ?? l.integration?.type) === ExternalProvider.GITHUB
-                && ((l.integrationStatus ?? l.integration?.status) === "CONNECTED" || !(l.integrationStatus ?? l.integration?.status)),
-        )?.integrationId;
-    }, [linkedIntegrations]);
-
-    const [githubOverview, setGithubOverview] = React.useState<GitHubOverview | null>(null);
-    const [isLoadingGithub, setIsLoadingGithub] = React.useState(false);
-
-    React.useEffect(() => {
-        if (!githubIntegrationId || !projectId) {
-            setGithubOverview(null);
-            return;
-        }
-        setIsLoadingGithub(true);
-        // signature: (integrationId, repoFullName?, projectId?) — projectId goes in slot 3, not 2.
-        getGithubOverview(githubIntegrationId, undefined, projectId)
-            .then((data) => setGithubOverview(data))
-            .catch((err) => toast.error("Failed to fetch GitHub overview", {
-                description: err instanceof Error ? err.message : "Unknown error",
-            }))
-            .finally(() => setIsLoadingGithub(false));
-    }, [githubIntegrationId, projectId]);
-
     const handleSourceChange = (id: string) => {
         setSelectedSource(id);
         const next = new URLSearchParams(searchParams);
         next.set("source", id);
         router.replace(`${pathname}?${next.toString()}`);
     };
+
+    const activeSource = visibleSources.find((s) => s.id === selectedSource) ?? visibleSources[0];
 
     return (
         <div className="space-y-6">
@@ -148,31 +117,7 @@ export function ProjectAnalysisPage() {
                         })}
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {(selectedSource === "all" || selectedSource === "GITHUB") && githubIntegrationId ? (
-                            <GithubOverviewCard
-                                overview={githubOverview}
-                                isLoading={isLoadingGithub}
-                                onClick={() => router.push(`${pathname}/github`)}
-                            />
-                        ) : null}
-
-                        {(selectedSource === "all" || selectedSource !== "GITHUB") &&
-                            visibleSources
-                                .filter((s) => s.id !== "all" && s.id !== "GITHUB")
-                                .filter((s) => selectedSource === "all" || s.id === selectedSource)
-                                .map((source) => (
-                                    <SourceActivityCard
-                                        key={source.id}
-                                        source={source}
-                                        onClick={() =>
-                                            router.push(
-                                                `/${organizationId}/projects/${projectId}/events?source=${source.id}`,
-                                            )
-                                        }
-                                    />
-                                ))}
-                    </div>
+                    <ComingSoonCard source={activeSource} />
 
                     {selectedSource !== "all" && selectedSource !== "GITHUB" && !connectedProviders.has(selectedSource) ? (
                         <p className="text-center text-sm text-muted-foreground py-6">
@@ -186,127 +131,29 @@ export function ProjectAnalysisPage() {
     );
 }
 
-function GithubOverviewCard({
-    overview,
-    isLoading,
-    onClick,
-}: {
-    overview: GitHubOverview | null;
-    isLoading: boolean;
-    onClick: () => void;
-}) {
-    if (isLoading) {
-        return (
-            <Card className="p-5 flex items-center justify-center min-h-40">
-                <Loader2 className="size-5 animate-spin text-muted-foreground" />
-            </Card>
-        );
-    }
-    if (!overview) {
-        return (
-            <Card className="p-5">
-                <h3 className="font-semibold text-sm mb-1">GitHub overview</h3>
-                <p className="text-xs text-muted-foreground">No data yet — repo may still be backfilling.</p>
-            </Card>
-        );
-    }
+function ComingSoonCard({ source }: { source?: DataSource }) {
+    const Icon = source?.icon ?? Sparkles;
+    const label = source?.id === "all" ? "Data source analysis" : `${source?.name ?? "Source"} analysis`;
 
     return (
-        <Card
-            className="p-5 hover:shadow-xl hover:border-primary/30 transition-all duration-200 border-border/50 cursor-pointer"
-            onClick={onClick}
-        >
-            <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-lg bg-gray-50 dark:bg-gray-900">
-                        <SiGithub className="size-4 text-foreground" />
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-sm">Repository Activity</h3>
-                        <p className="text-xs text-muted-foreground">{overview.repo.name} • GitHub</p>
-                    </div>
+        <Card className="p-8 border-border/50 border-dashed">
+            <div className="flex flex-col items-center text-center max-w-md mx-auto">
+                <div className={`p-3 rounded-xl mb-4 ${source?.bgColor ?? "bg-purple-50 dark:bg-purple-950"}`}>
+                    <Icon className={`size-6 ${source?.color ?? "text-purple-600"}`} />
                 </div>
-                <Badge variant="outline" className="text-[10px] bg-emerald-500/15 text-emerald-700 border-emerald-500/30">
-                    <CheckCircle2 className="size-3 mr-1" /> Live
+                <Badge variant="outline" className="text-[10px] mb-3 bg-muted/50">
+                    <Clock className="size-3 mr-1" />
+                    Coming soon
                 </Badge>
+                <h3 className="text-lg font-semibold mb-2">{label}</h3>
+                <p className="text-sm text-muted-foreground mb-1">
+                    AI-generated summaries and cross-source insights for this project are on the way.
+                </p>
+                <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5 mt-3">
+                    <Sparkles className="size-3.5 text-purple-500" />
+                    Your connected sources will appear here once analysis is ready.
+                </p>
             </div>
-
-            {overview.repo.description ? (
-                <p className="text-sm text-muted-foreground mb-4">{overview.repo.description}</p>
-            ) : null}
-
-            <div className="flex gap-4 mb-4 pb-4 border-b">
-                <Stat label="Commits" value={overview.activity.commits} />
-                <Stat label="PRs" value={overview.activity.pullRequests} />
-                <Stat label="Issues" value={overview.activity.issues} />
-            </div>
-
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span>⭐ {overview.repo.stars} stars</span>
-                <span>🍴 {overview.repo.forks} forks</span>
-                <span>🌿 {overview.repo.defaultBranch}</span>
-            </div>
-        </Card>
-    );
-}
-
-function Stat({ label, value }: { label: string; value: number | string }) {
-    return (
-        <div>
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="text-lg font-bold">{value}</p>
-        </div>
-    );
-}
-
-/**
- * Clickable per-source card. Routes to the project Events page pre-filtered to this provider,
- * which renders all RawEvents from that source with their AI-generated summaries. Replaces
- * the old "Coming soon" stub — the Events page is the actual per-source surface today.
- */
-function SourceActivityCard({ source, onClick }: { source: DataSource; onClick: () => void }) {
-    const Icon = source.icon;
-    return (
-        <Card
-            onClick={onClick}
-            className="p-5 border-border/50 cursor-pointer hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200"
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onClick();
-                }
-            }}
-        >
-            <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <div className={`p-2 rounded-lg ${source.bgColor}`}>
-                        <Icon className={`size-4 ${source.color}`} />
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-sm">{source.name}</h3>
-                        <p className="text-xs text-muted-foreground">Source connected</p>
-                    </div>
-                </div>
-                <Badge
-                    variant="outline"
-                    className="text-[10px] bg-emerald-500/15 text-emerald-700 border-emerald-500/30"
-                >
-                    <CheckCircle2 className="size-3 mr-1" /> Live
-                </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground mb-1 flex items-center gap-2">
-                <TrendingUp className="size-4 text-blue-500" />
-                Browse {source.name} events ingested for this project.
-            </p>
-            <p className="text-xs text-muted-foreground flex items-center gap-2 mt-2">
-                <AlertCircle className="size-3 text-amber-500" />
-                Each event includes an AI-generated summary. Click to open the filtered feed.
-            </p>
-            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-2">
-                <Clock className="size-3" /> Source-specific dashboards (like the GitHub one) are rolling out.
-            </p>
         </Card>
     );
 }

@@ -35,6 +35,7 @@ export function NavMain({
         items?: {
             title: string
             url?: string
+            disabled?: boolean
         }[]
     }[]
 }) {
@@ -107,17 +108,34 @@ export function NavMain({
                                     <SidebarMenuSub>
                                         {item.items?.map((subItem) => {
                                             const subHasUrl = !!subItem.url
+                                            const subDisabled = !!subItem.disabled
                                             const subActive =
                                                 subHasUrl &&
+                                                !subDisabled &&
                                                 isRouteActive(
                                                     pathname,
                                                     subItem.url!
                                                 )
                                             return (
                                                 <SidebarMenuSubItem
-                                                    key={subItem.title}
+                                                    key={`${subItem.title}-${subDisabled ? "disabled" : "enabled"}`}
                                                 >
-                                                    {subHasUrl ? (
+                                                    {subDisabled ? (
+                                                        <SidebarMenuSubButton
+                                                            asChild
+                                                            isActive={false}
+                                                            aria-disabled="true"
+                                                            className="pointer-events-none cursor-not-allowed opacity-50"
+                                                        >
+                                                            <span tabIndex={-1}>
+                                                                <span>
+                                                                    {
+                                                                        subItem.title
+                                                                    }
+                                                                </span>
+                                                            </span>
+                                                        </SidebarMenuSubButton>
+                                                    ) : subHasUrl ? (
                                                         <SidebarMenuSubButton
                                                             asChild
                                                             isActive={subActive}

@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import Image from 'next/image'
 import { useParams } from "next/navigation"
 import { LayoutDashboard, Users, GitBranch, Plug, Settings } from "lucide-react"
@@ -17,6 +18,9 @@ import { useAuthStore } from "@/entities/auth"
 import type { IUser } from "@/types/prisma-generated"
 import { usePermission } from "@/hooks/usePermission"
 import { PermissionName } from "@/shared/lib/auth/permissions"
+import { useOrgByIdentifier, useOrgIntegrations } from "@/shared/queries/org.queries"
+import { useOrgStore } from "@/shared/lib/organization/org-store"
+import { isProviderConnected } from "@/widgets/integrations/model/integration-utils"
 
 function navUserFromSession(user: IUser | null) {
   if (!user) {
@@ -33,97 +37,169 @@ function navUserFromSession(user: IUser | null) {
   }
 }
 
+type NavSubItem = {
+  title: string
+  url?: string
+  providerId?: string
+  requiredPermission?: PermissionName
+  disabled?: boolean
+}
+type NavItem = {
+  title: string
+  url?: string
+  icon?: typeof LayoutDashboard
+  isActive?: boolean
+  requiredPermission?: PermissionName
+  items?: NavSubItem[]
+}
+type PublicNavSubItem = {
+  title: string
+  url?: string
+  disabled?: boolean
+}
+type PublicNavItem = Omit<NavItem, "requiredPermission" | "items"> & {
+  items?: PublicNavSubItem[]
+}
+
 export function AppSidebar() {
   const params = useParams()
-  const organizationId = (params?.organizationId as string) ?? ""
+  const routeIdentifier = (params?.organizationId as string) ?? ""
   const sessionUser = useAuthStore((s) => s.auth.user)
-  const { can, isLoading: isPermissionLoading } = usePermission(organizationId || null)
+  const currentOrg = useOrgStore((s) => s.currentOrg)
+  const { data: orgData } = useOrgByIdentifier(routeIdentifier)
+  const org = orgData?.organization
+  const resolvedOrgId =
+    org?.id ??
+    (currentOrg?.slug === routeIdentifier || currentOrg?.id === routeIdentifier
+      ? currentOrg.id
+      : "")
+  const orgSlug = org?.slug ?? currentOrg?.slug ?? routeIdentifier
+
+  const { can, isLoading: isPermissionLoading } = usePermission(routeIdentifier || null)
+  const {
+    data: integrationsData,
+    isLoading: integrationsLoading,
+    isFetching: integrationsFetching,
+  } = useOrgIntegrations(resolvedOrgId)
   const { state: sidebarState } = useSidebar()
   const isCollapsed = sidebarState === "collapsed"
+  const integrationsPending = integrationsLoading || integrationsFetching || !resolvedOrgId
 
-  type NavSubItem = { title: string; url?: string; requiredPermission?: PermissionName }
-  type NavItem = {
-    title: string
-    url?: string
-    icon?: typeof LayoutDashboard
-    isActive?: boolean
-    requiredPermission?: PermissionName
-    items?: NavSubItem[]
-  }
+  const allNavItems: NavItem[] = useMemo(() => {
+    const integrationBase = `/${orgSlug}/integrations`
 
-  const allNavItems: NavItem[] = [
-    {
-      title: "Dashboard",
-      url: `/${organizationId}/dashboard`,
-      icon: LayoutDashboard,
-      requiredPermission: PermissionName.VIEW_PROJECTS,
-    },
-    {
-      title: "Integrations",
-      icon: Plug,
-      url: `/${organizationId}/integrations`,
-      isActive: true,
-      requiredPermission: PermissionName.MANAGE_INTEGRATIONS,
-      items: [
-        { title: "All", url: `/${organizationId}/integrations` },
-        { title: "GitHub", url: `/${organizationId}/integrations/github` },
-        { title: "Slack", url: `/${organizationId}/integrations/slack` },
-        { title: "Jira", url: `/${organizationId}/integrations/jira` },
-        { title: "Linear", url: `/${organizationId}/integrations/linear` },
-        { title: "Discord", url: `/${organizationId}/integrations/discord` },
-      ],
-    },
-    {
-      title: "Members",
-      icon: Users,
-      url: `/${organizationId}/members`,
-      requiredPermission: PermissionName.INVITE_MEMBERS,
-    },
-    {
-      title: "Settings",
-      icon: Settings,
-      url: `/${organizationId}/settings`,
-      requiredPermission: PermissionName.MANAGE_ORG,
-    },
-    {
-      title: "Organizations",
-      icon: Users,
-      isActive: true,
-      items: [
-        { title: "All Organizations", url: `/${organizationId}/organizations` },
-        { title: "New Organization", url: "/new-organization" },
-      ],
-    },
-    {
-      title: "Projects",
-      icon: GitBranch,
-      isActive: true,
-      items: [
-        { title: "All Projects", url: `/${organizationId}/projects`, requiredPermission: PermissionName.VIEW_PROJECTS },
-        { title: "New Project", url: `/${organizationId}/projects/new-project`, requiredPermission: PermissionName.CREATE_PROJECTS },
-      ],
-    },
-  ];
+    return [
+      {
+        title: "Dashboard",
+        url: `/${orgSlug}/dashboard`,
+        icon: LayoutDashboard,
+        requiredPermission: PermissionName.VIEW_PROJECTS,
+      },
+      {
+        title: "Integrations",
+        icon: Plug,
+        url: integrationBase,
+        isActive: true,
+        requiredPermission: PermissionName.MANAGE_INTEGRATIONS,
+        items: [
+          { title: "All", url: integrationBase },
+          // Native per-provider manage pages removed — connect via Nango on the "All" page.
+        ],
+      },
+      {
+        title: "Members",
+        icon: Users,
+        url: `/${orgSlug}/members`,
+        requiredPermission: PermissionName.INVITE_MEMBERS,
+      },
+      {
+        title: "Settings",
+        icon: Settings,
+        url: `/${orgSlug}/settings`,
+        requiredPermission: PermissionName.MANAGE_ORG,
+      },
+      {
+        title: "Organizations",
+        icon: Users,
+        isActive: true,
+        items: [
+          { title: "All Organizations", url: `/${orgSlug}/organizations` },
+          { title: "New Organization", url: "/new-organization" },
+        ],
+      },
+      {
+        title: "Projects",
+        icon: GitBranch,
+        isActive: true,
+        items: [
+          { title: "All Projects", url: `/${orgSlug}/projects`, requiredPermission: PermissionName.VIEW_PROJECTS },
+          { title: "New Project", url: `/${orgSlug}/projects/new-project`, requiredPermission: PermissionName.CREATE_PROJECTS },
+        ],
+      },
+    ]
+  }, [orgSlug])
 
   /**
    * Permission-gate before rendering. While the membership query is in-flight we keep all items visible
    * (avoids a flash of empty nav) — the backend still 403s if a viewer clicks something they shouldn't see.
    */
-  const baseNavItems = isPermissionLoading || !organizationId
-    ? allNavItems.map(({ requiredPermission: _omit, ...rest }) => rest)
-    : allNavItems
-        .filter((item) => !item.requiredPermission || can(item.requiredPermission))
-        .map((item) => {
-          const { requiredPermission: _omit, items, ...rest } = item;
-          if (!items) { return rest; }
-          const allowedSubItems = items.filter((sub) => !sub.requiredPermission || can(sub.requiredPermission));
-          if (allowedSubItems.length === 0) { return null; }
+  const navItems: PublicNavItem[] = useMemo(() => {
+    const integrations = integrationsData ?? []
+
+    const permissionFiltered: PublicNavItem[] =
+      isPermissionLoading || !routeIdentifier
+        ? allNavItems.map(({ requiredPermission: _omit, ...rest }) => rest)
+        : allNavItems
+            .filter((item) => !item.requiredPermission || can(item.requiredPermission))
+            .map((item) => {
+              const { requiredPermission: _omit, items, ...rest } = item
+              if (!items) { return rest }
+              const allowedSubItems = items.filter((sub) => !sub.requiredPermission || can(sub.requiredPermission))
+              if (allowedSubItems.length === 0) { return null }
+              return {
+                ...rest,
+                items: allowedSubItems.map(({ requiredPermission: _o, providerId: _p, ...subRest }) => subRest),
+              }
+            })
+            .filter((item): item is PublicNavItem => item !== null)
+
+    return permissionFiltered.map((item) => {
+      if (item.title !== "Integrations" || !item.items) { return item }
+
+      const sourceItems = allNavItems.find((navItem) => navItem.title === "Integrations")?.items ?? []
+
+      return {
+        ...item,
+        items: item.items.map((subItem) => {
+          const source = sourceItems.find((entry) => entry.title === subItem.title)
+          const providerId = source?.providerId
+          if (!providerId) { return subItem }
+
+          const connected = isProviderConnected(integrations, providerId)
+          const disabled = integrationsPending || !connected
+
+          if (!disabled) {
+            return {
+              title: subItem.title,
+              url: source.url ?? subItem.url,
+            }
+          }
+
           return {
-            ...rest,
-            items: allowedSubItems.map(({ requiredPermission: _o, ...subRest }) => subRest),
-          };
-        })
-        .filter((item): item is NonNullable<typeof item> => item !== null);
+            title: subItem.title,
+            disabled: true,
+          }
+        }),
+      }
+    })
+  }, [
+    allNavItems,
+    can,
+    integrationsData,
+    integrationsPending,
+    isPermissionLoading,
+    routeIdentifier,
+  ])
 
   const user = navUserFromSession(sessionUser)
 
@@ -150,13 +226,13 @@ export function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <OrganizationSwitcher organizationId={organizationId} />
+      <OrganizationSwitcher organizationId={routeIdentifier} />
       <SidebarContent className="bg-(--bg-2) gap-0 overflow-y-auto overflow-x-hidden scrollbar-hide overscroll-contain">
         {/* Nav Main Dashboard, Organizations, Projects */}
-        <NavMain items={baseNavItems} />
+        <NavMain items={navItems} />
         <Separator className='bg-(--line-2)' />
         {/* All Projects */}
-        <ProjectSwitcher organizationId={organizationId} />
+        <ProjectSwitcher organizationId={routeIdentifier} />
       </SidebarContent>
       <SidebarFooter className="border-t border-(--line-2) bg-(--bg-2)">
         {/* Sidebar Footer User Name, Email, Avatar */}
@@ -165,3 +241,4 @@ export function AppSidebar() {
     </Sidebar>
   )
 }
+

@@ -4,11 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-    Card,
-    CardContent
-} from "@/components/ui/card"
-import { ArrowLeft, ArrowRight } from "lucide-react"
+import { ArrowLeft, Check, Sparkles } from "lucide-react"
 import { InputField } from "@/components/form-components"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -18,16 +14,13 @@ import { IoLogoGithub } from "react-icons/io5";
 import { SiDiscord, SiJira, SiLinear, SiSlack } from "react-icons/si"
 import Team, { TeamInvitedMember } from "./team"
 import { PageTitle } from "@/components/page-title"
-import { buildDashboardOrgRoute, getActiveOrgId, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
+import { buildDashboardOrgRoute, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
 import { createOrg, inviteMember } from "@/entities/organization/api/org"
 import { ExternalProvider, PredefinedOrgRole } from "@/types/enum"
 import { toast } from "sonner"
 
-const BORDER_SELECTED = "dark:border-accent ring-1 ring-accent"
-const BORDER_DEFAULT = "dark:border-border"
 
-
-export const TOOLS_OPTIONS = [
+const TOOLS_OPTIONS = [
     {
         id: "github",
         label: "Github",
@@ -60,14 +53,7 @@ export const TOOLS_OPTIONS = [
     },
 ] as const
 
-type CreateStep = 1 | 2 | 3
-type TeamRoleLabel = "Admin" | "Member" | "Guest"
-
-const TEAM_ROLE_TO_PREDEFINED_ROLE: Record<TeamRoleLabel, PredefinedOrgRole> = {
-    Admin: PredefinedOrgRole.ADMIN,
-    Member: PredefinedOrgRole.DEVELOPER,
-    Guest: PredefinedOrgRole.VIEWER,
-}
+const PREDEFINED_ORG_ROLES = Object.values(PredefinedOrgRole)
 
 const createWorkspaceSchema = z.object({
     workspaceName: z.string().min(1, { message: "Workspace name is required" }),
@@ -76,30 +62,36 @@ const createWorkspaceSchema = z.object({
 type CreateWorkspaceFormValues = z.infer<typeof createWorkspaceSchema>
 
 interface CreateWorkspaceProps {
-    createStep: CreateStep
-    handleCreateNext: () => void
     handleCreateBack: () => void
+    activeOrgId?: string | null
 }
 
 export default function CreateWorkspace({
-    createStep,
-    handleCreateNext,
     handleCreateBack,
+    activeOrgId,
 }: CreateWorkspaceProps) {
     const router = useRouter()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [selectedTools, setSelectedTools] = useState<ExternalProvider[]>([])
     const [invitedMembers, setInvitedMembers] = useState<TeamInvitedMember[]>([])
-    const [teamStepCompleted, setTeamStepCompleted] = useState(false)
-    const { register, getValues, trigger } = useForm<CreateWorkspaceFormValues>({
+    const [toolsAcknowledged, setToolsAcknowledged] = useState(false)
+    const [toolsSkipped, setToolsSkipped] = useState(false)
+    const [inviteSkipped, setInviteSkipped] = useState(false)
+    const { register, getValues, trigger, watch } = useForm<CreateWorkspaceFormValues>({
         resolver: zodResolver(createWorkspaceSchema),
         mode: 'onChange',
     })
 
     const toggleTool = (provider: ExternalProvider) => {
-        setSelectedTools((prev) =>
-            prev.includes(provider) ? prev.filter((item) => item !== provider) : [...prev, provider]
-        )
+        setSelectedTools((prev) => {
+            const next = prev.includes(provider)
+                ? prev.filter((item) => item !== provider)
+                : [...prev, provider]
+            if (next.length > 0) {
+                setToolsAcknowledged(true)
+            }
+            return next
+        })
     }
 
     const handleAddTeamMembers = (emails: string[]) => {
@@ -109,7 +101,7 @@ export default function CreateWorkspace({
                 id: `new-${Date.now()}-${i}`,
                 email,
                 name: null,
-                role: "Member",
+                role: PredefinedOrgRole.DEVELOPER,
                 status: "pending" as const,
             })),
         ])
@@ -123,28 +115,22 @@ export default function CreateWorkspace({
         )
     }
 
+    const handleRemoveTeamMember = (memberId: string) => {
+        setInvitedMembers((prev) => prev.filter((member) => member.id !== memberId))
+    }
+
     const mapUiRoleToPredefinedRole = (role: string): PredefinedOrgRole => {
-        if (role in TEAM_ROLE_TO_PREDEFINED_ROLE) {
-            return TEAM_ROLE_TO_PREDEFINED_ROLE[role as TeamRoleLabel]
+        if (PREDEFINED_ORG_ROLES.includes(role as PredefinedOrgRole)) {
+            return role as PredefinedOrgRole
         }
         return PredefinedOrgRole.DEVELOPER
     }
 
-    const handleSkipTeamStep = () => {
-        setTeamStepCompleted(true)
-    }
-
-    const handleNextStep = async () => {
-        if (createStep === 1) {
-            const isValid = await trigger("workspaceName")
-            const workspaceName = getValues("workspaceName")?.trim()
-            if (!isValid || !workspaceName) {
-                toast.error("Workspace name is required")
-                return
-            }
-        }
-        handleCreateNext()
-    }
+    const workspaceName = (watch("workspaceName") ?? "").trim()
+    const isNameValid = workspaceName.length > 0
+    const toolsEnabled = isNameValid
+    const inviteEnabled = isNameValid && (toolsAcknowledged || toolsSkipped)
+    const canFinish = inviteSkipped || invitedMembers.length > 0
 
     const handleFinish = async (data: CreateWorkspaceFormValues) => {
         const workspaceName = data.workspaceName?.trim()
@@ -209,154 +195,229 @@ export default function CreateWorkspace({
     }
 
     return (
-        <div className="w-full space-y-8">
+        <div className="w-full space-y-10">
+            <div className="flex items-center justify-between gap-4">
+                <PageTitle
+                    title="Create Workspace"
+                    description="Name your workspace, connect your stack, and invite your team."
+                />
+                {activeOrgId ? (
+                    <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => router.push(buildDashboardOrgRoute(activeOrgId))}
+                        className="rounded-full border-border bg-accent-contrast"
+                    >
+                        Go To Dashboard
+                    </Button>
+                ) : null}
+            </div>
 
-            {/* Step content */}
-            <div className="text-left ">
-                {/* Workspace Step */}
-                {createStep === 1 && (
-                    <div className="space-y-8">
-                        <div className="flex items-center justify-between">
-                            <PageTitle
-                                title="Create Workspace"
-                                description="Tell us about your Workspace"
-                            />
-                            {getActiveOrgId() ? (
-                                <Button
-                                    variant="outline"
-                                    size="lg"
-                                    onClick={() => router.push(buildDashboardOrgRoute(getActiveOrgId() as string))}
-                                    className="rounded-full border-border bg-accent-contrast"
+            {/* Section 1: Workspace name */}
+            <section className="rounded-[14px] border border-(--line) bg-(--bg-2) p-6 sm:p-7 space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <p className="text-sm font-mono uppercase tracking-widest text-(--fg-3)">
+                            Workspace
+                        </p>
+                        <h2 className="text-xl sm:text-2xl font-semibold text-(--fg)">
+                            Choose a name
+                        </h2>
+                        <p className="mt-1 text-sm text-(--fg-2)">
+                            This becomes the home for your projects, integrations, and team.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    <Label htmlFor="workspaceName" className="text-sm text-(--fg-2) font-medium">
+                        Workspace Name *
+                    </Label>
+                    <InputField
+                        name="workspaceName"
+                        register={register}
+                        placeholder="My Workspace"
+                        className="bg-(--bg) border-[0.5px] border-border py-2 px-4"
+                        required
+                    />
+                </div>
+            </section>
+
+            {/* Section 2: Tools */}
+            <section className="rounded-[14px] border border-(--line) bg-(--bg-2) p-6 sm:p-7 space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <p className="text-sm font-mono uppercase tracking-widest text-(--fg-3)">
+                            Tools
+                        </p>
+                        <h2 className="text-xl sm:text-2xl font-semibold text-(--fg)">
+                            Connect your stack
+                        </h2>
+                        <p className="mt-1 text-sm text-(--fg-2)">
+                            Optional. Pick what you use — you can connect more later.
+                        </p>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                            if (!toolsEnabled || selectedTools.length > 0) { return }
+                            setToolsSkipped(true)
+                            setToolsAcknowledged(true)
+                        }}
+                        disabled={!toolsEnabled || selectedTools.length > 0}
+                        className={cn(
+                            "rounded-full border-[0.5px] border-[rgba(200,255,62,0.50)] text-(--fg-2) bg-[rgba(200,255,62,0.10)] transition-all duration-300",
+                            (!toolsEnabled || selectedTools.length > 0) && "bg-[#33383B] border-[#33383B] text-[#666666] "
+                        )}
+                    >
+                        Skip for now
+                    </Button>
+                </div>
+
+                <div
+                    className={cn(
+                        "space-y-3",
+                        !toolsEnabled && "opacity-50 pointer-events-none"
+                    )}
+                >
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                        {TOOLS_OPTIONS.map((option) => {
+                            const Icon = option.icon
+                            const provider = option.id.toUpperCase() as ExternalProvider
+                            const selected = selectedTools.includes(provider)
+
+                            return (
+                                <button
+                                    key={option.id}
+                                    type="button"
+                                    role="checkbox"
+                                    aria-checked={selected}
+                                    onClick={() => toggleTool(provider)}
+                                    className={cn(
+                                        "group relative text-left rounded-[12px] border bg-(--bg-2) p-4 transition-all",
+                                        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(200,255,62,0.18)]",
+                                        selected
+                                            ? "border-(--accent-lime) shadow-[0_0_24px_rgba(200,255,62,0.10)]"
+                                            : "border-(--line) hover:border-(--accent-lime)/30"
+                                    )}
                                 >
-                                    Go To Dashboard
-                                </Button>
-                            ) : null}
-                        </div>
+                                    {selected ? (
+                                        <span className="absolute top-3 right-3 size-5 grid place-items-center rounded-full bg-(--accent-lime) text-[#07070a]">
+                                            <Check className="size-3" strokeWidth={3} />
+                                        </span>
+                                    ) : (
+                                        <span aria-hidden className="absolute top-3 right-3 size-5 rounded-full border border-(--line-2)" />
+                                    )}
 
-                        <div className="space-y-4">
-                            <Label htmlFor="workspaceName" className="text-2xl font-semibold">Workspace Name *</Label>
-                            <InputField
-                                name="workspaceName"
-                                register={register}
-                                placeholder="My Workspace"
-                                className="bg-background border-[0.5px] border-border py-2 px-4"
-                                required
-                            />
-                        </div>
+                                    <div className="flex items-start gap-3">
+                                        <div className="size-10 shrink-0 grid place-items-center rounded-[10px] border border-(--line-2) bg-(--bg-3) text-(--fg)">
+                                            <Icon className="size-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-base font-semibold text-(--fg)">
+                                                {option.label}
+                                            </p>
+                                            <p className="mt-1 text-sm text-(--fg-2) leading-relaxed">
+                                                {option.description}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </button>
+                            )
+                        })}
                     </div>
-                )}
 
-                {/* Tools Step */}
-                {createStep === 2 && (
-                    <div className="space-y-8">
-                        <PageTitle
-                            title="Connect your tools"
-                            description="Just the basics. You can change this anytime. Ovlox works better when it understands your stack. You can connect these later."
-                        />
-
-                        <div className="space-y-3">
-                            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-                                {TOOLS_OPTIONS.map((option) => {
-                                    const Icon = option.icon
-                                    const provider = option.id.toUpperCase() as ExternalProvider
-                                    const selected = selectedTools.includes(provider)
-                                    return (
-                                        <Card
-                                            key={option.id}
-                                            role="button"
-                                            tabIndex={0}
-                                            aria-pressed={selected}
-                                            onClick={() => toggleTool(provider)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter" || e.key === " ") {
-                                                    e.preventDefault()
-                                                    toggleTool(provider)
-                                                }
-                                            }}
-                                            className={cn(
-                                                "cursor-pointer bg-white dark:bg-card border transition-colors text-left",
-                                                selected ? BORDER_SELECTED : BORDER_DEFAULT
-                                            )}
-                                        >
-                                            <CardContent className="space-y-1">
-                                                <div className="flex items-center gap-4 text-white">
-                                                    <Icon className="size-6 " />
-                                                    <p className="text-xl font-semibold">
-                                                        {option.label}
-                                                    </p>
-                                                </div>
-                                                <p className="text-sm text-muted">
-                                                    {option.description}
-                                                </p>
-                                            </CardContent>
-                                        </Card>
-                                    )
-                                })}
-                            </div>
+                    {!toolsAcknowledged ? (
+                        <div className="flex items-center gap-2 text-xs text-(--fg-3)">
+                            <Sparkles className="size-3.5" />
+                            Select at least one tool or click “Skip for now” to continue.
                         </div>
-                    </div>
-                )}
+                    ) : null}
+                </div>
+            </section>
 
-                {/* Team Step */}
-                {createStep === 3 && (
+            {/* Section 3: Invite */}
+            <section className="rounded-[14px] border border-(--line) bg-(--bg-2) p-6 sm:p-7 space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <p className="text-sm font-mono uppercase tracking-widest text-(--fg-3)">
+                            Team
+                        </p>
+                        <h2 className="text-xl sm:text-2xl font-semibold text-(--fg)">
+                            Invite members
+                        </h2>
+                        <p className="mt-1 text-sm text-(--fg-2)">
+                            Optional. Add at least one email to enable Finish, or skip for now.
+                        </p>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                            if (!inviteEnabled || invitedMembers.length > 0) { return }
+                            setInviteSkipped(true)
+                        }}
+                        disabled={!inviteEnabled || invitedMembers.length > 0}
+                        className={cn(
+                            "rounded-full border-[0.5px] border-[rgba(200,255,62,0.50)] text-(--fg-2) bg-[rgba(200,255,62,0.10)] transition-all duration-300",
+                            (!inviteEnabled || invitedMembers.length > 0) && "bg-[#33383B] border-[#33383B] text-[#666666] "
+                        )}
+                    >
+                        Skip for now
+                    </Button>
+                </div>
+
+                <div className={cn(!inviteEnabled && "opacity-50")}>
                     <Team
                         invitedMembers={invitedMembers}
                         onAddMembers={handleAddTeamMembers}
                         onUpdateMemberRole={handleUpdateTeamMemberRole}
+                        onRemoveMember={handleRemoveTeamMember}
+                        disabled={!inviteEnabled}
                     />
-                )}
-            </div>
+                </div>
+
+                {!inviteEnabled ? (
+                    <p className="text-xs text-(--fg-3)">
+                        Complete the Tools section above to unlock invites.
+                    </p>
+                ) : null}
+            </section>
 
             {/* Footer actions */}
-            <div className="flex items-center justify-between gap-3 pt-2">
-                <div className="flex gap-3">
-                    <Button
-                        variant="ghost"
-                        size="lg"
-                        onClick={handleCreateBack}
-                        className="rounded-full bg-card border-[0.5px] border-border"
-                    >
-                        <ArrowLeft /> Go Back
-                    </Button>
-                    {(createStep === 3) && (
-                        <Button
-                            variant="ghost"
-                            size="lg"
-                            onClick={handleSkipTeamStep}
-                            className="rounded-full bg-card border-[0.5px] border-border text-muted"
-                        >
-                            Skip for now
-                        </Button>
-                    )}
-                </div>
-                <div className="flex gap-3">
-                    {createStep < 3 ? (
-                        <Button
-                            variant="ghost"
-                            size="lg"
-                            onClick={handleNextStep}
-                            className="bg-card border-[0.5px] border-border rounded-full"
-                        >
-                            {createStep === 1 ?
-                                <>
-                                    Continue <ArrowRight />
-                                </>
-                                : <>
-                                    Next <ArrowRight />
-                                </>
-                            }
-                        </Button>
-                    ) : (
-                        <Button
-                            size="lg"
-                            onClick={() => handleFinish(getValues())}
-                            disabled={isSubmitting || !teamStepCompleted}
-                            className="bg-card text-white font-medium text-sm hover:bg-[#191b1b]"
-                        >
-                            {isSubmitting ? "Creating..." : "Finish"}
-                        </Button>
-                    )}
-                </div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+                <Button
+                    variant="ghost"
+                    size="lg"
+                    onClick={handleCreateBack}
+                    className="rounded-full bg-card border-[0.5px] border-border"
+                >
+                    <ArrowLeft /> Go Back
+                </Button>
+
+                <Button
+                    size="lg"
+                    onClick={async () => {
+                        const isValid = await trigger("workspaceName")
+                        const name = getValues("workspaceName")?.trim()
+                        if (!isValid || !name) {
+                            toast.error("Workspace name is required")
+                            return
+                        }
+                        if (!canFinish) {
+                            toast.error("Add at least one team member or skip invites.")
+                            return
+                        }
+                        await handleFinish(getValues())
+                    }}
+                    disabled={isSubmitting || !isNameValid || !canFinish}
+                    className="bg-card text-white border border-[rgba(200,255,62,0.80)] font-medium text-sm hover:bg-[#191b1b]"
+                >
+                    {isSubmitting ? "Creating..." : "Create workspace"}
+                </Button>
             </div>
         </div>
     )

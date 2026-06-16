@@ -4,9 +4,12 @@ import type { AuthResponse, SignInRequest, SignUpRequest, VerifyOtpRequest } fro
 import type { IUser } from "@/types/prisma-generated";
 import {
     fetchCurrentUser,
+    forgotPassword as forgotPasswordApi,
     logout,
     refreshToken,
     requestOtp as requestOtpApi,
+    resetPassword as resetPasswordApi,
+    setPassword as setPasswordApi,
     signIn,
     signUp as signUpApi,
     verifyOtp as verifyOtpRequest,
@@ -27,6 +30,12 @@ type AuthSlice = {
     /** Same as verifyOtp on success; on failure keeps the current session (for logged-in email verification). */
     verifyOtpPreserveSession: (payload: VerifyOtpRequest) => Promise<IUser>;
     requestOtp: (payload: { email?: string; phoneNumber?: string }) => Promise<void>;
+    /** Email a password-reset code. No session change. */
+    forgotPassword: (payload: { email?: string; phoneNumber?: string }) => Promise<void>;
+    /** Set a new password using the emailed code. No session change (user re-signs in). */
+    resetPassword: (payload: { email?: string; phoneNumber?: string; otpString: string; password: string }) => Promise<void>;
+    /** Set/change the signed-in user's password. Keeps the current session. */
+    setPassword: (payload: { currentPassword?: string; newPassword: string }) => Promise<void>;
     fetchUser: (options?: { silent?: boolean }) => Promise<IUser | null>;
     bootstrapSession: () => Promise<IUser | null>;
     handleRefreshToken: () => Promise<string | null>;
@@ -151,6 +160,35 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             } catch (error) {
                 set((state) => ({ auth: { ...state.auth, isLoading: false } }));
                 throw error;
+            }
+        },
+
+        // Password reset / set — none of these touch the session (forgot/reset are pre-login; set
+        // keeps the logged-in user). They only toggle isLoading and surface errors to the caller.
+        forgotPassword: async (payload) => {
+            set((state) => ({ auth: { ...state.auth, isLoading: true } }));
+            try {
+                await forgotPasswordApi(payload);
+            } finally {
+                set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+            }
+        },
+
+        resetPassword: async (payload) => {
+            set((state) => ({ auth: { ...state.auth, isLoading: true } }));
+            try {
+                await resetPasswordApi(payload);
+            } finally {
+                set((state) => ({ auth: { ...state.auth, isLoading: false } }));
+            }
+        },
+
+        setPassword: async (payload) => {
+            set((state) => ({ auth: { ...state.auth, isLoading: true } }));
+            try {
+                await setPasswordApi(payload);
+            } finally {
+                set((state) => ({ auth: { ...state.auth, isLoading: false } }));
             }
         },
 

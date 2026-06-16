@@ -82,7 +82,7 @@ export function AppShell({
         */}
         <div
           className={cn(
-            "flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-6 bg-[var(--bg)]",
+            "flex flex-1 min-h-0 min-w-0 flex-col overflow-x-hidden overflow-y-auto p-4 md:p-6",
             "max-w-(--content-max-width,100rem) w-full mx-auto",
             className
           )}
@@ -156,7 +156,7 @@ function OrgRouteSync() {
    */
   const replaceOrgInPath = React.useCallback(
     (currentIdentifier: string, slug: string) => {
-      if (!pathname || !pathname.startsWith(`/${currentIdentifier}`)) return;
+      if (!pathname || !pathname.startsWith(`/${currentIdentifier}`)) { return; }
       const tail = pathname.slice(`/${currentIdentifier}`.length);
       router.replace(`/${slug}${tail}`);
     },
@@ -164,13 +164,13 @@ function OrgRouteSync() {
   );
 
   React.useEffect(() => {
-    if (!urlOrgIdentifier) return;
+    if (!urlOrgIdentifier) { return; }
 
     const isUuid = UUID_REGEX.test(urlOrgIdentifier);
 
     // URL identifier matches the store: redirect UUID URLs to slug URLs once
     // we know the slug, but otherwise no work to do.
-    if (currentOrg?.slug === urlOrgIdentifier) return;
+    if (currentOrg?.slug === urlOrgIdentifier) { return; }
     if (currentOrg?.id === urlOrgIdentifier) {
       if (isUuid && currentOrg.slug) {
         replaceOrgInPath(urlOrgIdentifier, currentOrg.slug);
@@ -185,7 +185,7 @@ function OrgRouteSync() {
 
     fetcher
       .then(({ organization }) => {
-        if (cancelled) return;
+        if (cancelled) { return; }
         setCurrentOrg(organization);
         setActiveOrgId(organization.slug || organization.id);
         if (isUuid && organization.slug) {
@@ -193,7 +193,7 @@ function OrgRouteSync() {
         }
       })
       .catch(() => {
-        if (cancelled) return;
+        if (cancelled) { return; }  
         setCurrentOrg(null);
       });
 

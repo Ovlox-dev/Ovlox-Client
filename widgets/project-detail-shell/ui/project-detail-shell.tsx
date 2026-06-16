@@ -10,12 +10,16 @@ import {
     BarChart3,
     GitBranch,
     Calendar,
-    GitCommit,
-    FolderGit2,
-    Users,
+    // GitCommit,
+    // FolderGit2,
+    // Users,
     Activity,
     AlertTriangle,
-    FileText,
+    BookOpen,
+    Code2,
+    Network,
+    Plug,
+    // FileText,
     ChevronLeft,
     ChevronRight,
     // Settings,
@@ -47,12 +51,17 @@ const TABS: Tab[] = [
     { label: "Insights", segment: "insights", icon: BarChart3, requiredPermission: PermissionName.VIEW_PROJECTS },
     { label: "Timeline", segment: "timeline", icon: Calendar, requiredPermission: PermissionName.VIEW_PROJECTS },
     { label: "Events", segment: "events", icon: Activity, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Commits", segment: "commits", icon: GitCommit, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Contributions", segment: "contributions", icon: Users, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Repos", segment: "repos", icon: FolderGit2, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Alerts", segment: "alerts", icon: AlertTriangle, requiredPermission: PermissionName.VIEW_PROJECTS },
-    { label: "Reports", segment: "reports", icon: FileText, requiredPermission: PermissionName.VIEW_REPORTS },
+    // { label: "Commits", segment: "commits", icon: GitCommit, requiredPermission: PermissionName.VIEW_PROJECTS },
+    // { label: "Contributions", segment: "contributions", icon: Users, requiredPermission: PermissionName.VIEW_PROJECTS },
+    // { label: "Repos", segment: "repos", icon: FolderGit2, requiredPermission: PermissionName.VIEW_PROJECTS },
+    // { label: "Alerts", segment: "alerts", icon: AlertTriangle, requiredPermission: PermissionName.VIEW_PROJECTS },
+    // { label: "Reports", segment: "reports", icon: FileText, requiredPermission: PermissionName.VIEW_REPORTS },
     { label: "Analysis", segment: "analysis", icon: GitBranch, requiredPermission: PermissionName.VIEW_PROJECTS },
+    { label: "Code", segment: "code-browser", icon: Code2, requiredPermission: PermissionName.VIEW_PROJECTS },
+    { label: "Graph", segment: "code-graph", icon: Network, requiredPermission: PermissionName.VIEW_PROJECTS },
+    { label: "Skills", segment: "skill-documents", icon: BookOpen, requiredPermission: PermissionName.VIEW_PROJECTS },
+    { label: "Risk", segment: "risk-forecast", icon: AlertTriangle, requiredPermission: PermissionName.VIEW_PROJECTS },
+    { label: "Integrations", segment: "integrations", icon: Plug, requiredPermission: PermissionName.MANAGE_INTEGRATIONS },
     { label: "Chat", segment: "chat", icon: MessageSquare, requiredPermission: PermissionName.VIEW_PROJECTS },
     // {
     //     label: "Settings",
@@ -87,9 +96,9 @@ export function ProjectDetailShell({ children }: { children: ReactNode }) {
      * If the URL is already the slug, this is a no-op.
      */
     useEffect(() => {
-        if (!projectId || !project?.slug) return;
-        if (!UUID_REGEX.test(projectId)) return;
-        if (project.slug === projectId) return;
+        if (!projectId || !project?.slug) { return; }
+        if (!UUID_REGEX.test(projectId)) { return; }
+        if (project.slug === projectId) { return; }
         const target = pathname.replace(
             `/projects/${projectId}`,
             `/projects/${project.slug}`,
@@ -111,13 +120,13 @@ export function ProjectDetailShell({ children }: { children: ReactNode }) {
      * `project.organization.slug` and `project.organizationId`.
      */
     useEffect(() => {
-        if (!project?.organization?.slug || !organizationId) return;
+        if (!project?.organization?.slug || !organizationId) { return; }
         const projectOrgSlug = project.organization.slug;
         const projectOrgId = project.organizationId;
         // URL identifier may be a slug (post-migration) or a UUID (legacy).
         // Either form is valid as long as it resolves to the project's org.
-        if (organizationId === projectOrgSlug) return;
-        if (organizationId === projectOrgId) return;
+        if (organizationId === projectOrgSlug) { return; }
+        if (organizationId === projectOrgId) { return; }
         const target = pathname.replace(`/${organizationId}`, `/${projectOrgSlug}`);
         if (target !== pathname) {
             router.replace(target);
@@ -140,9 +149,11 @@ export function ProjectDetailShell({ children }: { children: ReactNode }) {
         return trailing.split("/")[0] ?? "";
     })();
 
+    const isChatTab = activeSegment === "chat";
+
     return (
-        <div className="space-y-4">
-            <div className="border-b border-border bg-background">
+        <div className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 border-b border-border bg-background">
                 <div className="flex items-start justify-between gap-4">
                     <PageTitle
                         title={project?.name ?? "Project"}
@@ -174,7 +185,16 @@ export function ProjectDetailShell({ children }: { children: ReactNode }) {
                 </div>
                 <TabStrip tabs={visibleTabs} activeSegment={activeSegment} base={base} />
             </div>
-            <div>{children}</div>
+            <div
+                className={cn(
+                    "min-h-0 flex-1 pt-4",
+                    isChatTab
+                        ? "flex flex-col overflow-hidden"
+                        : "overflow-x-hidden scrollbar-hide overflow-y-auto",
+                )}
+            >
+                {children}
+            </div>
         </div>
     );
 }
@@ -206,7 +226,7 @@ function TabStrip({
 
     const updateScrollState = useCallback(() => {
         const el = navRef.current;
-        if (!el) return;
+        if (!el) { return; }
         // 4px buffer so we don't flicker the affordance at the exact edge.
         setCanScrollLeft(el.scrollLeft > 4);
         setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
@@ -215,7 +235,7 @@ function TabStrip({
     useEffect(() => {
         updateScrollState();
         const el = navRef.current;
-        if (!el) return;
+        if (!el) { return; }
         el.addEventListener("scroll", updateScrollState, { passive: true });
         const ro = new ResizeObserver(updateScrollState);
         ro.observe(el);
@@ -230,15 +250,15 @@ function TabStrip({
     // previous scroll offset.
     useEffect(() => {
         const el = navRef.current;
-        if (!el) return;
+        if (!el) { return; }
         const active = el.querySelector('[data-active="true"]') as HTMLElement | null;
-        if (!active) return;
+        if (!active) { return; }
         active.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
     }, [activeSegment]);
 
     const scrollByAmount = (direction: "left" | "right") => {
         const el = navRef.current;
-        if (!el) return;
+        if (!el) { return; }
         const amount = Math.max(160, el.clientWidth * 0.6);
         el.scrollBy({ left: direction === "left" ? -amount : amount, behavior: "smooth" });
     };

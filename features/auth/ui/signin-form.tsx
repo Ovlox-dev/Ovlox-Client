@@ -22,11 +22,9 @@ import {
 } from "@/shared/lib/auth/auth-navigation";
 import {
     buildDashboardOrgRoute,
-    DASHBOARD_NEW_ORGANIZATION_ROUTE,
     getActiveOrgId,
-    setActiveOrgId,
+    resolvePostAuthOrgRedirect,
 } from "@/shared/lib/auth/post-auth-org-resolver";
-import { userOrgs } from "@/entities/organization/api/org";
 import { signInWithGoogle } from "@/shared/lib/auth/google-signin";
 
 const loginSchema = z.object({
@@ -62,8 +60,8 @@ export function SigninForm() {
     }, [redirectTarget]);
 
     useEffect(() => {
-        if (!emailFromQuery) return;
-        if (getValues("email")) return;
+        if (!emailFromQuery) {return;}
+        if (getValues("email")) {return;}
         setValue("email", emailFromQuery, {
             shouldDirty: false,
             shouldTouch: false,
@@ -82,18 +80,8 @@ export function SigninForm() {
             router.replace(buildDashboardOrgRoute(storedOrgId));
             return;
         }
-        const response = await userOrgs();
-        const orgs = response.data ?? [];
-        if (orgs.length === 0) {
-            setActiveOrgId(null);
-            router.replace(DASHBOARD_NEW_ORGANIZATION_ROUTE);
-            return;
-        }
-        const chosen = orgs[0]?.id ?? null;
-        setActiveOrgId(chosen);
-        router.replace(
-            chosen ? buildDashboardOrgRoute(chosen) : DASHBOARD_NEW_ORGANIZATION_ROUTE
-        );
+        const { redirectTo } = await resolvePostAuthOrgRedirect();
+        router.replace(redirectTo);
     };
 
     const onSubmit = async (data: LoginFormValues) => {
@@ -126,12 +114,12 @@ export function SigninForm() {
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-(--line) bg-(--bg-2) mb-5">
                         <span className="size-1.5 rounded-full bg-(--accent-lime) shadow-[0_0_8px_var(--accent-lime)]" />
-                        <span className="font-mono uppercase tracking-[0.1em] text-[10px] text-(--accent-lime)">
+                        <span className="font-mono uppercase tracking-widest text-[10px] text-(--accent-lime)">
                             Sign in
                         </span>
                     </div>
                     <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-(--fg) leading-tight">
-                        Welcome <span className="serif italic bg-gradient-to-br from-(--accent-lime) via-(--accent-3) to-(--accent-4) bg-clip-text text-transparent">back.</span>
+                        Welcome <span className="serif italic bg-linear-to-br from-(--accent-lime) via-(--accent-3) to-(--accent-4) bg-clip-text text-transparent">back.</span>
                     </h1>
                     <p className="mt-2 text-sm text-(--fg-2)">
                         Continue where you left off.
@@ -141,7 +129,7 @@ export function SigninForm() {
                 {/* FORM CARD */}
                 <div className="rounded-[14px] border border-(--line) bg-(--bg-2) overflow-hidden shadow-[0_30px_80px_-30px_rgba(0,0,0,0.6)]">
                     {/* Frame titlebar */}
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-(--line-2) bg-gradient-to-b from-[#181820] to-[#131319]">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-(--line-2) bg-linear-to-b from-[#181820] to-[#131319]">
                         <div className="flex gap-1.5">
                             <span className="size-2.5 rounded-full bg-[#ff5b6e]" />
                             <span className="size-2.5 rounded-full bg-[#ffb84d]" />
@@ -204,6 +192,14 @@ export function SigninForm() {
                                 register={register}
                                 errors={errors}
                             />
+                            <div className="-mt-1 text-right">
+                                <Link
+                                    href="/forgot-password"
+                                    className="text-xs text-(--fg-3) hover:text-(--accent-lime) underline underline-offset-4"
+                                >
+                                    Forgot password?
+                                </Link>
+                            </div>
                             <Button
                                 type="submit"
                                 disabled={isLoading || googleLoading}
