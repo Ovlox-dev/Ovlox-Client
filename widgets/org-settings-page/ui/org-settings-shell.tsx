@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { Settings, AlertTriangle, Users } from "lucide-react";
+import { Settings, AlertTriangle, Users, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SettingsTab {
@@ -29,6 +29,12 @@ const TABS: SettingsTab[] = [
         matches: () => false,
         icon: Users,
         external: true,
+    },
+    {
+        label: "Security",
+        href: (orgId) => `/${orgId}/settings/security`,
+        matches: (path, orgId) => path.startsWith(`/${orgId}/settings/security`),
+        icon: KeyRound,
     },
     {
         label: "Danger zone",
