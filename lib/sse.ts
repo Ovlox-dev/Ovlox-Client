@@ -186,10 +186,19 @@ export function streamProjectReadiness(
     return createEventSource<ReadinessSnapshot>(url, { onMessage: onSnapshot, onError });
 }
 
+export interface AgentStepEvent {
+    id: string;
+    label: string;
+    detail?: string;
+    status: "running" | "done";
+}
+
 export type JobStatusEvent =
     | { jobId: string; status?: string; attempts?: number; payload?: unknown; updatedAt?: string; completed?: boolean; userId?: string; error?: string }
     | { jobId: string; userId?: string; kind: "chunk"; seq: number; delta: string }
-    | { jobId: string; userId?: string; kind: "answer"; answer: string; chatMessageId?: string; partialContext?: boolean };
+    | { jobId: string; userId?: string; kind: "stage"; seq: number; stage: string; detail?: string }
+    | ({ jobId: string; userId?: string; kind: "step"; seq: number } & AgentStepEvent)
+    | { jobId: string; userId?: string; kind: "answer"; answer: string; chatMessageId?: string; steps?: AgentStepEvent[]; partialContext?: boolean };
 
 /**
  * Subscribe to /chat/jobs/:jobId/stream. Mirrors the WebSocket `chatChunk`/`newMessage` events

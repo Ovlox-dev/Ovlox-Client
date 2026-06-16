@@ -418,6 +418,8 @@ export interface ChatMessageWithDetails extends Omit<IChatMessage, 'sources'> {
     sender?: ChatMessageSender | null;
     senderMember?: ChatMessageSenderMember | null;
     sources?: ChatMessageSourceDetails[];
+    /** Assistant-only extras persisted with the message — currently the agent's step timeline. */
+    metadata?: { steps?: Array<{ id: string; label: string; detail?: string; status: "running" | "done" }> } | null;
 }
 
 export interface SendMessageResponse {

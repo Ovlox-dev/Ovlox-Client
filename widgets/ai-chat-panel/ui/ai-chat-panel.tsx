@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Plus, MessageSquare, Loader2, PanelLeftClose, PanelLeftOpen, ArrowUp, Copy } from "lucide-react";
+import { Plus, MessageSquare, Loader2, PanelLeftClose, PanelLeftOpen, ArrowUp, Copy, Check, ChevronRight } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import {
     releaseConversation,
     startConversationJob,
     useChatStreamingStore,
+    type AgentStep,
 } from "@/lib/chat-runtime";
 import {
     buildScopeKey,
@@ -42,6 +44,7 @@ function MarkdownMessage({
     className?: string;
 }) {
     const [html, setHtml] = React.useState<string>("");
+    const ref = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -52,10 +55,36 @@ function MarkdownMessage({
         return () => { cancelled = true; };
     }, [markdown]);
 
+    // After each render, wrap code blocks and inject a hover "Copy" button (imperative DOM is fine in
+    // an effect — the sanitized HTML can't carry handlers, so we attach them here).
+    React.useEffect(() => {
+        const root = ref.current;
+        if (!root) { return; }
+        root.querySelectorAll("pre").forEach((pre) => {
+            if (pre.parentElement?.classList.contains("ovlox-codeblock")) { return; }
+            const wrap = document.createElement("div");
+            wrap.className = "ovlox-codeblock";
+            pre.parentNode?.insertBefore(wrap, pre);
+            wrap.appendChild(pre);
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "ovlox-copy-btn";
+            btn.textContent = "Copy";
+            btn.addEventListener("click", () => {
+                void navigator.clipboard.writeText(pre.innerText).then(() => {
+                    btn.textContent = "Copied";
+                    window.setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+                }).catch(() => undefined);
+            });
+            wrap.appendChild(btn);
+        });
+    }, [html]);
+
     if (!markdown) { return null; }
 
     return (
         <div
+            ref={ref}
             className={cn("ovlox-markdown text-foreground wrap-break-word", className)}
             // Sanitized by `llmMarkdownToHtml` (marked + sanitize-html allowlist).
             dangerouslySetInnerHTML={{ __html: html }}
@@ -87,6 +116,20 @@ function formatTime(d: Date): string {
  * - `compact = true` collapses the conversation list and tightens spacing for the drawer.
  * - `showConversationList = false` hides the sidebar entirely (forces single-conversation mode).
  */
+
+/** Map a streamed agent stage to a friendly "thinking" label. Falls back to "thinking…". */
+function stageToLabel(stage?: string | null, detail?: string | null): string {
+    switch (stage) {
+        case "PLANNING": return "planning…";
+        case "RETRIEVAL": return detail ? `retrieving · ${detail}` : "retrieving…";
+        case "TOOL_CALL": return detail ? `using ${detail}…` : "using tools…";
+        case "ANALYZING": return "analyzing…";
+        case "GENERATING": return "generating…";
+        case "CRITIQUE": return "reviewing…";
+        default: return "thinking…";
+    }
+}
+
 export function AiChatPanel({
     scope,
     compact = false,
@@ -148,6 +191,9 @@ export function AiChatPanel({
     const streamingBuffer = streamState?.buffer ?? "";
     const pending = streamState?.pending ?? null;
     const persistedAssistantId = streamState?.persistedAssistantMessageId ?? null;
+    // Friendly label for the current agent stage (planning/retrieving/etc.), shown in place of the
+    // generic "thinking…" while the backend works. Falls back to "thinking…" when no stage yet.
+    const thinkingMeta = stageToLabel(streamState?.stage, streamState?.stageDetail);
 
     const { data: conversations, isLoading: convosLoading, refetch: refetchConversations } = useListConversations(
         isProject ? { projectId } : { organizationId },
@@ -579,6 +625,8 @@ export function AiChatPanel({
                             enableCopy={false}
                             showHoverTime={false}
                             trailingCaret
+                            steps={streamState?.steps}
+                            stepsLive
                         />
                     ) : pending && !persistedAssistantId ? (
                         // Only show "thinking…" while we genuinely don't have an answer yet.
@@ -592,11 +640,13 @@ export function AiChatPanel({
                         <AssistantRow
                             compact={compact}
                             markdown=""
-                            meta="thinking…"
+                            meta={thinkingMeta}
                             showBadge
                             enableCopy={false}
                             showHoverTime={false}
-                            placeholderDots
+                            placeholderDots={!(streamState?.steps && streamState.steps.length > 0)}
+                            steps={streamState?.steps}
+                            stepsLive
                         />
                     ) : null}
 
@@ -949,6 +999,7 @@ function MessageRow({
                 timeLabel={isGroupStart ? formatTime(ts) : undefined}
                 showHoverTime
                 enableCopy
+                steps={message.metadata?.steps as AgentStep[] | undefined}
             />
         );
     }
@@ -1004,6 +1055,43 @@ function UserBubble({
     );
 }
 
+/** The agent's step timeline. Live (streaming): an expanded list with spinner/check + finding.
+ *  Done (persisted/final): collapses into a "Worked through N steps" toggle. */
+function StepsTimeline({ steps, live }: { steps: AgentStep[]; live: boolean }) {
+    if (!steps || steps.length === 0) { return null; }
+    const Row = ({ s }: { s: AgentStep }) => (
+        <div className="flex items-start gap-2 py-0.5">
+            {s.status === "running" ? (
+                <Loader2 className="size-3.5 mt-0.5 shrink-0 animate-spin text-muted-foreground" />
+            ) : (
+                <Check className="size-3.5 mt-0.5 shrink-0 text-(--accent-lime)" />
+            )}
+            <div className="min-w-0">
+                <span className="text-xs text-foreground/90">{s.label}</span>
+                {s.detail ? <span className="text-[11px] text-muted-foreground"> — {s.detail}</span> : null}
+            </div>
+        </div>
+    );
+    if (live) {
+        return (
+            <div className="mb-2 rounded-md border border-border/50 bg-muted/30 px-2.5 py-1.5">
+                {steps.map((s) => <Row key={s.id} s={s} />)}
+            </div>
+        );
+    }
+    return (
+        <Collapsible className="mb-2">
+            <CollapsibleTrigger className="group/steps flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
+                <ChevronRight className="size-3 transition-transform group-data-[state=open]/steps:rotate-90" />
+                Worked through {steps.length} step{steps.length === 1 ? "" : "s"}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-1 rounded-md border border-border/50 bg-muted/20 px-2.5 py-1.5">
+                {steps.map((s) => <Row key={s.id} s={s} />)}
+            </CollapsibleContent>
+        </Collapsible>
+    );
+}
+
 function AssistantRow({
     compact,
     markdown,
@@ -1014,6 +1102,8 @@ function AssistantRow({
     enableCopy,
     trailingCaret,
     placeholderDots,
+    steps,
+    stepsLive,
 }: {
     compact: boolean;
     markdown: string;
@@ -1024,6 +1114,8 @@ function AssistantRow({
     enableCopy: boolean;
     trailingCaret?: boolean;
     placeholderDots?: boolean;
+    steps?: AgentStep[];
+    stepsLive?: boolean;
 }) {
     return (
         <div className="group relative">
@@ -1033,14 +1125,14 @@ function AssistantRow({
                         <div
                             className={cn(
                                 "inline-flex items-center justify-center",
-                                "h-6 w-6 rounded-full",
-                                "bg-accent-contrast text-accent-foreground",
-                                "ring-1 ring-border/40",
-                                "text-[10px] font-semibold text-foreground/90",
+                                "h-7 w-7 rounded-full",
+                                "bg-linear-to-br from-(--accent-lime) to-emerald-600",
+                                "ring-1 ring-border/40 shadow-sm",
+                                "text-[11px] font-bold text-black/80",
                             )}
-                            title="AI"
+                            title="Ovlox"
                         >
-                            AI
+                            O
                         </div>
                     ) : (
                         <div className="w-8" aria-hidden />
@@ -1050,10 +1142,12 @@ function AssistantRow({
                 <div className="flex-1 min-w-0">
                     {showBadge ? (
                         <div className="flex items-baseline gap-2 mb-1">
-                            <p className={cn("font-semibold", compact ? "text-xs" : "text-sm")}>Assistant</p>
+                            <p className={cn("font-semibold", compact ? "text-xs" : "text-sm")}>Ovlox</p>
                             {meta ? <p className="text-[10px] text-muted-foreground">{meta}</p> : null}
                         </div>
                     ) : null}
+
+                    {steps && steps.length > 0 ? <StepsTimeline steps={steps} live={!!stepsLive} /> : null}
 
                     {placeholderDots ? (
                         <div className="flex items-center gap-1 py-2">

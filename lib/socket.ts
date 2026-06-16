@@ -221,6 +221,9 @@ export const onTyping = (callback: (data: TypingEvent) => void) =>
 export const onMessageRead = (callback: (data: MessageReadEvent) => void) =>
     subscribe<MessageReadEvent>("messageRead", callback);
 
+export const onConversationUpdated = (callback: (data: { conversationId: string; title: string | null }) => void) =>
+    subscribe<{ conversationId: string; title: string | null }>("conversationUpdated", callback);
+
 /**
  * NOTE: token-streaming has migrated entirely to SSE (`lib/sse.ts streamJobStatus`).
  * The backend may still emit a `chatChunk` socket event — there is intentionally no

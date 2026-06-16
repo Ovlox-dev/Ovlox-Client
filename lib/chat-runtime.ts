@@ -56,14 +56,31 @@ export type StreamPending = {
     persistedUserMessageId?: string | null;
 };
 
+/** One step in the agent's live timeline (a tool call + its 1-line finding). */
+export type AgentStep = {
+    id: string;
+    label: string;
+    detail?: string;
+    status: "running" | "done";
+};
+
 export type StreamState = {
     buffer: string;
     jobId: string | null;
     pending: StreamPending | null;
+    /** Live agent steps (search code → finding, read graph → finding…). Persisted with the message
+     *  on completion; unlike `stage`, these are kept once tokens flow so the timeline stays visible. */
+    steps?: AgentStep[];
     /** When the SSE `answer` event (or socket assistant `newMessage`) arrives we stash the
      *  persisted assistant message id here. The panel keeps showing the streamed bubble
      *  until that id is visible in the `messages` query result. */
     persistedAssistantMessageId: string | null;
+    /** Current agent stage (PLANNING / RETRIEVAL / TOOL_CALL / ANALYZING / GENERATING / CRITIQUE)
+     *  streamed via SSE `kind:'stage'` — shown as a "thinking" hint until tokens/answer arrive. */
+    stage?: string | null;
+    stageDetail?: string | null;
+    /** Highest stage `seq` applied so far — guards against out-of-order/duplicate stage events. */
+    lastStageSeq?: number;
 };
 
 type StreamingStore = {
@@ -72,6 +89,9 @@ type StreamingStore = {
 
     startPending: (conversationId: string, userText: string) => void;
     setJobId: (conversationId: string, jobId: string) => void;
+    setStage: (conversationId: string, stage: string, detail?: string, seq?: number) => void;
+    /** Upsert a live agent step (running → done) by id. */
+    addStep: (conversationId: string, step: AgentStep) => void;
     appendChunk: (conversationId: string, delta: string) => void;
     /** Used in degraded mode (server emitted only the final answer, no chunks). */
     seedAnswerIfEmpty: (conversationId: string, answer: string) => void;
@@ -116,13 +136,41 @@ export const useChatStreamingStore = create<StreamingStore>((set) => ({
             };
         }),
 
+    setStage: (conversationId, stage, detail, seq) =>
+        set((state) => {
+            const prev = state.byConversation[conversationId] ?? emptyStream();
+            // Drop out-of-order/duplicate stage events, and ignore any stage once tokens have begun
+            // (the streamed text supersedes the "thinking" hint — a late stage must not re-show it).
+            if (seq !== undefined && prev.lastStageSeq !== undefined && seq <= prev.lastStageSeq) { return {}; }
+            if (prev.buffer.length > 0) { return {}; }
+            return {
+                byConversation: {
+                    ...state.byConversation,
+                    [conversationId]: { ...prev, stage, stageDetail: detail ?? null, lastStageSeq: seq ?? prev.lastStageSeq },
+                },
+            };
+        }),
+
+    addStep: (conversationId, step) =>
+        set((state) => {
+            const prev = state.byConversation[conversationId] ?? emptyStream();
+            const steps = [...(prev.steps ?? [])];
+            const i = steps.findIndex((s) => s.id === step.id);
+            if (i >= 0) { steps[i] = step; } else { steps.push(step); }
+            return {
+                byConversation: { ...state.byConversation, [conversationId]: { ...prev, steps } },
+            };
+        }),
+
     appendChunk: (conversationId, delta) =>
         set((state) => {
             const prev = state.byConversation[conversationId] ?? emptyStream();
             return {
                 byConversation: {
+                    // Once tokens flow, the streamed text replaces the "thinking: <stage>" hint —
+                    // but the step timeline is KEPT (steps spread via ...prev).
                     ...state.byConversation,
-                    [conversationId]: { ...prev, buffer: prev.buffer + delta },
+                    [conversationId]: { ...prev, buffer: prev.buffer + delta, stage: null, stageDetail: null },
                 },
             };
         }),
@@ -382,6 +430,17 @@ export function startConversationJob(conversationId: string, jobId: string) {
             if (!evt || typeof evt !== "object") { return; }
             if ("jobId" in evt && evt.jobId !== jobId) { return; }
             const store = useChatStreamingStore.getState();
+            if ("kind" in evt && evt.kind === "stage") {
+                // Non-token progress (planning/retrieval/tool/critique). Shown as a "thinking" hint
+                // until tokens or the final answer arrive. Additive — never blocks the chunk path.
+                store.setStage(conversationId, evt.stage, evt.detail, evt.seq);
+                return;
+            }
+            if ("kind" in evt && evt.kind === "step") {
+                // A tool the agent ran (running → done + finding). Accumulates into the live timeline.
+                store.addStep(conversationId, { id: evt.id, label: evt.label, detail: evt.detail, status: evt.status });
+                return;
+            }
             if ("kind" in evt && evt.kind === "chunk") {
                 store.appendChunk(conversationId, evt.delta);
                 return;

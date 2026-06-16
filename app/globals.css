@@ -589,3 +589,36 @@
 .ovlox-markdown pre code { @apply bg-transparent p-0; }
 .ovlox-markdown blockquote { @apply mt-2 border-l-2 border-border pl-3 text-muted-foreground; }
 .ovlox-markdown :is(h1, h2, h3, h4):first-child { @apply mt-0; }
+.ovlox-markdown h5 { @apply text-xs font-semibold mt-2 mb-1; }
+.ovlox-markdown h6 { @apply text-xs font-semibold mt-2 mb-1 text-muted-foreground; }
+.ovlox-markdown hr { @apply my-3 border-border; }
+.ovlox-markdown del { @apply line-through opacity-70; }
+/* GFM tables */
+.ovlox-markdown table { @apply mt-2 w-full text-[0.85em] border-collapse overflow-hidden rounded-lg border border-border; }
+.ovlox-markdown thead { @apply bg-muted/60; }
+.ovlox-markdown th { @apply text-left font-semibold px-2.5 py-1.5 border-b border-border; }
+.ovlox-markdown td { @apply px-2.5 py-1.5 border-b border-border/60 align-top; }
+.ovlox-markdown tr:last-child td { @apply border-b-0; }
+
+/* Code-block wrapper + copy button (button injected by MarkdownMessage) */
+.ovlox-codeblock { @apply relative my-2; }
+.ovlox-codeblock > pre { @apply my-0; }
+.ovlox-copy-btn {
+	@apply absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border border-border bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground opacity-0 transition-opacity;
+}
+.ovlox-codeblock:hover .ovlox-copy-btn { @apply opacity-100; }
+.ovlox-copy-btn:hover { @apply text-foreground; }
+
+/* Compact, theme-consistent highlight.js token colors (no full theme import) */
+.ovlox-markdown .hljs-comment, .ovlox-markdown .hljs-quote { @apply text-muted-foreground italic; }
+.ovlox-markdown .hljs-keyword, .ovlox-markdown .hljs-selector-tag, .ovlox-markdown .hljs-literal, .ovlox-markdown .hljs-built_in { color: #c792ea; }
+.ovlox-markdown .hljs-string, .ovlox-markdown .hljs-attr, .ovlox-markdown .hljs-template-tag { color: #c3e88d; }
+.ovlox-markdown .hljs-number, .ovlox-markdown .hljs-symbol { color: #f78c6c; }
+.ovlox-markdown .hljs-title, .ovlox-markdown .hljs-title.function_, .ovlox-markdown .hljs-section { color: #82aaff; }
+.ovlox-markdown .hljs-type, .ovlox-markdown .hljs-class .hljs-title { color: #ffcb6b; }
+.ovlox-markdown .hljs-variable, .ovlox-markdown .hljs-property, .ovlox-markdown .hljs-params { color: #f07178; }
+.ovlox-markdown .hljs-tag .hljs-name { color: #f07178; }
+.ovlox-markdown .hljs-deletion { color: #f07178; }
+.ovlox-markdown .hljs-addition { color: #c3e88d; }
+.ovlox-markdown .hljs-emphasis { @apply italic; }
+.ovlox-markdown .hljs-strong { @apply font-semibold; }
