@@ -9,6 +9,7 @@ import { FcGoogle } from "react-icons/fc";
 import { toast } from "sonner";
 
 import { useAuthStore } from "@/entities/auth";
+import { PasswordSettingsCard } from "@/features/auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/shared/lib/use-initials";
@@ -30,7 +31,7 @@ export default function AccountPage() {
     // store may be stale and missing `authIdentities` (which only the GET
     // /user/me query populates). The fetch is idempotent in the store.
     useEffect(() => {
-        if (status === "loading") return;
+        if (status === "loading") { return; }
         if (!user || user.authIdentities === undefined) {
             void fetchUser({ silent: true });
         }
@@ -189,6 +190,9 @@ export default function AccountPage() {
                         />
                     </div>
                 </section>
+
+                {/* Password (set / change) */}
+                <PasswordSettingsCard hasPassword={hasPassword} />
 
                 {/* Identifiers */}
                 <section className="rounded-[14px] border border-(--line) bg-(--bg-2) p-6">
