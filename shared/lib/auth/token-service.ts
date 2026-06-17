@@ -1,6 +1,7 @@
 import { clearSessionStorage } from "./session-storage";
 import { ACTIVE_ORG_ID_STORAGE_KEY, TOKEN_STORAGE_KEY } from "../storage-keys";
 import { useOrgStore } from "../organization/org-store";
+import { clearSharedQueryCache } from "../query-client-registry";
 
 export interface TokenData {
     accessToken: string;
@@ -254,4 +255,8 @@ export function clearClientSessionState(): void {
     if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
         window.localStorage.removeItem(ACTIVE_ORG_ID_STORAGE_KEY);
     }
+    // Wipe the React Query cache too — tokens/localStorage alone aren't enough. Without this the
+    // previous user's cached data (userOrgs, projects, org details) survives logout and the next
+    // user who signs in is served stale, cross-account data until each query refetches.
+    clearSharedQueryCache();
 }

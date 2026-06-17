@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Check, Sparkles } from "lucide-react"
@@ -16,6 +17,7 @@ import Team, { TeamInvitedMember } from "./team"
 import { PageTitle } from "@/components/page-title"
 import { buildDashboardOrgRoute, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
 import { createOrg, inviteMember } from "@/entities/organization/api/org"
+import { useAuthStore } from "@/entities/auth"
 import { ExternalProvider, PredefinedOrgRole } from "@/types/enum"
 import { toast } from "sonner"
 
@@ -71,6 +73,8 @@ export default function CreateWorkspace({
     activeOrgId,
 }: CreateWorkspaceProps) {
     const router = useRouter()
+    const queryClient = useQueryClient()
+    const fetchUser = useAuthStore((s) => s.auth.fetchUser)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [selectedTools, setSelectedTools] = useState<ExternalProvider[]>([])
     const [invitedMembers, setInvitedMembers] = useState<TeamInvitedMember[]>([])
@@ -130,7 +134,9 @@ export default function CreateWorkspace({
     const isNameValid = workspaceName.length > 0
     const toolsEnabled = isNameValid
     const inviteEnabled = isNameValid && (toolsAcknowledged || toolsSkipped)
-    const canFinish = inviteSkipped || invitedMembers.length > 0
+    // Tools + invites are optional — the workspace name is the only requirement to create. (Previously
+    // you were forced to either add a member or explicitly click "Skip for now" on invites.)
+    const canFinish = isNameValid
 
     const handleFinish = async (data: CreateWorkspaceFormValues) => {
         const workspaceName = data.workspaceName?.trim()
@@ -186,6 +192,15 @@ export default function CreateWorkspace({
             }
 
             setActiveOrgId(orgId)
+            // Refresh the cached org list + the signed-in user's memberships BEFORE navigating —
+            // otherwise the dashboard loads against stale data (the new org isn't in the cached
+            // ["userOrgs"] / user record yet) and you land "outside" the org until a manual refresh.
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["userOrgs"] }),
+                // also the permission-cache key so the new org's permission-gated UI is fresh immediately
+                queryClient.invalidateQueries({ queryKey: ["org", "current-user-orgs"] }),
+                fetchUser({ silent: true }).catch(() => null),
+            ])
             router.push(buildDashboardOrgRoute(orgId))
         } catch {
             toast.error("Failed to create workspace. Please try again.")
@@ -349,7 +364,7 @@ export default function CreateWorkspace({
                             Invite members
                         </h2>
                         <p className="mt-1 text-sm text-(--fg-2)">
-                            Optional. Add at least one email to enable Finish, or skip for now.
+                            Optional. Invite teammates now, or add them later from Members.
                         </p>
                     </div>
                     <Button
@@ -357,16 +372,16 @@ export default function CreateWorkspace({
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                            if (!inviteEnabled || invitedMembers.length > 0) { return }
+                            if (!inviteEnabled || invitedMembers.length > 0 || inviteSkipped) { return }
                             setInviteSkipped(true)
                         }}
-                        disabled={!inviteEnabled || invitedMembers.length > 0}
+                        disabled={!inviteEnabled || invitedMembers.length > 0 || inviteSkipped}
                         className={cn(
                             "rounded-full border-[0.5px] border-[rgba(200,255,62,0.50)] text-(--fg-2) bg-[rgba(200,255,62,0.10)] transition-all duration-300",
-                            (!inviteEnabled || invitedMembers.length > 0) && "bg-[#33383B] border-[#33383B] text-[#666666] "
+                            (!inviteEnabled || invitedMembers.length > 0 || inviteSkipped) && "bg-[#33383B] border-[#33383B] text-[#666666] "
                         )}
                     >
-                        Skip for now
+                        {inviteSkipped ? "Skipped" : "Skip for now"}
                     </Button>
                 </div>
 
@@ -405,10 +420,6 @@ export default function CreateWorkspace({
                         const name = getValues("workspaceName")?.trim()
                         if (!isValid || !name) {
                             toast.error("Workspace name is required")
-                            return
-                        }
-                        if (!canFinish) {
-                            toast.error("Add at least one team member or skip invites.")
                             return
                         }
                         await handleFinish(getValues())
