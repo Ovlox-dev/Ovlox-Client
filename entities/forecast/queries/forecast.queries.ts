@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
     backfillForecastSnapshots,
@@ -38,7 +38,13 @@ export const useForecastAccuracy = (params?: { from?: string; to?: string; model
         retry: false,
     });
 
-export const useBackfillForecastSnapshots = () =>
-    useMutation({
+export const useBackfillForecastSnapshots = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
         mutationFn: (days?: number) => backfillForecastSnapshots(days),
+        // Backfilling snapshots changes forecasts + accuracy — refresh all forecast views.
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: forecastKeys.all });
+        },
     });
+};

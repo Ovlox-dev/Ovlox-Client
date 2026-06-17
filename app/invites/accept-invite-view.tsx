@@ -28,6 +28,7 @@ import {
 } from "@/shared/lib/auth/post-auth-org-resolver";
 import { formatAuthErrorMessage } from "@/shared/lib/auth/auth-utils";
 import { useAuthStore } from "@/entities/auth/model/store";
+import { useQueryClient } from "@tanstack/react-query";
 import { getInitials } from "@/shared/lib/use-initials";
 
 /**
@@ -40,14 +41,14 @@ function splitTokenAndEmbeddedEmail(tokenParam: string): {
     embeddedEmail?: string;
 } {
     const trimmed = tokenParam.trim();
-    if (!trimmed) return { token: "" };
+    if (!trimmed) {return { token: "" };}
     const match = trimmed.match(/^(.*?)(\?email=|&email=)(.*)$/i);
-    if (!match?.[1]?.trim()) return { token: trimmed };
+    if (!match?.[1]?.trim()) {return { token: trimmed };}
     const tokenPart = match[1].trim();
     let emailPart = (match[3] ?? "").trim();
     const amp = emailPart.indexOf("&");
-    if (amp >= 0) emailPart = emailPart.slice(0, amp).trim();
-    if (!tokenPart) return { token: trimmed };
+    if (amp >= 0) {emailPart = emailPart.slice(0, amp).trim();}
+    if (!tokenPart) {return { token: trimmed };}
     try {
         return { token: tokenPart, embeddedEmail: decodeURIComponent(emailPart) };
     } catch {
@@ -56,7 +57,7 @@ function splitTokenAndEmbeddedEmail(tokenParam: string): {
 }
 
 function decodeQueryString(raw: string | null): string {
-    if (!raw) return "";
+    if (!raw) {return "";}
     const trimmed = raw.trim();
     const unquoted =
         (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
@@ -73,9 +74,10 @@ function decodeQueryString(raw: string | null): string {
 export function AcceptInviteView() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { user, authStatus, bootstrapSession, logout } = useAuthStore(
+    const { user, authStatus, bootstrapSession, logout, fetchUser } = useAuthStore(
         (state) => state.auth
     );
+    const queryClient = useQueryClient();
 
     /* -------- token + invite-email parsing -------- */
 
@@ -125,17 +127,17 @@ export function AcceptInviteView() {
 
     const effectiveToken = inviteToken || pastedTokenClean;
     const returnTo = useMemo(() => {
-        if (!effectiveToken) return "/invites";
+        if (!effectiveToken) {return "/invites";}
         const params = new URLSearchParams();
         params.set("token", effectiveToken);
-        if (resolvedInviteEmail) params.set("email", resolvedInviteEmail);
+        if (resolvedInviteEmail) {params.set("email", resolvedInviteEmail);}
         return `/invites?${params.toString()}`;
     }, [effectiveToken, resolvedInviteEmail]);
 
     const buildSigninUrl = (path: "/signin" | "/signup" = "/signin") => {
         const params = new URLSearchParams();
         params.set("redirectURI", returnTo);
-        if (resolvedInviteEmail) params.set("email", resolvedInviteEmail);
+        if (resolvedInviteEmail) {params.set("email", resolvedInviteEmail);}
         return `${path}?${params.toString()}`;
     };
 
@@ -152,9 +154,9 @@ export function AcceptInviteView() {
      * hadn't been hydrated yet.
      */
     useEffect(() => {
-        if (isResolvingAuth) return;
-        if (!isUnauthenticated) return;
-        if (!effectiveToken) return; // let them paste a code in if they have one
+        if (isResolvingAuth) {return;}
+        if (!isUnauthenticated) {return;}
+        if (!effectiveToken) {return;} // let them paste a code in if they have one
         router.replace(buildSigninUrl("/signin"));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isResolvingAuth, isUnauthenticated, effectiveToken]);
@@ -212,6 +214,13 @@ export function AcceptInviteView() {
                 return;
             }
             setActiveOrgId(orgId);
+            // Refresh cached org list + memberships before navigating so the dashboard doesn't load
+            // against stale data (which would leave you "outside" the just-joined org until a refresh).
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["userOrgs"] }),
+                queryClient.invalidateQueries({ queryKey: ["org", "current-user-orgs"] }),
+                fetchUser({ silent: true }).catch(() => null),
+            ]);
             toast.success("You’ve joined the workspace.");
             router.replace(buildDashboardOrgRoute(orgId));
         } catch (error) {
