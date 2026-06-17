@@ -127,7 +127,9 @@ const TeamActivity = () => {
                                 const provider =
                                     (e.metadata?.provider as string | undefined) ??
                                     (e.metadata?.source as string | undefined);
-                                const Icon = provider ? PROVIDER_ICONS[provider] : RiAppsFill;
+                                // Never resolve to undefined (an unrecognized/cased provider) — that
+                                // renders <undefined/> and throws React #130, crashing the page.
+                                const Icon = PROVIDER_ICONS[String(provider ?? "").toUpperCase()] ?? RiAppsFill;
                                 return (
                                     <li
                                         key={e.id}
