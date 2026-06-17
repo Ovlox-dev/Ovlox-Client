@@ -30,7 +30,7 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
 	title: "Ovlox",
-	description: "Created by Siddha",
+	description: "Ovlox connects every tool your team uses — GitHub, Jira, Slack, Linear, Notion — and turns scattered project signals into a single, AI-powered source of truth.",
 };
 
 export default function RootLayout({

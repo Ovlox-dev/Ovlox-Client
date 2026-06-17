@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { z } from "zod"
 import { toast } from "sonner"
@@ -13,6 +14,7 @@ import { cn } from "@/lib/utils"
 import inviteEmptyIcon from "@/assets/invite.svg"
 
 import { acceptInvite } from "@/entities/organization/api/org"
+import { useAuthStore } from "@/entities/auth"
 import { buildDashboardOrgRoute, setActiveOrgId } from "@/shared/lib/auth/post-auth-org-resolver"
 
 import { ArrowLeft } from "lucide-react"
@@ -91,6 +93,8 @@ type InviteCodeFormValues = z.infer<typeof inviteCodeSchema>
 
 export default function JoinWorkspace({ handleJoinBack }: JoinWorkspaceProps) {
     const router = useRouter()
+    const queryClient = useQueryClient()
+    const fetchUser = useAuthStore((s) => s.auth.fetchUser)
     const [invites, setInvites] = useState<WorkspaceInvite[]>(MOCK_INVITES)
     const [isJoining, setIsJoining] = useState(false)
     const { register, handleSubmit, formState: { errors }, setError } = useForm<InviteCodeFormValues>({
@@ -113,6 +117,13 @@ export default function JoinWorkspace({ handleJoinBack }: JoinWorkspaceProps) {
             }
 
             setActiveOrgId(orgId)
+            // Refresh cached org list + memberships before navigating, else the dashboard loads
+            // against stale data and you land "outside" the just-joined org until a manual refresh.
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["userOrgs"] }),
+                queryClient.invalidateQueries({ queryKey: ["org", "current-user-orgs"] }),
+                fetchUser({ silent: true }).catch(() => null),
+            ])
             toast.success("Workspace joined successfully")
             router.push(buildDashboardOrgRoute(orgId))
             return true
