@@ -212,7 +212,10 @@ export default function FranchiseeDashboardPage() {
                                     const provider =
                                         (e.metadata?.provider as string | undefined) ??
                                         (e.metadata?.source as string | undefined);
-                                    const Icon = provider ? PROVIDER_ICONS[provider] : RiAppsFill;
+                                    // Normalize + fall back: an unrecognized/cased provider (e.g. a
+                                    // lowercase or Nango key) must NOT resolve to `undefined`, or React
+                                    // renders <undefined/> and throws #130 and the whole dashboard crashes.
+                                    const Icon = PROVIDER_ICONS[String(provider ?? "").toUpperCase()] ?? RiAppsFill;
                                     return (
                                         <div className="feed-item" key={e.id}>
                                             <div className="feed-ic">
