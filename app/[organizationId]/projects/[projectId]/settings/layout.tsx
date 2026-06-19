@@ -3,13 +3,16 @@
 import { ReactNode } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { GitBranch, RotateCcw } from "lucide-react";
+import { GitBranch, RotateCcw, SlidersHorizontal, AlertTriangle, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const SETTINGS_SUBTABS = [
+    { label: "General", segment: "general", icon: SlidersHorizontal },
+    { label: "Members", segment: "members", icon: Users },
     { label: "Branches", segment: "branches", icon: GitBranch },
     { label: "Recovery", segment: "recovery", icon: RotateCcw },
+    { label: "Danger", segment: "danger", icon: AlertTriangle },
 ] as const;
 
 export default function ProjectSettingsLayout({ children }: { children: ReactNode }) {
