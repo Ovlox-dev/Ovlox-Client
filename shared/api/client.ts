@@ -9,7 +9,7 @@ export const apiBaseUrl = absoluteApiBaseUrl;
 // specifically need the full origin (SSE EventSource ctor, raw fetch to SSE endpoints).
 // Next.js rewrites would silently drop the `Authorization` / `Cookie` headers we need on
 // these streams, so we always hit the backend origin directly rather than going through
-// a same-origin rewrite. See lib/sse.ts and services/chat.service.ts for the call sites.
+// a same-origin rewrite. See lib/sse.ts for the call sites.
 export const apiAbsoluteUrl = absoluteApiBaseUrl;
 
 // console.log("apiBaseUrl", absoluteApiBaseUrl);
