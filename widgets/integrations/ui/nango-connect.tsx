@@ -67,6 +67,11 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
             // Snapshot existing connections so we can spot the new one after connecting.
             preConnectIds.current = new Set((connections ?? []).map((c) => c.connectionId));
             const { connectUrl } = await createSession.mutateAsync(projectId ? { projectId } : {});
+            if (!connectUrl) {
+                toast.error("Failed to start connection — no connect URL returned.");
+                setConnecting(false);
+                return;
+            }
             const popup = window.open(connectUrl, "nango-connect", "width=520,height=720");
             if (!popup) {
                 toast.error("Popup blocked — allow popups for this site and try again.");

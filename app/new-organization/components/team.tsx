@@ -127,7 +127,7 @@ const Team = ({
     }
 
     const getInitial = (member: TeamInvitedMember) =>
-        member.name ? member.name[0].toUpperCase() : member.email[0].toUpperCase()
+        member.name?.[0]?.toUpperCase() ?? member.email?.[0]?.toUpperCase() ?? "?"
 
     return (
         <div className={cn(disabled && "pointer-events-none select-none opacity-50")}>

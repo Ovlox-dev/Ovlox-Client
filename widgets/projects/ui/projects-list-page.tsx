@@ -80,10 +80,13 @@ export function ProjectsListPage() {
                         Import
                     </Button>
                     <Button
+                        asChild
                         className="gap-2"
                     >
-                        <Plus />
-                        New Project
+                        <Link href={`/${organizationId}/projects/new-project`}>
+                            <Plus />
+                            New Project
+                        </Link>
                     </Button>
                 </div>
             </div>
@@ -153,7 +156,11 @@ export function ProjectsListPage() {
                 ) : (
                     <>
                         {projects?.data.map((project) => {
-                            const status = statusConfig[project.status as unknown as ProjectStatus]
+                            const status = statusConfig[project.status as unknown as ProjectStatus] ?? {
+                                label: (project.status as string) ?? "Unknown",
+                                dotClass: "bg-radial from-[#9CA3AF] to-[#9CA3AF00]",
+                                textColor: "text-muted",
+                            }
                             const projectIdentifier = project.slug || project.id
                             // const projectProgress = getProjectProgress(p)
                             return (

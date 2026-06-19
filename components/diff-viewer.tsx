@@ -7,6 +7,9 @@ type DiffViewerProps = {
 };
 
 export function DiffViewer({ patch }: DiffViewerProps) {
+    if (typeof patch !== "string" || patch.length === 0) {
+        return null;
+    }
     const lines = patch.split("\n");
 
     return (

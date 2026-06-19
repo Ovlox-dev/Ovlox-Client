@@ -51,6 +51,17 @@ function MarkdownMessage({
         void llmMarkdownToHtml(markdown).then((out) => {
             if (cancelled) { return; }
             setHtml(out);
+        }).catch(() => {
+            // Markdown rendering failed — fall back to the raw text (HTML-escaped) so the
+            // bubble always shows something instead of going blank.
+            if (cancelled) { return; }
+            const escaped = markdown
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+            setHtml(`<p>${escaped.replace(/\n/g, "<br/>")}</p>`);
         });
         return () => { cancelled = true; };
     }, [markdown]);
