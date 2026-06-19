@@ -362,6 +362,11 @@ export interface CreateConversationRequest {
     organizationId?: string;
     title?: string;
     type?: ConversationType;
+    /**
+     * Org slug/id from the current URL. Disambiguates a project slug (project slugs are unique only
+     * per-org), so the backend resolves the project within THIS org instead of guessing across orgs.
+     */
+    orgScope?: string;
 }
 
 export type ListConversationsResponse = IConversation[];

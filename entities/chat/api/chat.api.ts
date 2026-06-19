@@ -17,6 +17,7 @@ export const createConversation = async (data: CreateConversationRequest): Promi
 export const listConversations = async (params?: {
     projectId?: string;
     organizationId?: string;
+    orgScope?: string;
 }): Promise<ListConversationsResponse> => {
     const response = await apiClient.get<ListConversationsResponse>("/chat/conversations", { params });
     return response.data;
