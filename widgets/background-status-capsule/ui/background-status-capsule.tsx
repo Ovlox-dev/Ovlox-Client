@@ -6,6 +6,7 @@ import { Loader2, CheckCircle2, AlertCircle, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useIngestionStatus } from "@/entities/project";
+import { streamProjectReadiness, type ReadinessSnapshot } from "@/lib/sse";
 
 function prettyType(t: string): string {
     return t
@@ -20,59 +21,86 @@ function truncate(s: string, n: number): string {
 
 /**
  * Floating status capsule (bottom-right) that gives the user feedback on background work for the
- * current project — ingestion, backfill, code indexing — which otherwise runs invisibly. Shows live
- * progress while jobs run, then a one-off success/failure flash. Derived from the polling
- * ingestion-status (4s while a job is inflight, 30s idle).
+ * current project — ingestion, backfill, and code indexing — which otherwise runs invisibly.
+ *
+ * Driven primarily by the readiness SSE for INSTANT updates: it's the only signal for code indexing
+ * (which runs on its own queue, not IngestionJob) and flips BUILDING↔READY the moment it happens.
+ * The ingestion-status poll layers on richer per-job detail (provider, progress, resource).
  */
 export function BackgroundStatusCapsule() {
     const params = useParams<{ organizationId: string; projectId: string }>();
     const organizationId = params?.organizationId ?? "";
     const projectId = params?.projectId ?? "";
-    const { data } = useIngestionStatus(organizationId, projectId);
 
-    const running = data?.runningJobs ?? [];
-    const isRunning = running.length > 0;
-
-    // Only flash a result after a run we actually observed this mount — never a stale result on load.
-    // Uses React's "adjust state during render" pattern (no ref reads in render, no effect setState).
-    const [observedRunning, setObservedRunning] = React.useState(false);
-    const [prevRunning, setPrevRunning] = React.useState(isRunning);
-    if (prevRunning !== isRunning) {
-        setPrevRunning(isRunning);
-        if (isRunning && !observedRunning) {
-            setObservedRunning(true);
+    // Instant readiness via SSE. Tagged with its projectId so a stale snapshot from a previous
+    // project is ignored after navigation (no setState reset inside the effect body needed).
+    const [readinessState, setReadinessState] = React.useState<{
+        projectId: string;
+        snap: ReadinessSnapshot;
+    } | null>(null);
+    React.useEffect(() => {
+        if (!organizationId || !projectId) {
+            return;
         }
-    }
-
-    const lastFinished = React.useMemo(() => {
-        const jobs = (data?.recentJobs ?? []).filter((j) => j.finishedAt);
-        return (
-            [...jobs].sort(
-                (a, b) =>
-                    new Date(b.finishedAt as string).getTime() -
-                    new Date(a.finishedAt as string).getTime(),
-            )[0] ?? null
+        const sub = streamProjectReadiness(organizationId, projectId, (snap) =>
+            setReadinessState({ projectId, snap }),
         );
-    }, [data?.recentJobs]);
+        return () => sub.unsubscribe();
+    }, [organizationId, projectId]);
+    const snap = readinessState?.projectId === projectId ? readinessState.snap : null;
 
-    const [dismissedId, setDismissedId] = React.useState<string | null>(null);
+    // Poll adds richer per-job detail + a fallback if the SSE drops.
+    const { data: ingestion } = useIngestionStatus(organizationId, projectId);
+    const running = ingestion?.runningJobs ?? [];
 
-    let view: "running" | "success" | "failed" | null = null;
-    if (isRunning) {
-        view = "running";
-    } else if (observedRunning && lastFinished && lastFinished.id !== dismissedId) {
-        view = lastFinished.status === "FAILED" ? "failed" : "success";
+    const building = snap?.contextReadiness === "BUILDING" || (snap?.jobs?.inflight ?? 0) > 0;
+    const isBusy = building || running.length > 0;
+
+    // Flash a one-off success/failure when work finishes. Transition detected via React's "adjust
+    // state during render" pattern (prevBusy seeded to the current value → no stale flash on mount).
+    const [prevBusy, setPrevBusy] = React.useState(isBusy);
+    const [flash, setFlash] = React.useState<{ type: "success" | "failed"; detail?: string } | null>(null);
+    if (prevBusy !== isBusy) {
+        setPrevBusy(isBusy);
+        if (prevBusy && !isBusy) {
+            const failedJob =
+                running.length === 0
+                    ? (ingestion?.recentJobs ?? []).find((j) => j.status === "FAILED")
+                    : undefined;
+            const errored =
+                snap?.contextReadiness === "ERROR" ||
+                (snap?.jobs?.failed ?? 0) > 0 ||
+                !!failedJob;
+            setFlash(
+                errored
+                    ? {
+                          type: "failed",
+                          detail: failedJob?.error
+                              ? truncate(failedJob.error, 64)
+                              : "See ingestion status",
+                      }
+                    : { type: "success" },
+            );
+        } else if (!prevBusy && isBusy) {
+            setFlash(null);
+        }
     }
 
     // Auto-dismiss the success flash; failures stay until the user dismisses them.
     React.useEffect(() => {
-        if (view !== "success" || !lastFinished) {
+        if (flash?.type !== "success") {
             return;
         }
-        const finishedId = lastFinished.id;
-        const timer = setTimeout(() => setDismissedId(finishedId), 6000);
+        const timer = setTimeout(() => setFlash(null), 6000);
         return () => clearTimeout(timer);
-    }, [view, lastFinished]);
+    }, [flash]);
+
+    let view: "running" | "success" | "failed" | null = null;
+    if (isBusy) {
+        view = "running";
+    } else if (flash) {
+        view = flash.type;
+    }
 
     if (!view || !organizationId || !projectId) {
         return null;
@@ -86,21 +114,26 @@ export function BackgroundStatusCapsule() {
             const job = running[0];
             label = prettyType(job.type);
             const p = job.progress;
-            if (p?.message) {
-                detail = truncate(p.message, 48);
-            } else if (typeof p?.total === "number" && p.total > 0) {
-                detail = `${p.current ?? 0} / ${p.total}`;
-            } else if (job.resourceName) {
-                detail = truncate(job.resourceName, 48);
-            }
-        } else {
+            detail = p?.message
+                ? truncate(p.message, 48)
+                : typeof p?.total === "number" && p.total > 0
+                    ? `${p.current ?? 0} / ${p.total}`
+                    : job.resourceName
+                        ? truncate(job.resourceName, 48)
+                        : null;
+        } else if (running.length > 1) {
             label = `${running.length} background jobs running`;
+        } else {
+            // Building via readiness with no IngestionJob detail — i.e. code indexing / context build.
+            label = "Building project intelligence";
+            const inflight = snap?.jobs?.inflight ?? 0;
+            detail = inflight > 0 ? `${inflight} job${inflight === 1 ? "" : "s"} in progress` : "Indexing & analysis";
         }
     } else if (view === "failed") {
-        label = `${prettyType(lastFinished!.type)} failed`;
-        detail = lastFinished!.error ? truncate(lastFinished!.error, 64) : "See ingestion status";
+        label = "Processing failed";
+        detail = flash?.detail ?? null;
     } else {
-        label = `${prettyType(lastFinished!.type)} complete`;
+        label = "Up to date";
     }
 
     return (
@@ -134,7 +167,7 @@ export function BackgroundStatusCapsule() {
                 {view !== "running" ? (
                     <button
                         type="button"
-                        onClick={() => setDismissedId(lastFinished!.id)}
+                        onClick={() => setFlash(null)}
                         aria-label="Dismiss"
                         className="ml-1 text-(--fg-3) transition-colors hover:text-(--fg)"
                     >
