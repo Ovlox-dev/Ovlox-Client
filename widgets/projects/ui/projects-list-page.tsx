@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 
-import { Plus, MoreHorizontal, Settings, Trash2, Download, Clock, Loader2 } from "lucide-react"
+import { Plus, MoreHorizontal, Settings, Trash2, Download, Clock, Loader2, FolderOpen } from "lucide-react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -60,6 +60,18 @@ export function ProjectsListPage() {
     const [sortFilter, setSortFilter] = React.useState<string>("")
 
     const { data: projects, isLoading: isProjectsLoading, error: projectsError } = useListProjects(organizationId)
+
+    // Apply the status tab filter (previously the tabs were inert and showed every project).
+    const filteredProjects = React.useMemo(() => {
+        const all = projects?.data ?? []
+        const wanted =
+            statusFilter === "active" ? "ACTIVE"
+                : statusFilter === "archived" ? "ARCHIVED"
+                    : statusFilter === "completed" ? "COMPLETED"
+                        : null
+        if (!wanted) { return all }
+        return all.filter((p) => String(p.status).toUpperCase() === wanted)
+    }, [projects?.data, statusFilter])
 
     const handleSortFilterChange = (value: string) => {
         setSortFilter(value)
@@ -156,7 +168,27 @@ export function ProjectsListPage() {
                     </div>
                 ) : (
                     <>
-                        {projects?.data.map((project) => {
+                        {filteredProjects.length === 0 ? (
+                            <div className="col-span-full flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
+                                <FolderOpen className="mb-3 size-8 text-muted-foreground" />
+                                <p className="text-sm font-medium text-text">
+                                    {statusFilter === "all" ? "No projects yet" : "No projects match this filter"}
+                                </p>
+                                <p className="mb-4 mt-1 text-xs text-muted-foreground">
+                                    {statusFilter === "all"
+                                        ? "Create your first project to start tracking activity."
+                                        : "Try a different status filter."}
+                                </p>
+                                {statusFilter === "all" ? (
+                                    <Button asChild>
+                                        <Link href={`/${organizationId}/projects/new-project`}>
+                                            <Plus />
+                                            New Project
+                                        </Link>
+                                    </Button>
+                                ) : null}
+                            </div>
+                        ) : filteredProjects.map((project) => {
                             const status = statusConfig[project.status as unknown as ProjectStatus] ?? {
                                 label: (project.status as string) ?? "Unknown",
                                 dotClass: "bg-radial from-[#9CA3AF] to-[#9CA3AF00]",
