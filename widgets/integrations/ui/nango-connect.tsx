@@ -332,7 +332,10 @@ function ConnectedResources({
                                         type="button"
                                         title="Re-index this repo"
                                         aria-label={`Re-index ${r.resourceName || r.resourceId}`}
-                                        disabled={reindexingThis}
+                                        // Disable every repo's button while ANY re-index is in flight: a single shared
+                                        // mutation instance only tracks the latest variables, so allowing a concurrent
+                                        // click would make the spinner jump off the still-running row.
+                                        disabled={reindexResource.isPending}
                                         onClick={() =>
                                             reindexResource.mutate(
                                                 {
