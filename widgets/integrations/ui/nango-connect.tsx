@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plug, X, ListChecks, RefreshCw, Target } from "lucide-react";
+import { Loader2, Plug, X, ListChecks, RefreshCw, Target, ChevronDown, ChevronRight } from "lucide-react";
 import type { IconType } from "react-icons";
 import { IoLogoGithub } from "react-icons/io5";
 import { SiDiscord, SiJira, SiLinear, SiSlack, SiNotion, SiFigma } from "react-icons/si";
@@ -20,6 +20,7 @@ import {
     type NangoConnection,
 } from "@/entities/nango";
 import { NangoResourcePicker } from "./nango-resource-picker";
+import { dateFormatter } from "@/shared/lib/date-formatter";
 
 /** Providers where you pick resources after connecting: repos (GitHub), channels (Slack/Discord),
  *  projects (Jira), teams (Linear). */
@@ -187,7 +188,7 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                                 { providerConfigKey: c.providerConfigKey, connectionId: c.connectionId, projectId },
                                                 {
                                                     onSuccess: (r) =>
-                                                        toast.success(r.repos > 0 ? `Re-indexing ${r.repos} repo(s)…` : "No selected repos to re-index."),
+                                                        toast.success((r.repos ?? 0) > 0 ? `Re-indexing ${r.repos} repo(s)…` : "No selected repos to re-index."),
                                                     onError: () => toast.error("Failed to start re-index."),
                                                 },
                                             )
@@ -280,45 +281,103 @@ function ConnectedResources({
         projectId,
     );
     const setTarget = useSetNangoTaskTarget(organizationId);
+    const reindexResource = useReindexNangoConnection(organizationId);
+    const [open, setOpen] = useState(true);
     const isTracker = connection.provider === "JIRA" || connection.provider === "LINEAR";
+    const isGithub = connection.provider === "GITHUB";
     if (isPending) { return null; }
     if (!data || data.length === 0) {
         return <p className="text-[11px] text-(--fg-3)">No {noun} selected for this project yet — click “Select”.</p>;
     }
     return (
-        <div className="flex flex-wrap gap-1">
-            {data.map((r) => {
-                const target = !!r.isTaskSyncTarget;
-                return (
-                    <span
-                        key={r.resourceId}
-                        title={r.resourceId}
-                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${target ? "border-(--accent-lime) text-(--fg)" : "border-(--line) text-(--fg-2)"} bg-(--bg-2)`}
-                    >
-                        {r.resourceName || r.resourceId}
-                        {target ? <span className="text-(--accent-lime) text-[9px] uppercase tracking-wide">· tasks</span> : null}
-                        {isTracker ? (
-                            <button
-                                type="button"
-                                title={target ? "Platform tasks sync here — click to turn off" : "Sync platform tasks to this " + (connection.provider === "JIRA" ? "project" : "team")}
-                                disabled={setTarget.isPending}
-                                onClick={() =>
-                                    setTarget.mutate(
-                                        { providerConfigKey: connection.providerConfigKey, connectionId: connection.connectionId, projectId, resourceId: target ? null : r.resourceId },
-                                        {
-                                            onSuccess: () => toast.success(target ? "Task-sync target cleared." : `New tasks will sync to ${r.resourceName || r.resourceId}.`),
-                                            onError: () => toast.error("Failed to set task-sync target."),
-                                        },
-                                    )
-                                }
-                                className={`ml-0.5 ${target ? "text-(--accent-lime)" : "text-(--fg-3) hover:text-(--fg)"}`}
+        <div className="mt-1">
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="flex items-center gap-1 text-[11px] font-medium text-(--fg-2) hover:text-(--fg)"
+                aria-expanded={open}
+            >
+                {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+                {data.length} {noun}
+            </button>
+
+            {open ? (
+                <ul className="mt-1.5 space-y-1">
+                    {data.map((r) => {
+                        const target = !!r.isTaskSyncTarget;
+                        const reindexingThis =
+                            reindexResource.isPending && reindexResource.variables?.resourceId === r.resourceId;
+                        return (
+                            <li
+                                key={r.resourceId}
+                                className="flex items-center gap-2 rounded-md border border-(--line) bg-(--bg-2) px-2 py-1.5"
                             >
-                                <Target className="size-3" />
-                            </button>
-                        ) : null}
-                    </span>
-                );
-            })}
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-[11px] text-(--fg)" title={r.resourceId}>
+                                        {r.resourceName || r.resourceId}
+                                        {target ? (
+                                            <span className="ml-1 text-(--accent-lime) text-[9px] uppercase tracking-wide">· tasks</span>
+                                        ) : null}
+                                    </p>
+                                    <p className="text-[10px] text-(--fg-3)">
+                                        {r.lastIngestedAt ? `Last synced ${dateFormatter(r.lastIngestedAt)}` : "Not synced yet"}
+                                    </p>
+                                </div>
+
+                                {isGithub ? (
+                                    <button
+                                        type="button"
+                                        title="Re-index this repo"
+                                        aria-label={`Re-index ${r.resourceName || r.resourceId}`}
+                                        disabled={reindexingThis}
+                                        onClick={() =>
+                                            reindexResource.mutate(
+                                                {
+                                                    providerConfigKey: connection.providerConfigKey,
+                                                    connectionId: connection.connectionId,
+                                                    projectId,
+                                                    resourceId: r.resourceId,
+                                                },
+                                                {
+                                                    onSuccess: () => toast.success(`Re-indexing ${r.resourceName || r.resourceId}…`),
+                                                    onError: () => toast.error("Failed to re-index this repo."),
+                                                },
+                                            )
+                                        }
+                                        className="shrink-0 text-(--fg-3) transition-colors hover:text-(--fg) disabled:opacity-50"
+                                    >
+                                        {reindexingThis ? (
+                                            <Loader2 className="size-3.5 animate-spin" />
+                                        ) : (
+                                            <RefreshCw className="size-3.5" />
+                                        )}
+                                    </button>
+                                ) : null}
+
+                                {isTracker ? (
+                                    <button
+                                        type="button"
+                                        title={target ? "Platform tasks sync here — click to turn off" : "Sync platform tasks to this " + (connection.provider === "JIRA" ? "project" : "team")}
+                                        disabled={setTarget.isPending}
+                                        onClick={() =>
+                                            setTarget.mutate(
+                                                { providerConfigKey: connection.providerConfigKey, connectionId: connection.connectionId, projectId, resourceId: target ? null : r.resourceId },
+                                                {
+                                                    onSuccess: () => toast.success(target ? "Task-sync target cleared." : `New tasks will sync to ${r.resourceName || r.resourceId}.`),
+                                                    onError: () => toast.error("Failed to set task-sync target."),
+                                                },
+                                            )
+                                        }
+                                        className={`shrink-0 ${target ? "text-(--accent-lime)" : "text-(--fg-3) hover:text-(--fg)"}`}
+                                    >
+                                        <Target className="size-3.5" />
+                                    </button>
+                                ) : null}
+                            </li>
+                        );
+                    })}
+                </ul>
+            ) : null}
         </div>
     );
 }
