@@ -4,11 +4,14 @@ import React, { useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
-import { MoreVertical, Mail, Plus, FolderGit2, Sparkles, ArrowRight } from "lucide-react"
+import { MoreVertical, Mail, Plus, FolderGit2, Sparkles, ArrowRight, Check, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 import { listInvites, listMembers } from "@/entities/organization/api/org"
 import { useOrgMemberStats } from "@/entities/organization"
+import { useUpdateOrgMember, useRemoveOrgMember } from "@/shared/queries/org.queries"
 import { InviteStatus, PredefinedOrgRole } from "@/types/enum"
+import type { IOrganizationMember } from "@/types/prisma-generated"
 
 import { PageTitle } from "@/components/page-title"
 import AddMemberModal from "@/features/add-member-modal/ui/add-member-modal"
@@ -22,8 +25,19 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import {
     Select,
     SelectContent,
@@ -263,31 +277,11 @@ export default function MembersPage() {
                                                     </span>
                                                 </p>
                                             </div>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="icon-sm"
-                                                        className="shrink-0"
-                                                    >
-                                                        <MoreVertical className="size-4" />
-                                                        <span className="sr-only">Member actions</span>
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="min-w-44">
-                                                    <DropdownMenuItem asChild>
-                                                        <Link href={`/${organizationId}/members/${member.id}`}>
-                                                            View profile
-                                                        </Link>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem>Change role</DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem variant="destructive">
-                                                        Remove from org
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
+                                            <MemberActions
+                                                organizationId={organizationId}
+                                                member={member}
+                                                fullName={fullName}
+                                            />
                                         </div>
 
                                         {/* ROLE */}
@@ -405,6 +399,149 @@ export default function MembersPage() {
                 organizationId={organizationId}
             />
         </div>
+    )
+}
+
+const ASSIGNABLE_ROLES: Array<{ value: PredefinedOrgRole; label: string }> =
+    Object.values(PredefinedOrgRole).map((r) => ({
+        value: r,
+        label: r
+            .split("_")
+            .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+            .join(" "),
+    }))
+
+function MemberActions({
+    organizationId,
+    member,
+    fullName,
+}: {
+    organizationId: string
+    member: IOrganizationMember
+    fullName: string
+}) {
+    const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false)
+    const updateMember = useUpdateOrgMember(organizationId)
+    const removeMember = useRemoveOrgMember(organizationId)
+
+    const handleRoleChange = (role: PredefinedOrgRole) => {
+        if (role === member.predefinedRole) { return }
+        updateMember.mutate(
+            { memberId: member.id, data: { predefinedRole: role } },
+            {
+                onSuccess: () => toast.success(`${fullName} is now ${role.toLowerCase()}`),
+                onError: (err) =>
+                    toast.error("Couldn't change role", {
+                        description: err instanceof Error ? err.message : undefined,
+                    }),
+            },
+        )
+    }
+
+    const handleRemove = () => {
+        removeMember.mutate(member.id, {
+            onSuccess: () => {
+                toast.success(`${fullName} removed from organization`)
+                setConfirmRemoveOpen(false)
+            },
+            onError: (err) =>
+                toast.error("Couldn't remove member", {
+                    description: err instanceof Error ? err.message : undefined,
+                }),
+        })
+    }
+
+    return (
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        className="shrink-0"
+                    >
+                        <MoreVertical className="size-4" />
+                        <span className="sr-only">Member actions</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-44">
+                    <DropdownMenuItem asChild>
+                        <Link href={`/${organizationId}/members/${member.id}`}>
+                            View profile
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSub>
+                        <DropdownMenuSubTrigger disabled={updateMember.isPending}>
+                            Change role
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                            {ASSIGNABLE_ROLES.map((role) => (
+                                <DropdownMenuItem
+                                    key={role.value}
+                                    onSelect={() => handleRoleChange(role.value)}
+                                    disabled={updateMember.isPending}
+                                >
+                                    {role.value === member.predefinedRole ? (
+                                        <Check className="size-4 text-(--accent-lime)" />
+                                    ) : (
+                                        <span className="size-4" />
+                                    )}
+                                    {role.label}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={(e) => {
+                            e.preventDefault()
+                            setConfirmRemoveOpen(true)
+                        }}
+                    >
+                        Remove from org
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Dialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Remove {fullName}?</DialogTitle>
+                        <DialogDescription>
+                            They will lose access to this organization and all of its
+                            projects. This can&apos;t be undone, but they can be re-invited.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setConfirmRemoveOpen(false)}
+                            disabled={removeMember.isPending}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={handleRemove}
+                            disabled={removeMember.isPending}
+                        >
+                            {removeMember.isPending ? (
+                                <>
+                                    <Loader2 className="size-4 mr-1.5 animate-spin" />
+                                    Removing…
+                                </>
+                            ) : (
+                                "Remove member"
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     )
 }
 

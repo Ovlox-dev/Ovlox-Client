@@ -18,6 +18,7 @@ import {
     InputOTPSlot,
 } from "@/components/ui/input-otp";
 import Image from "next/image";
+import Link from "next/link";
 import { PlaceholderImage } from "@/assets";
 import axios from "axios";
 import { toast } from "sonner";
@@ -162,8 +163,8 @@ export function OTPForm({ className, ...props }: React.ComponentProps<"div">) {
                 </CardContent>
             </Card>
             <FieldDescription className="text-center">
-                By clicking continue, you agree to our <a href="#">Terms of Service</a>{" "}
-                and <a href="#">Privacy Policy</a>.
+                By clicking continue, you agree to our <Link href="/terms-of-service">Terms of Service</Link>{" "}
+                and <Link href="/privacy-policy">Privacy Policy</Link>.
             </FieldDescription>
         </div>
     );

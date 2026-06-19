@@ -2,6 +2,8 @@
 
 import * as React from "react"
 import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -10,15 +12,28 @@ import { Card } from "@/components/ui/card"
 import { InputField, TextareaField } from "@/components/form-components"
 import { useCreateProject } from "@/entities/project"
 
-type ProjectForm = {
-    projectName: string
-    projectDescription: string
-}
+const projectFormSchema = z.object({
+    projectName: z
+        .string()
+        .trim()
+        .min(1, "Project name is required")
+        .min(2, "Project name must be at least 2 characters")
+        .max(100, "Project name must be 100 characters or fewer"),
+    projectDescription: z
+        .string()
+        .trim()
+        .max(500, "Description must be 500 characters or fewer")
+        .optional()
+        .or(z.literal("")),
+})
+
+type ProjectForm = z.infer<typeof projectFormSchema>
 
 export function NewProjectForm() {
     const { organizationId } = useParams<{ organizationId: string }>()
     const router = useRouter()
     const { register, handleSubmit, formState: { errors } } = useForm<ProjectForm>({
+        resolver: zodResolver(projectFormSchema),
         defaultValues: {
             projectName: "",
             projectDescription: "",

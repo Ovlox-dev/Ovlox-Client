@@ -3,6 +3,7 @@
 import * as React from "react"
 import { ArrowLeft, ChevronRight, Plus, Search, X } from "lucide-react"
 import { useForm, useWatch } from "react-hook-form"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -132,8 +133,19 @@ export function AddMembersStep({
 
         if (entries.length === 0) { return }
 
-        await Promise.all(entries.map((e) => addMember.mutateAsync(e)))
-        reset({ selectedByUserId: {}, roleByUserId: values.roleByUserId })
+        try {
+            await Promise.all(entries.map((e) => addMember.mutateAsync(e)))
+            reset({ selectedByUserId: {}, roleByUserId: values.roleByUserId })
+            toast.success(
+                entries.length === 1
+                    ? "Member added to project"
+                    : `${entries.length} members added to project`
+            )
+        } catch (err) {
+            toast.error("Failed to add some members", {
+                description: (err as Error)?.message,
+            })
+        }
     }, [addMember, getValues, projectMemberByUserId, reset, selectedUserIds])
 
     return (
@@ -249,7 +261,18 @@ export function AddMembersStep({
                                         <Button
                                             type="button"
                                             variant="destructive"
-                                            onClick={() => removeMember.mutate(pm.id)}
+                                            onClick={() =>
+                                                removeMember.mutate(pm.id, {
+                                                    onSuccess: () => {
+                                                        toast.success("Member removed from project")
+                                                    },
+                                                    onError: (err) => {
+                                                        toast.error("Failed to remove member", {
+                                                            description: (err as Error)?.message,
+                                                        })
+                                                    },
+                                                })
+                                            }
                                             disabled={removeMember.isPending}
                                             className="gap-2"
                                         >
