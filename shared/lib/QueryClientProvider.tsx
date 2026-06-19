@@ -1,35 +1,18 @@
 // providers/query-provider.tsx
 "use client"
 
-import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
-import { toast } from "sonner"
 import { setSharedQueryClient } from "@/shared/lib/query-client-registry"
-
-/** Best-effort extraction of a human-readable message from an unknown mutation error.
- *  Handles axios-style error bodies ({ response: { data: { message } } }) and plain Errors. */
-function getMutationErrorMessage(error: unknown): string {
-    const err = error as {
-        response?: { data?: { message?: unknown; error?: unknown } }
-        message?: unknown
-    } | null
-    const apiMessage = err?.response?.data?.message ?? err?.response?.data?.error
-    if (typeof apiMessage === "string" && apiMessage.length > 0) { return apiMessage }
-    if (typeof err?.message === "string" && err.message.length > 0) { return err.message }
-    return "Something went wrong. Please try again."
-}
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
     const [queryClient] = useState(
         () =>
             new QueryClient({
-                // Global backstop so mutations that don't define their own onError no longer
-                // fail silently. Per-mutation onError still runs (this does not replace it).
-                mutationCache: new MutationCache({
-                    onError: (error) => {
-                        toast.error(getMutationErrorMessage(error))
-                    },
-                }),
+                // NOTE: deliberately NO global MutationCache.onError — in react-query v5 it fires IN
+                // ADDITION to (not instead of) each mutation's own onError, so a global toast here
+                // double-toasts with the ~15 mutations that already surface their own errors. Error
+                // feedback is handled per-mutation; add an onError where a specific mutation lacks one.
                 defaultOptions: {
                     queries: {
                         staleTime: 60 * 1000,

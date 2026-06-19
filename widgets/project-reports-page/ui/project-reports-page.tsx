@@ -95,7 +95,10 @@ export function ProjectReportsPage() {
                                 onClearError={() =>
                                     upsertMutation.mutate(
                                         { reportType: type.value, data: { clearError: true } },
-                                        { onSuccess: () => toast.success("Error cleared") },
+                                        {
+                                            onSuccess: () => toast.success("Error cleared"),
+                                            onError: () => toast.error("Failed to clear error."),
+                                        },
                                     )
                                 }
                                 onDelete={() => {

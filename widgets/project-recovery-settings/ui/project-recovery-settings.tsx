@@ -94,6 +94,7 @@ export function ProjectRecoverySettingsPage() {
                                 {
                                     onSuccess: (data) =>
                                         toast.success(`Queued ${data.queued} of ${data.scheduled} events`),
+                                    onError: () => toast.error("Failed to queue reprocessing."),
                                 },
                             )
                         }
@@ -108,6 +109,7 @@ export function ProjectRecoverySettingsPage() {
                                 {
                                     onSuccess: (data) =>
                                         toast.success(`Queued ${data.queued} unprocessed events`),
+                                    onError: () => toast.error("Failed to queue reprocessing."),
                                 },
                             )
                         }
