@@ -107,6 +107,8 @@ export interface NangoResource {
     selected: boolean;
     /** Jira/Linear only: this resource is the project's task-sync target (platform tasks push here). */
     isTaskSyncTarget?: boolean;
+    /** When this resource was last ingested/synced (backfill watermark); null if never synced. */
+    lastIngestedAt?: string | null;
     metadata?: Record<string, unknown>;
 }
 
@@ -207,10 +209,11 @@ export const reindexNangoConnection = async (
     providerConfigKey: string,
     connectionId: string,
     projectId: string,
-): Promise<{ repos: number }> => {
-    const res = await apiClient.post<{ repos: number }>(
+    resourceId?: string,
+): Promise<{ repos?: number; ok?: boolean }> => {
+    const res = await apiClient.post<{ repos?: number; ok?: boolean }>(
         `/orgs/${orgId}/nango/connections/${encodeURIComponent(providerConfigKey)}/${encodeURIComponent(connectionId)}/reindex`,
-        { projectId },
+        { projectId, ...(resourceId ? { resourceId } : {}) },
     );
     return res.data;
 };

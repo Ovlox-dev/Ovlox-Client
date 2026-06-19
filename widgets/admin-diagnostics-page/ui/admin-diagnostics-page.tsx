@@ -98,7 +98,10 @@ export function AdminDiagnosticsPage() {
                         onClick={() =>
                             bootstrap.mutate(
                                 { overwriteExisting: false },
-                                { onSuccess: () => toast.success("Seeded missing models") },
+                                {
+                                    onSuccess: () => toast.success("Seeded missing models"),
+                                    onError: () => toast.error("Failed to seed models."),
+                                },
                             )
                         }
                         disabled={bootstrap.isPending}
@@ -109,7 +112,10 @@ export function AdminDiagnosticsPage() {
                         onClick={() =>
                             bootstrap.mutate(
                                 { overwriteExisting: true },
-                                { onSuccess: () => toast.success("Re-seeded all models") },
+                                {
+                                    onSuccess: () => toast.success("Re-seeded all models"),
+                                    onError: () => toast.error("Failed to re-seed models."),
+                                },
                             )
                         }
                         disabled={bootstrap.isPending}

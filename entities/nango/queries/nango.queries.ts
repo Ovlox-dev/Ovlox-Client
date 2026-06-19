@@ -136,11 +136,18 @@ export const useRemoveNangoResource = (orgId: string) => {
     });
 };
 
-export const useReindexNangoConnection = (orgId: string) =>
-    useMutation({
-        mutationFn: (vars: { providerConfigKey: string; connectionId: string; projectId: string }) =>
-            reindexNangoConnection(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId),
+export const useReindexNangoConnection = (orgId: string) => {
+    const qc = useQueryClient();
+    return useMutation({
+        // resourceId omitted → re-index every selected repo; provided → just that one.
+        mutationFn: (vars: { providerConfigKey: string; connectionId: string; projectId: string; resourceId?: string }) =>
+            reindexNangoConnection(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId, vars.resourceId),
+        onSuccess: (_data, vars) => {
+            // Refresh the per-resource status (last-synced) shown in the dropdown.
+            void qc.invalidateQueries({ queryKey: nangoKeys.selected(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId) });
+        },
     });
+};
 
 export const useSyncNangoData = (orgId: string) =>
     useMutation({

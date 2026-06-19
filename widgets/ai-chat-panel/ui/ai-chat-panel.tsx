@@ -271,8 +271,11 @@ export function AiChatPanel({
             },
             onError: (err) => {
                 // Keep the latch flipped so we don't loop. User can scroll the
-                // sidebar / refresh / change scope to retry.
-                toast.error("Failed to create chat", { description: (err as Error).message });
+                // sidebar / refresh / change scope to retry. Surface the REAL backend reason
+                // (axios buries it in response.data.message) instead of "Request failed with status…".
+                const apiMsg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+                const description = Array.isArray(apiMsg) ? apiMsg.join(", ") : (apiMsg ?? (err as Error).message);
+                toast.error("Failed to create chat", { description });
             },
         });
     }, [
