@@ -136,7 +136,7 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                         )}
                         Connect a tool
                     </Button>
-                    <Button variant="outline" onClick={() => sync.mutate()} disabled={sync.isPending}>
+                    <Button variant="outline" onClick={() => sync.mutate(undefined, { onError: () => toast.error("Failed to refresh connections.") })} disabled={sync.isPending}>
                         {sync.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
                         Refresh
                     </Button>
@@ -231,7 +231,10 @@ export function NangoConnect({ organizationId, projectId }: { organizationId: st
                                         ) {
                                             return;
                                         }
-                                        del.mutate({ providerConfigKey: c.providerConfigKey, connectionId: c.connectionId });
+                                        del.mutate(
+                                            { providerConfigKey: c.providerConfigKey, connectionId: c.connectionId },
+                                            { onError: () => toast.error("Failed to disconnect.") },
+                                        );
                                     }}
                                 >
                                     <X className="size-4" /> Disconnect

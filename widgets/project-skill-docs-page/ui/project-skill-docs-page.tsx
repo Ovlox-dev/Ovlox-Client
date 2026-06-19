@@ -91,7 +91,7 @@ export function ProjectSkillDocsPage() {
                             <Button size="sm" variant="ghost" onClick={() => setEditing(d)}><Pencil className="size-4" /></Button>
                             <Button
                                 size="sm" variant="ghost" disabled={deleteDoc.isPending}
-                                onClick={() => deleteDoc.mutate(d.id, { onSuccess: () => toast.success("Deleted") })}
+                                onClick={() => deleteDoc.mutate(d.id, { onSuccess: () => toast.success("Deleted"), onError: () => toast.error("Failed to delete.") })}
                             >
                                 <Trash2 className="size-4" />
                             </Button>
