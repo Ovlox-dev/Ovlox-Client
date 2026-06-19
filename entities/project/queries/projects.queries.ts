@@ -87,6 +87,10 @@ export const useUpdateProject = (orgId: string, projectId: string) => {
             queryClient.invalidateQueries({
                 queryKey: projectKeys.detail(orgId, projectId),
             });
+            // Also refresh the list so a renamed project updates in the sidebar / projects page.
+            queryClient.invalidateQueries({
+                queryKey: projectKeys.lists(orgId),
+            });
         },
     });
 };

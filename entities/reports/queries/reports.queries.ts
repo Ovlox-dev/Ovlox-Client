@@ -36,8 +36,9 @@ export const useUpsertSchedule = (orgId: string, projectId: string) => {
     return useMutation({
         mutationFn: ({ reportType, data }: { reportType: ReportType; data: UpsertScheduleRequest }) =>
             upsertSchedule(orgId, projectId, reportType, data),
-        onSuccess: () => {
+        onSuccess: (_data, { reportType }) => {
             queryClient.invalidateQueries({ queryKey: reportsKeys.schedules(orgId, projectId) });
+            queryClient.invalidateQueries({ queryKey: reportsKeys.schedule(orgId, projectId, reportType) });
         },
     });
 };
@@ -46,8 +47,9 @@ export const useDeleteSchedule = (orgId: string, projectId: string) => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (reportType: ReportType) => deleteSchedule(orgId, projectId, reportType),
-        onSuccess: () => {
+        onSuccess: (_data, reportType) => {
             queryClient.invalidateQueries({ queryKey: reportsKeys.schedules(orgId, projectId) });
+            queryClient.invalidateQueries({ queryKey: reportsKeys.schedule(orgId, projectId, reportType) });
         },
     });
 };

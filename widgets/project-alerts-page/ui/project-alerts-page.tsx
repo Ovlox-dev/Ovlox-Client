@@ -18,6 +18,8 @@ const SEVERITY_CLS: Record<string, string> = {
     CRITICAL: "bg-red-500/15 text-red-600 border-red-500/30",
 };
 
+const SEVERITY_FALLBACK_CLS = "bg-muted text-muted-foreground";
+
 export function ProjectAlertsPage() {
     const { organizationId, projectId } = useParams<{ organizationId: string; projectId: string }>();
     const [tab, setTab] = React.useState<"alerts" | "incidents">("alerts");
@@ -28,6 +30,9 @@ export function ProjectAlertsPage() {
 
     useApiError(alertsQuery.error);
     useApiError(incidentsQuery.error);
+
+    const alerts = alertsQuery.data?.alerts ?? [];
+    const incidents = incidentsQuery.data?.incidents ?? [];
 
     return (
         <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
@@ -43,25 +48,25 @@ export function ProjectAlertsPage() {
             <Tabs value={tab} onValueChange={(v) => setTab(v as "alerts" | "incidents")}>
                 <TabsList>
                     <TabsTrigger value="alerts">
-                        Risk alerts {alertsQuery.data?.alerts && `(${alertsQuery.data.alerts.length})`}
+                        Risk alerts {alertsQuery.data && `(${alerts.length})`}
                     </TabsTrigger>
                     <TabsTrigger value="incidents">
-                        Incidents {incidentsQuery.data?.incidents && `(${incidentsQuery.data.incidents.length})`}
+                        Incidents {incidentsQuery.data && `(${incidents.length})`}
                     </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="alerts" className="space-y-2">
                     {alertsQuery.isPending ? (
                         <Loader value />
-                    ) : (alertsQuery.data?.alerts.length ?? 0) === 0 ? (
+                    ) : alerts.length === 0 ? (
                         <Empty icon={CheckCircle2} message="No active risk alerts." />
                     ) : (
-                        alertsQuery.data!.alerts.map((a) => (
+                        alerts.map((a) => (
                             <Card key={a.id} className="p-3 flex items-start gap-3">
                                 <ShieldAlert className="size-4 mt-0.5 text-orange-600 shrink-0" />
                                 <div className="flex-1 min-w-0 space-y-1">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <Badge variant="outline" className={`text-xs ${SEVERITY_CLS[a.severity]}`}>
+                                        <Badge variant="outline" className={`text-xs ${SEVERITY_CLS[a.severity] ?? SEVERITY_FALLBACK_CLS}`}>
                                             {a.severity}
                                         </Badge>
                                         <Badge variant="outline" className="text-xs">{a.type}</Badge>
@@ -80,6 +85,10 @@ export function ProjectAlertsPage() {
                                     onClick={() => {
                                         resolveAlert.mutate(a.id, {
                                             onSuccess: () => toast.success("Alert resolved"),
+                                            onError: (err) =>
+                                                toast.error("Couldn't resolve alert", {
+                                                    description: err instanceof Error ? err.message : undefined,
+                                                }),
                                         });
                                     }}
                                     disabled={resolveAlert.isPending}
@@ -94,15 +103,15 @@ export function ProjectAlertsPage() {
                 <TabsContent value="incidents" className="space-y-2">
                     {incidentsQuery.isPending ? (
                         <Loader value />
-                    ) : (incidentsQuery.data?.incidents.length ?? 0) === 0 ? (
+                    ) : incidents.length === 0 ? (
                         <Empty icon={CheckCircle2} message="No open incidents." />
                     ) : (
-                        incidentsQuery.data!.incidents.map((i) => (
+                        incidents.map((i) => (
                             <Card key={i.id} className="p-3 flex items-start gap-3">
                                 <AlertCircle className="size-4 mt-0.5 text-red-600 shrink-0" />
                                 <div className="flex-1 min-w-0 space-y-1">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <Badge variant="outline" className={`text-xs ${SEVERITY_CLS[i.severity] ?? "bg-muted"}`}>
+                                        <Badge variant="outline" className={`text-xs ${SEVERITY_CLS[i.severity] ?? SEVERITY_FALLBACK_CLS}`}>
                                             {i.severity}
                                         </Badge>
                                         <span className="text-xs text-muted-foreground">

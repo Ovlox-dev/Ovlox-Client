@@ -2,6 +2,8 @@ import { clearSessionStorage } from "./session-storage";
 import { ACTIVE_ORG_ID_STORAGE_KEY, TOKEN_STORAGE_KEY } from "../storage-keys";
 import { useOrgStore } from "../organization/org-store";
 import { clearSharedQueryCache } from "../query-client-registry";
+import { useProjectStore } from "@/store/project.store";
+import { useChatSidebarStore } from "../chat-sidebar/chat-sidebar.store";
 
 export interface TokenData {
     accessToken: string;
@@ -252,8 +254,15 @@ export function clearClientSessionState(): void {
     tokenService.clearTokens();
     clearSessionStorage();
     useOrgStore.getState().clearCurrentOrg();
+    // Clear other persisted Zustand stores so the previous user's selected project /
+    // chat-sidebar state (and its persisted localStorage payloads) don't leak into the
+    // next sign-in. Mirror the org-store handling above.
+    useProjectStore.getState().clearCurrentProject();
+    useChatSidebarStore.getState().reset();
     if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
         window.localStorage.removeItem(ACTIVE_ORG_ID_STORAGE_KEY);
+        window.localStorage.removeItem("project-storage");
+        window.localStorage.removeItem("chat-sidebar");
     }
     // Wipe the React Query cache too — tokens/localStorage alone aren't enough. Without this the
     // previous user's cached data (userOrgs, projects, org details) survives logout and the next

@@ -13,9 +13,9 @@ export function useOrganizationAccess(organizationId: string | undefined): boole
   useEffect(() => {
     let cancelled = false;
 
-    void (async () => {
-      await setVerifiedOrgId(null);
-    })();
+    // No need to reset verifiedOrgId here: the hook returns `verifiedOrgId === current`, which is
+    // already false whenever the previously-verified org differs from the current URL org, so a stale
+    // value can never grant access to a different org while verify() re-runs.
 
     async function verify() {
       const id = organizationId?.trim();

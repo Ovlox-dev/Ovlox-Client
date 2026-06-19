@@ -4,26 +4,40 @@ import * as React from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 
-import { Plus, MoreHorizontal, Copy, Trash2, Download, Clock } from "lucide-react"
+import { Plus, MoreHorizontal, Settings, Trash2, Download, Clock, Loader2, FolderOpen } from "lucide-react"
+import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 
 import Search from "@/features/search"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { PageTitle } from "@/components/page-title"
-import { useListProjects } from "@/entities/project"
+import { useListProjects, useDeleteProject } from "@/entities/project"
 import { dateFormatter } from "@/shared/lib/date-formatter"
 import { appIconMap } from "@/lib/app.icons"
 import { ExternalProvider } from "@/types/enum"
 import { getInitials } from "@/shared/lib/use-initials"
 
 type ProjectStatus = "ACTIVE" | "ARCHIVED"
-type StatusFilter = "all" | "active" | "completed" | "archived"
+type StatusFilter = "all" | "active" | "archived"
 
 const sortFilterOptions: { value: string; label: string }[] = [
     { value: "1d", label: "1D" },
@@ -38,19 +52,6 @@ const statusConfig: Record<ProjectStatus, { label: string; dotClass: string; tex
     ARCHIVED: { label: "Archived", dotClass: "bg-radial from-[#FFC319] to-[#FFDE8000]", textColor: "text-[#FFD04C]" },
 }
 
-const data = [
-    [
-        {
-            label: "Duplicate",
-            icon: Copy,
-        },
-        {
-            label: "Move to Trash",
-            icon: Trash2,
-        },
-    ],
-]
-
 export function ProjectsListPage() {
     const params = useParams<{ organizationId: string }>()
     const router = useRouter()
@@ -59,6 +60,17 @@ export function ProjectsListPage() {
     const [sortFilter, setSortFilter] = React.useState<string>("")
 
     const { data: projects, isLoading: isProjectsLoading, error: projectsError } = useListProjects(organizationId)
+
+    // Apply the status tab filter (previously the tabs were inert and showed every project).
+    const filteredProjects = React.useMemo(() => {
+        const all = projects?.data ?? []
+        const wanted =
+            statusFilter === "active" ? "ACTIVE"
+                : statusFilter === "archived" ? "ARCHIVED"
+                    : null
+        if (!wanted) { return all }
+        return all.filter((p) => String(p.status).toUpperCase() === wanted)
+    }, [projects?.data, statusFilter])
 
     const handleSortFilterChange = (value: string) => {
         setSortFilter(value)
@@ -80,10 +92,13 @@ export function ProjectsListPage() {
                         Import
                     </Button>
                     <Button
+                        asChild
                         className="gap-2"
                     >
-                        <Plus />
-                        New Project
+                        <Link href={`/${organizationId}/projects/new-project`}>
+                            <Plus />
+                            New Project
+                        </Link>
                     </Button>
                 </div>
             </div>
@@ -106,9 +121,6 @@ export function ProjectsListPage() {
                             </TabsTrigger>
                             <TabsTrigger value="active" className="cursor-pointer text-base px-2 py-1 rounded  text-muted dark:data-[state=active]:bg-accent-contrast dark:data-[state=active]:text-text dark:data-[state=active]:border-none">
                                 Active
-                            </TabsTrigger>
-                            <TabsTrigger value="completed" className="cursor-pointer text-base px-2 py-1 rounded  text-muted dark:data-[state=active]:bg-accent-contrast dark:data-[state=active]:text-text dark:data-[state=active]:border-none">
-                                Completed
                             </TabsTrigger>
                             <TabsTrigger value="archived" className="cursor-pointer text-base px-2 py-1 rounded  text-muted dark:data-[state=active]:bg-accent-contrast dark:data-[state=active]:text-text dark:data-[state=active]:border-none">
                                 Archived
@@ -152,8 +164,32 @@ export function ProjectsListPage() {
                     </div>
                 ) : (
                     <>
-                        {projects?.data.map((project) => {
-                            const status = statusConfig[project.status as unknown as ProjectStatus]
+                        {filteredProjects.length === 0 ? (
+                            <div className="col-span-full flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
+                                <FolderOpen className="mb-3 size-8 text-muted-foreground" />
+                                <p className="text-sm font-medium text-text">
+                                    {statusFilter === "all" ? "No projects yet" : "No projects match this filter"}
+                                </p>
+                                <p className="mb-4 mt-1 text-xs text-muted-foreground">
+                                    {statusFilter === "all"
+                                        ? "Create your first project to start tracking activity."
+                                        : "Try a different status filter."}
+                                </p>
+                                {statusFilter === "all" ? (
+                                    <Button asChild>
+                                        <Link href={`/${organizationId}/projects/new-project`}>
+                                            <Plus />
+                                            New Project
+                                        </Link>
+                                    </Button>
+                                ) : null}
+                            </div>
+                        ) : filteredProjects.map((project) => {
+                            const status = statusConfig[project.status as unknown as ProjectStatus] ?? {
+                                label: (project.status as string) ?? "Unknown",
+                                dotClass: "bg-radial from-[#9CA3AF] to-[#9CA3AF00]",
+                                textColor: "text-muted",
+                            }
                             const projectIdentifier = project.slug || project.id
                             // const projectProgress = getProjectProgress(p)
                             return (
@@ -178,38 +214,10 @@ export function ProjectsListPage() {
                                                     {status.label}
                                                 </span>
                                             </div>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon-sm"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <MoreHorizontal />
-                                                    </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-56 overflow-hidden rounded-lg p-0" align="end">
-                                                    <Sidebar collapsible="none" className="bg-transparent">
-                                                        <SidebarContent>
-                                                            {data.map((group, index) => (
-                                                                <SidebarGroup key={index} className="border-b last:border-none">
-                                                                    <SidebarGroupContent className="gap-0">
-                                                                        <SidebarMenu>
-                                                                            {group.map((item, idx) => (
-                                                                                <SidebarMenuItem key={idx}>
-                                                                                    <SidebarMenuButton>
-                                                                                        <item.icon /> <span>{item.label}</span>
-                                                                                    </SidebarMenuButton>
-                                                                                </SidebarMenuItem>
-                                                                            ))}
-                                                                        </SidebarMenu>
-                                                                    </SidebarGroupContent>
-                                                                </SidebarGroup>
-                                                            ))}
-                                                        </SidebarContent>
-                                                    </Sidebar>
-                                                </PopoverContent>
-                                            </Popover>
+                                            <ProjectCardActions
+                                                organizationId={organizationId}
+                                                project={project}
+                                            />
                                         </div>
 
                                         <h3 className="text-text font-semibold text-xl">
@@ -340,6 +348,100 @@ export function ProjectsListPage() {
                 )}
             </div>
         </div>
+    )
+}
+
+function ProjectCardActions({
+    organizationId,
+    project,
+}: {
+    organizationId: string
+    project: { id: string; slug?: string | null; name: string }
+}) {
+    const [confirmOpen, setConfirmOpen] = React.useState(false)
+    const { mutate: deleteProject, isPending } = useDeleteProject(organizationId)
+    const projectIdentifier = project.slug || project.id
+
+    const handleDelete = () => {
+        deleteProject(project.id, {
+            onSuccess: () => {
+                toast.success(`Deleted "${project.name}"`)
+                setConfirmOpen(false)
+            },
+            onError: () => {
+                toast.error("Failed to delete project. Please try again.")
+            },
+        })
+    }
+
+    return (
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Project actions"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <MoreHorizontal />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                        <Link
+                            href={`/${organizationId}/projects/${projectIdentifier}/settings`}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <Settings />
+                            Project settings
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={(e) => {
+                            e.preventDefault()
+                            setConfirmOpen(true)
+                        }}
+                    >
+                        <Trash2 />
+                        Delete project
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete &ldquo;{project.name}&rdquo;?</DialogTitle>
+                        <DialogDescription>
+                            This permanently deletes the project and all of its ingested data,
+                            timeline, and reports. This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setConfirmOpen(false)}
+                            disabled={isPending}
+                        >
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
+                            {isPending ? (
+                                <>
+                                    <Loader2 className="size-4 animate-spin" />
+                                    Deleting…
+                                </>
+                            ) : (
+                                "Delete project"
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     )
 }
 

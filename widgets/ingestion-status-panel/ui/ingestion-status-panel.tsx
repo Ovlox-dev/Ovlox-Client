@@ -10,7 +10,7 @@ import {
     Database,
     Loader2,
     RefreshCw,
-    // RotateCcw,
+    RotateCcw,
     Sparkles,
     Trash2,
 } from "lucide-react";
@@ -31,7 +31,7 @@ import {
 import {
     useGetProject,
     useIngestionStatus,
-    // useRetryFailedBackfill,
+    useRetryFailedBackfill,
     useReprocessEvents,
     useResetProject,
     type IngestionStatus,
@@ -103,13 +103,13 @@ export function IngestionStatusPanel({
 }) {
     const { data, isLoading, isFetching, refetch } = useIngestionStatus(organizationId, projectId);
     const { data: project } = useGetProject(organizationId, projectId);
-    // const retryMutation = useRetryFailedBackfill(organizationId, projectId);
+    const retryMutation = useRetryFailedBackfill(organizationId, projectId);
     const reprocessMutation = useReprocessEvents(organizationId, projectId);
     const resetMutation = useResetProject(organizationId, projectId);
 
     const inflightCount = data?.runningJobs.length ?? 0;
     const totalEvents = data?.totalEvents ?? 0;
-    // const hasFailedJobs = !!data?.recentJobs.some((j) => j.status === "FAILED");
+    const hasFailedJobs = !!data?.recentJobs.some((j) => j.status === "FAILED");
 
     // Reset is destructive: name-typing confirmation modal, mirrored after the
     // org-danger-zone delete flow. Name match is case-sensitive on purpose.
@@ -145,21 +145,21 @@ export function IngestionStatusPanel({
         });
     };
 
-    // const handleRetryFailed = () => {
-    //     retryMutation.mutate(undefined, {
-    //         onSuccess: (res) => {
-    //             if (res.retried > 0) {
-    //                 toast.success(`Re-queued ${res.retried} failed job${res.retried === 1 ? "" : "s"}`);
-    //             } else {
-    //                 toast.info("Nothing to retry — no failed jobs found");
-    //             }
-    //             refetch();
-    //         },
-    //         onError: (err) => {
-    //             toast.error("Retry failed", { description: (err as Error).message });
-    //         },
-    //     });
-    // };
+    const handleRetryFailed = () => {
+        retryMutation.mutate(undefined, {
+            onSuccess: (res) => {
+                if (res.retried > 0) {
+                    toast.success(`Re-queued ${res.retried} failed job${res.retried === 1 ? "" : "s"}`);
+                } else {
+                    toast.info("Nothing to retry — no failed jobs found");
+                }
+                refetch();
+            },
+            onError: (err) => {
+                toast.error("Retry failed", { description: (err as Error).message });
+            },
+        });
+    };
 
     const handleReprocess = () => {
         reprocessMutation.mutate(
@@ -242,7 +242,7 @@ export function IngestionStatusPanel({
                         </span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        {/* {hasFailedJobs ? (
+                        {hasFailedJobs ? (
                             <button
                                 type="button"
                                 onClick={handleRetryFailed}
@@ -258,7 +258,7 @@ export function IngestionStatusPanel({
                                 <RotateCcw className={cn("size-3", retryMutation.isPending && "animate-spin")} />
                                 Retry failed
                             </button>
-                        ) : null} */}
+                        ) : null}
                         <button
                             type="button"
                             onClick={handleReprocess}

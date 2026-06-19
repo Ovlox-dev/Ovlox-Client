@@ -170,7 +170,7 @@ export const useChatStreamingStore = create<StreamingStore>((set) => ({
                     // Once tokens flow, the streamed text replaces the "thinking: <stage>" hint —
                     // but the step timeline is KEPT (steps spread via ...prev).
                     ...state.byConversation,
-                    [conversationId]: { ...prev, buffer: prev.buffer + delta, stage: null, stageDetail: null },
+                    [conversationId]: { ...prev, buffer: prev.buffer + (delta ?? ""), stage: null, stageDetail: null },
                 },
             };
         }),

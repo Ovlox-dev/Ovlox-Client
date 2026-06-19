@@ -61,6 +61,9 @@ interface ChatSidebarState {
     setWidth: (next: number) => void;
     setResizing: (next: boolean) => void;
     setActiveConversation: (scopeKey: ChatScopeKey, conversationId: string | null) => void;
+    /** Reset all sidebar state to defaults. Used on logout so the previous user's
+     *  active-conversation map / open state doesn't leak into the next session. */
+    reset: () => void;
 }
 
 function clampWidth(n: number): number {
@@ -86,6 +89,13 @@ export const useChatSidebarStore = create<ChatSidebarState>()(
                         [scopeKey]: conversationId,
                     },
                 })),
+            reset: () =>
+                set({
+                    open: false,
+                    width: CHAT_SIDEBAR_DEFAULT_WIDTH,
+                    isResizing: false,
+                    activeConversationByScope: {},
+                }),
         }),
         {
             name: "chat-sidebar",

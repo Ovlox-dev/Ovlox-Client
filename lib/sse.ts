@@ -172,18 +172,39 @@ export type ReadinessSnapshot = {
     jobs: { total: number; completed: number; failed: number; inflight: number };
 };
 
+/** Live code-indexing progress, published to the same readiness channel (carries no contextReadiness). */
+export type ReadinessActivity = {
+    state: "running" | "done" | "error";
+    phase?: string;
+    repo?: string;
+    file?: string;
+    current?: number;
+    total?: number;
+    message?: string;
+};
+
+export type ReadinessActivityEvent = {
+    projectId: string;
+    source?: string;
+    activity: ReadinessActivity;
+};
+
+/** The readiness stream carries either a full snapshot or a live activity event. */
+export type ReadinessEvent = ReadinessSnapshot | ReadinessActivityEvent;
+
 /**
- * Subscribe to /projects/:id/readiness/stream. The backend publishes one event per
- * BackfillProcessor completion + an initial snapshot on connect.
+ * Subscribe to /projects/:id/readiness/stream. The backend publishes a snapshot on connect + one per
+ * BackfillProcessor completion, plus live code-indexing activity events (which carry `activity`
+ * instead of `contextReadiness`). Consumers narrow with `"contextReadiness" in event`.
  */
 export function streamProjectReadiness(
     orgId: string,
     projectId: string,
-    onSnapshot: (snap: ReadinessSnapshot) => void,
+    onEvent: (event: ReadinessEvent) => void,
     onError?: (error: Event) => void,
 ): SseSubscription {
     const url = `${apiAbsoluteUrl}/orgs/${orgId}/projects/${projectId}/readiness/stream`;
-    return createEventSource<ReadinessSnapshot>(url, { onMessage: onSnapshot, onError });
+    return createEventSource<ReadinessEvent>(url, { onMessage: onEvent, onError });
 }
 
 export interface AgentStepEvent {

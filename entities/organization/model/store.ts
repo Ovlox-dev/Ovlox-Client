@@ -12,15 +12,18 @@ export const useOrg = () => {
 
     const selectOrg = React.useCallback(async (org: IOrganization) => {
         setCurrentOrg(org);
-        setActiveOrgId(org.id);
-        router.push(buildDashboardOrgRoute(org.id));
+        // Prefer slug to match the post-auth-org-resolver (which anchors on slug). Using
+        // org.id here made activeOrgId churn between UUID and slug across navigations.
+        const orgIdentifier = org.slug || org.id;
+        setActiveOrgId(orgIdentifier);
+        router.push(buildDashboardOrgRoute(orgIdentifier));
     }, [router, setCurrentOrg]);
 
     const loadOrgBySlug = React.useCallback(async (slug: string) => {
         try {
             const { organization } = await userOrgBySlug(slug);
             setCurrentOrg(organization);
-            setActiveOrgId(organization.id);
+            setActiveOrgId(organization.slug || organization.id);
             return organization;
         } catch (error) {
             toast.error("Failed to load organization");

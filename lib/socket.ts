@@ -30,6 +30,22 @@ const isDev = process.env.NODE_ENV !== "production";
 let consumerCount = 0;
 
 /**
+ * Registry of active domain-event subscriptions (newMessage / messageProcessing /
+ * conversationUpdated / typing / messageRead). Stored so they can be re-attached to a
+ * brand-new io() instance after a token-expiry reconnect — otherwise the new socket has
+ * no listeners and chat goes silent. Keyed nothing fancy: a flat list we re-attach in bulk.
+ */
+const activeSubscriptions = new Set<{ event: string; callback: (...args: unknown[]) => void }>();
+
+/** Re-attach every registered domain listener to the given socket (removing first to avoid dups). */
+function reattachSubscriptions(s: Socket): void {
+    for (const sub of activeSubscriptions) {
+        s.off(sub.event, sub.callback);
+        s.on(sub.event, sub.callback);
+    }
+}
+
+/**
  * Reconnect with a freshly refreshed access token. Called when the backend rejects
  * the handshake (token expired or missing).
  */
@@ -51,7 +67,10 @@ async function reconnectWithFreshToken(): Promise<void> {
     //     toast.error("Session expired. Please sign in again.");
     //     return;
     // }
-    await connectSocketAsync();
+    const fresh = await connectSocketAsync();
+    // The new io() instance carries none of the previous listeners — re-attach the domain
+    // events so chat keeps receiving newMessage/messageProcessing/conversationUpdated/etc.
+    reattachSubscriptions(fresh);
 }
 
 async function connectSocketAsync(): Promise<Socket> {
@@ -201,15 +220,23 @@ export type TypingEvent = WsTypingEvent;
 export type MessageReadEvent = WsMessageReadEvent;
 
 const subscribe = <T>(event: string, callback: (data: T) => void) => {
+    const sub = { event, callback: callback as (...args: unknown[]) => void };
+    // Register so the listener is re-attached after a token-expiry reconnect (new io() instance).
+    activeSubscriptions.add(sub);
     const attach = (s: Socket) => {
-        s.on(event, callback as (...args: unknown[]) => void);
+        // Remove before adding to guarantee no duplicate listeners on the same socket.
+        s.off(event, sub.callback);
+        s.on(event, sub.callback);
     };
     if (socket) {
         attach(socket);
     } else {
         void connectSocketAsync().then(attach);
     }
-    return () => socket?.off(event, callback as (...args: unknown[]) => void);
+    return () => {
+        activeSubscriptions.delete(sub);
+        socket?.off(event, sub.callback);
+    };
 };
 
 export const onNewMessage = (callback: (data: NewMessageEvent) => void) =>

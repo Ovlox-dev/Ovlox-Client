@@ -33,8 +33,14 @@ export function ReadinessBadge({
     });
 
     useEffect(() => {
-        if (!orgId || !projectId) return;
-        const sub = streamProjectReadiness(orgId, projectId, (s) => setSnapshot(s));
+        if (!orgId || !projectId) { return; }
+        const sub = streamProjectReadiness(orgId, projectId, (e) => {
+            // The stream now also carries code-indexing activity events (no contextReadiness);
+            // the badge only reflects full readiness snapshots, so ignore activity-only events.
+            if ("contextReadiness" in e) {
+                setSnapshot(e);
+            }
+        });
         return () => sub.unsubscribe();
     }, [orgId, projectId]);
 

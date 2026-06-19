@@ -169,7 +169,7 @@ const Members = () => {
                                                         <p className="truncate capitalize font-medium text-text">
                                                             {member.user?.firstName} {member.user?.lastName}
                                                         </p>
-                                                        <p className="truncate text-xs font-normal text-muted">{member.user.email}</p>
+                                                        <p className="truncate text-xs font-normal text-muted">{member.user?.email ?? "—"}</p>
                                                     </>
                                                 ) : (<>
                                                     <p className="truncate font-medium text-text">

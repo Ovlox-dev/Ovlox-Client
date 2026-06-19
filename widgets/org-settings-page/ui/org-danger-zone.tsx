@@ -39,7 +39,7 @@ export function OrgDangerZone() {
             await deleteMutation.mutateAsync(org.id);
             clearCurrentOrg();
             toast.success(`${org.name} deleted`);
-            router.push("/");
+            router.replace("/");
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "Delete failed";
             toast.error("Couldn't delete organization", { description: message });
