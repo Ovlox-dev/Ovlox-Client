@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useParams, useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -24,7 +25,7 @@ export function NewProjectForm() {
         },
     })
 
-    const { mutate: createProject } = useCreateProject(organizationId as string)
+    const { mutate: createProject, isPending } = useCreateProject(organizationId as string)
 
     const onSubmit = (data: ProjectForm) => {
         createProject(
@@ -41,8 +42,14 @@ export function NewProjectForm() {
                     }
                     const projectIdentifier =
                         body.data?.slug ?? body.slug ?? body.data?.id ?? body.id
-                    if (!projectIdentifier) { return }
+                    if (!projectIdentifier) {
+                        toast.error("Project created, but no identifier was returned. Please refresh and try again.")
+                        return
+                    }
                     router.replace(`/${organizationId}/projects/${projectIdentifier}/setup`)
+                },
+                onError: (err) => {
+                    toast.error("Failed to create project", { description: (err as Error).message })
                 },
             }
         )
@@ -82,7 +89,9 @@ export function NewProjectForm() {
                                 register={register}
                                 errors={errors}
                             />
-                            <Button type="submit">Create Project</Button>
+                            <Button type="submit" disabled={isPending}>
+                                {isPending ? "Creating…" : "Create Project"}
+                            </Button>
                         </form>
                     </div>
                 </Card>

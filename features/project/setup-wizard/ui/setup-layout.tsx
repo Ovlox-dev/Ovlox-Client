@@ -1,6 +1,5 @@
 import * as React from "react"
 import { Check } from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
@@ -43,19 +42,13 @@ export function SetupLayout({
     onStepChange?: (step: SetupStep) => void
 }) {
     const activeIndex = stepIndex(step)
-    const router = useRouter()
-    const searchParams = useSearchParams()
 
     const goToStep = React.useCallback((next: SetupStep) => {
+        // `onStepChange` (ProjectSetupWizard.navigateStep) already owns navigation —
+        // it sets the step and pushes the URL. Calling router.push here as well produced
+        // a duplicate history entry per step click. Delegate navigation entirely.
         onStepChange?.(next)
-        // Use "flag" query params like "?members" (serialized as "members=").
-        const params = new URLSearchParams(searchParams)
-        params.delete("integrations")
-        params.delete("members")
-        params.delete("review")
-        params.set(next, "")
-        router.push(`?${params.toString()}`)
-    }, [onStepChange, router, searchParams])
+    }, [onStepChange])
 
     return (
         <div className="min-h-screen bg-background">

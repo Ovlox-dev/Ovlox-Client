@@ -173,6 +173,9 @@ export const useSaveNangoResources = (orgId: string) => {
             void qc.invalidateQueries({
                 queryKey: nangoKeys.resources(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId),
             });
+            void qc.invalidateQueries({
+                queryKey: nangoKeys.selected(orgId, vars.providerConfigKey, vars.connectionId, vars.projectId),
+            });
         },
     });
 };

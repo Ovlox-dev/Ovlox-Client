@@ -74,6 +74,7 @@ export const useSendMessage = (conversationId: string) => {
         mutationFn: (data: Parameters<typeof sendMessage>[1]) => sendMessage(conversationId, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
+            queryClient.invalidateQueries({ queryKey: [...chatKeys.all, "conversations"] });
         },
     });
 };

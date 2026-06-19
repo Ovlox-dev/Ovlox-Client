@@ -21,8 +21,6 @@ import {
     setAuthNavigation,
 } from "@/shared/lib/auth/auth-navigation";
 import {
-    buildDashboardOrgRoute,
-    getActiveOrgId,
     resolvePostAuthOrgRedirect,
 } from "@/shared/lib/auth/post-auth-org-resolver";
 import { signInWithGoogle } from "@/shared/lib/auth/google-signin";
@@ -75,11 +73,11 @@ export function SigninForm() {
             router.replace(existingPath);
             return;
         }
-        const storedOrgId = getActiveOrgId();
-        if (storedOrgId) {
-            router.replace(buildDashboardOrgRoute(storedOrgId));
-            return;
-        }
+        // Always resolve the active org against THIS user's memberships. We must NOT blindly trust a
+        // previously-stored activeOrgId — on a shared browser it can belong to a different account
+        // (cross-account org leak: you'd land in someone else's workspace). resolvePostAuthOrgRedirect
+        // validates the stored value against the freshly-authenticated user's orgs and falls back to a
+        // real membership when it doesn't match.
         const { redirectTo } = await resolvePostAuthOrgRedirect();
         router.replace(redirectTo);
     };
