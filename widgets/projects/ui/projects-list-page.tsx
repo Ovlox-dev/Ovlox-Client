@@ -37,7 +37,7 @@ import { ExternalProvider } from "@/types/enum"
 import { getInitials } from "@/shared/lib/use-initials"
 
 type ProjectStatus = "ACTIVE" | "ARCHIVED"
-type StatusFilter = "all" | "active" | "completed" | "archived"
+type StatusFilter = "all" | "active" | "archived"
 
 const sortFilterOptions: { value: string; label: string }[] = [
     { value: "1d", label: "1D" },
@@ -67,8 +67,7 @@ export function ProjectsListPage() {
         const wanted =
             statusFilter === "active" ? "ACTIVE"
                 : statusFilter === "archived" ? "ARCHIVED"
-                    : statusFilter === "completed" ? "COMPLETED"
-                        : null
+                    : null
         if (!wanted) { return all }
         return all.filter((p) => String(p.status).toUpperCase() === wanted)
     }, [projects?.data, statusFilter])
@@ -122,9 +121,6 @@ export function ProjectsListPage() {
                             </TabsTrigger>
                             <TabsTrigger value="active" className="cursor-pointer text-base px-2 py-1 rounded  text-muted dark:data-[state=active]:bg-accent-contrast dark:data-[state=active]:text-text dark:data-[state=active]:border-none">
                                 Active
-                            </TabsTrigger>
-                            <TabsTrigger value="completed" className="cursor-pointer text-base px-2 py-1 rounded  text-muted dark:data-[state=active]:bg-accent-contrast dark:data-[state=active]:text-text dark:data-[state=active]:border-none">
-                                Completed
                             </TabsTrigger>
                             <TabsTrigger value="archived" className="cursor-pointer text-base px-2 py-1 rounded  text-muted dark:data-[state=active]:bg-accent-contrast dark:data-[state=active]:text-text dark:data-[state=active]:border-none">
                                 Archived

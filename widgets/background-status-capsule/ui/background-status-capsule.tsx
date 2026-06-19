@@ -67,9 +67,16 @@ export function BackgroundStatusCapsule() {
 
     // Flash a one-off success/failure when work finishes. Transition via the "adjust state during
     // render" pattern (prevBusy seeded to the current value → no stale flash on first mount).
+    const [prevProjectId, setPrevProjectId] = React.useState(projectId);
     const [prevBusy, setPrevBusy] = React.useState(isBusy);
     const [flash, setFlash] = React.useState<{ type: "success" | "failed"; detail?: string } | null>(null);
-    if (prevBusy !== isBusy) {
+    if (prevProjectId !== projectId) {
+        // Switched projects — drop any flash from the previous project and re-seed the busy baseline,
+        // so a sticky "failed"/"complete" from project A never lingers on project B.
+        setPrevProjectId(projectId);
+        setPrevBusy(isBusy);
+        setFlash(null);
+    } else if (prevBusy !== isBusy) {
         setPrevBusy(isBusy);
         if (prevBusy && !isBusy) {
             const failedJob =
