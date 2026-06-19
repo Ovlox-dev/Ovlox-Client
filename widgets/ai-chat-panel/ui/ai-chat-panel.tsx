@@ -33,7 +33,9 @@ import {
 } from "@/shared/lib/chat-sidebar/chat-sidebar.store";
 
 export type AiChatScope =
-    | { kind: "project"; projectId: string }
+    // `organizationId` here is the URL org slug/id — passed as `orgScope` so the backend resolves the
+    // project WITHIN this org (project slugs are unique only per-org, so a bare slug is ambiguous).
+    | { kind: "project"; projectId: string; organizationId?: string }
     | { kind: "org"; organizationId: string };
 
 function MarkdownMessage({
@@ -159,6 +161,9 @@ export function AiChatPanel({
     const isProject = scope.kind === "project";
     const projectId = isProject ? scope.projectId : undefined;
     const organizationId = !isProject ? scope.organizationId : undefined;
+    // Org context for a PROJECT chat — used only to disambiguate the project slug on the backend
+    // (project slugs collide across orgs); never sent as the conversation's org binding.
+    const projectOrgScope = isProject ? scope.organizationId : undefined;
 
     /**
      * `activeConversationId` lives in `useChatSidebarStore` keyed by scope so
@@ -207,7 +212,7 @@ export function AiChatPanel({
     const thinkingMeta = stageToLabel(streamState?.stage, streamState?.stageDetail);
 
     const { data: conversations, isLoading: convosLoading, refetch: refetchConversations } = useListConversations(
-        isProject ? { projectId } : { organizationId },
+        isProject ? { projectId, orgScope: projectOrgScope } : { organizationId },
     );
     const { data: messages, isLoading: messagesLoading } = useListMessages(
         activeConversationId ?? undefined,
@@ -218,11 +223,11 @@ export function AiChatPanel({
     const newConversationPayload = React.useCallback(
         (title: string) => {
             if (isProject) {
-                return { projectId: projectId!, type: ConversationType.RAG_CHAT, title };
+                return { projectId: projectId!, type: ConversationType.RAG_CHAT, title, orgScope: projectOrgScope };
             }
             return { organizationId: organizationId!, type: ConversationType.ORG, title };
         },
-        [isProject, projectId, organizationId],
+        [isProject, projectId, organizationId, projectOrgScope],
     );
 
     /**

@@ -19,7 +19,7 @@ export const chatKeys = {
         [...chatKeys.all, "messages", conversationId] as const,
 };
 
-export const useListConversations = (params?: { projectId?: string; organizationId?: string }) =>
+export const useListConversations = (params?: { projectId?: string; organizationId?: string; orgScope?: string }) =>
     useQuery({
         queryKey: chatKeys.conversations(params),
         queryFn: () => listConversations(params),

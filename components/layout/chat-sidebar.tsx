@@ -73,7 +73,7 @@ export function ChatSidebar() {
     const organizationId = params?.organizationId ?? "";
     const projectId = params?.projectId ?? "";
     const scope: AiChatScope | null = projectId
-        ? { kind: "project", projectId }
+        ? { kind: "project", projectId, organizationId: organizationId || undefined }
         : organizationId
             ? { kind: "org", organizationId }
             : null;
@@ -264,9 +264,11 @@ function ConversationSwitcher({ scope }: { scope: AiChatScope | null }) {
     const isProject = scope?.kind === "project";
     const projectId = isProject && scope ? scope.projectId : undefined;
     const organizationId = !isProject && scope ? scope.organizationId : undefined;
+    // Org context for a project chat — disambiguates the per-org-unique project slug on the backend.
+    const projectOrgScope = isProject && scope ? scope.organizationId : undefined;
 
     const { data: conversations, isLoading, refetch } = useListConversations(
-        isProject ? { projectId } : { organizationId },
+        isProject ? { projectId, orgScope: projectOrgScope } : { organizationId },
     );
     const { mutate: createConversation, isPending: creating } = useCreateConversation();
 
@@ -284,7 +286,7 @@ function ConversationSwitcher({ scope }: { scope: AiChatScope | null }) {
         if (!scope || !scopeKey) return;
         const payload =
             scope.kind === "project"
-                ? { projectId: scope.projectId, type: ConversationType.RAG_CHAT, title: "New chat" }
+                ? { projectId: scope.projectId, type: ConversationType.RAG_CHAT, title: "New chat", orgScope: scope.organizationId }
                 : { organizationId: scope.organizationId, type: ConversationType.ORG, title: "New chat" };
         createConversation(payload, {
             onSuccess: (created) => {
