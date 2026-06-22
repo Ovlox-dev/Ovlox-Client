@@ -2,6 +2,29 @@ import { apiClient } from "@/shared/api/client";
 
 /** Admin-only forecasting. All routes require UserRole.ADMIN (RoleGuard) — handle 403 gracefully. */
 
+export type VelocityTrend = "increasing" | "stable" | "declining";
+export type OutlookRiskLevel = "low" | "medium" | "high" | "critical";
+
+export interface ProjectOutlookFeature {
+    featureId?: string;
+    featureTitle: string;
+    predictedDeliveryDate?: string | null;
+    /** 0..1 */
+    deliveryConfidence?: number | null;
+    keyRisks?: string[];
+    reasoning?: string;
+}
+
+/** Shape of the LLM `forecast` payload from GET /admin/forecast/:id (kept permissive — the model can omit fields). */
+export interface ProjectOutlook {
+    summary?: {
+        projectVelocityTrend?: VelocityTrend | string;
+        overallRiskLevel?: OutlookRiskLevel | string;
+        narrative?: string;
+    };
+    features?: ProjectOutlookFeature[];
+}
+
 export interface ProjectForecast {
     project: { id: string; name: string; organizationId: string };
     generatedAt: string;
@@ -13,7 +36,7 @@ export interface ProjectForecast {
         openIncidentCount: number;
         recentRiskAlertCount: number;
     };
-    forecast: Record<string, unknown>;
+    forecast: ProjectOutlook;
     cached: boolean;
 }
 
